@@ -1,0 +1,142 @@
+[
+    {
+        "id": "rec_001",
+        "name": "Grilled Salmon with Asparagus",
+        "description": "A heart-healthy meal rich in Omega-3s and fiber.",
+        "ingredients": [
+            "salmon",
+            "asparagus",
+            "olive oil",
+            "lemon",
+            "garlic"
+        ],
+        "calories": 450,
+        "macros": {
+            "protein": 35,
+            "carbs": 8,
+            "fat": 28
+        },
+        "flavor_profile": {
+            "umami": 0.8,
+            "sour": 0.4,
+            "bitter": 0.2,
+            "salty": 0.3
+        },
+        "tags": [
+            "keto",
+            "paleo",
+            "gluten-free"
+        ]
+    },
+    {
+        "id": "rec_002",
+        "name": "Quinoa Vegetable Bowl",
+        "description": "Nutrient-dense grain bowl with roasted veggies.",
+        "ingredients": [
+            "quinoa",
+            "kale",
+            "chickpeas",
+            "sweet potato",
+            "tahini"
+        ],
+        "calories": 520,
+        "macros": {
+            "protein": 18,
+            "carbs": 75,
+            "fat": 15
+        },
+        "flavor_profile": {
+            "sweet": 0.5,
+            "bitter": 0.3,
+            "nutty": 0.7
+        },
+        "tags": [
+            "vegan",
+            "vegetarian",
+            "high-fiber"
+        ]
+    },
+    {
+        "id": "rec_003",
+        "name": "Chicken Tikka Masala",
+        "description": "Classic Indian dish with rich tomato-cream sauce.",
+        "ingredients": [
+            "chicken breast",
+            "yogurt",
+            "tomato puree",
+            "cream",
+            "spices"
+        ],
+        "calories": 650,
+        "macros": {
+            "protein": 40,
+            "carbs": 25,
+            "fat": 42
+        },
+        "flavor_profile": {
+            "spicy": 0.6,
+            "sour": 0.4,
+            "salty": 0.5,
+            "umami": 0.7
+        },
+        "tags": [
+            "high-protein",
+            "comfort"
+        ]
+    },
+    {
+        "id": "rec_004",
+        "name": "Berry Spinach Salad",
+        "description": "Light and refreshing salad with antioxidants.",
+        "ingredients": [
+            "spinach",
+            "strawberries",
+            "blueberries",
+            "walnuts",
+            "balsamic"
+        ],
+        "calories": 320,
+        "macros": {
+            "protein": 8,
+            "carbs": 22,
+            "fat": 24
+        },
+        "flavor_profile": {
+            "sweet": 0.7,
+            "sour": 0.5,
+            "bitter": 0.2
+        },
+        "tags": [
+            "vegan",
+            "keto",
+            "low-carb"
+        ]
+    },
+    {
+        "id": "rec_005",
+        "name": "Beef Stir-Fry",
+        "description": "Quick Asian-style stir fry with broccoli and soy sauce.",
+        "ingredients": [
+            "beef steak",
+            "broccoli",
+            "soy sauce",
+            "ginger",
+            "garlic"
+        ],
+        "calories": 480,
+        "macros": {
+            "protein": 45,
+            "carbs": 12,
+            "fat": 25
+        },
+        "flavor_profile": {
+            "salty": 0.8,
+            "umami": 0.9,
+            "spicy": 0.3
+        },
+        "tags": [
+            "high-protein",
+            "low-carb"
+        ]
+    }
+]

@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="1400" height="900" viewBox="0 0 1400 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .box { fill:#f7f7f7; stroke:#333333; stroke-width:1.5; rx:8; ry:8; }
+      .title { font-family: Arial, sans-serif; font-size:18px; font-weight:bold; fill:#111111; }
+      .text { font-family: Arial, sans-serif; font-size:13px; fill:#222222; }
+      .groupTitle { font-family: Arial, sans-serif; font-size:22px; font-weight:bold; fill:#000000; }
+      .arrow { stroke:#555555; stroke-width:1.8; fill:none; marker-end:url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7"
+            refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#555555" />
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="700" y="40" text-anchor="middle" class="groupTitle">
+    NutriFlavorOS – Personalized Health, Taste &amp; Variety Engine
+  </text>
+
+  <!-- User Inputs box -->
+  <rect x="50" y="80" width="320" height="200" class="box"/>
+  <text x="210" y="110" text-anchor="middle" class="title">User Inputs</text>
+  <text x="70" y="135" class="text">• Biometrics: weight, height, age, sex</text>
+  <text x="70" y="155" class="text">• Body comp: fat %, muscle %, bone</text>
+  <text x="70" y="175" class="text">• Labs: RBC, platelets, vitamins, minerals</text>
+  <text x="70" y="195" class="text">• Lifestyle &amp; goals</text>
+  <text x="70" y="215" class="text">• Taste likes/dislikes, cuisines, texture</text>
+  <text x="70" y="235" class="text">• Allergies, cultural constraints, schedule</text>
+
+  <!-- Health &amp; Biomarker Engine -->
+  <rect x="450" y="80" width="360" height="220" class="box"/>
+  <text x="630" y="110" text-anchor="middle" class="title">Health &amp; Biomarker Engine</text>
+  <text x="470" y="135" class="text">• Computes daily calorie &amp; macro targets</text>
+  <text x="470" y="155" class="text">• Computes micronutrient requirements</text>
+  <text x="470" y="175" class="text">• Models deficits and excesses</text>
+  <text x="470" y="195" class="text">• Condition-aware constraints</text>
+  <text x="470" y="215" class="text">• Outputs health objective vector</text>
+
+  <!-- Taste Preference Engine -->
+  <rect x="860" y="80" width="360" height="220" class="box"/>
+  <text x="1040" y="110" text-anchor="middle" class="title">Taste Preference Engine (FlavorDB)</text>
+  <text x="880" y="135" class="text">• Learns liked ingredients &amp; recipes</text>
+  <text x="880" y="155" class="text">• Queries FlavorDB: flavorProfile, functionalGroups</text>
+  <text x="880" y="175" class="text">• Extracts molecular flavor fingerprints</text>
+  <text x="880" y="195" class="text">• Builds personal &quot;Flavor Genome&quot; vector</text>
+  <text x="880" y="215" class="text">• Scores recipes by hedonic prediction</text>
+
+  <!-- Recipe &amp; Nutrition Engine -->
+  <rect x="250" y="360" width="380" height="230" class="box"/>
+  <text x="440" y="390" text-anchor="middle" class="title">Recipe &amp; Nutrition Engine (RecipeDB)</text>
+  <text x="270" y="415" class="text">• Pulls candidates from RecipeDB</text>
+  <text x="270" y="435" class="text">• Reads macros &amp; micronutrient profiles</text>
+  <text x="270" y="455" class="text">• Filters by cultural &amp; medical constraints</text>
+  <text x="270" y="475" class="text">• Rewrites recipes to hit macro/micro targets</text>
+  <text x="270" y="495" class="text">• Suggests ingredient substitutions</text>
+
+  <!-- Molecular Flavor Pairing Engine -->
+  <rect x="770" y="360" width="380" height="230" class="box"/>
+  <text x="960" y="390" text-anchor="middle" class="title">Molecular Flavor Pairing Engine</text>
+  <text x="790" y="415" class="text">• Builds ingredient graph from FlavorDB</text>
+  <text x="790" y="435" class="text">• Uses descriptors: aromaticRings, surfaceArea, AlogP</text>
+  <text x="790" y="455" class="text">• Computes similarity &amp; pairing scores</text>
+  <text x="790" y="475" class="text">• Generates creative but coherent pairings</text>
+  <text x="790" y="495" class="text">• Supports recipe rewriting &amp; new dishes</text>
+
+  <!-- Variety &amp; Rotation Optimizer -->
+  <rect x="250" y="640" width="380" height="210" class="box"/>
+  <text x="440" y="670" text-anchor="middle" class="title">Variety &amp; Rotation Optimizer</text>
+  <text x="270" y="695" class="text">• Tracks ingredient &amp; cuisine history</text>
+  <text x="270" y="715" class="text">• Enforces &quot;no repeat&quot; windows</text>
+  <text x="270" y="735" class="text">• Rotates nutrient sources &amp; flavor families</text>
+  <text x="270" y="755" class="text">• Balances monotony vs. stability</text>
+
+  <!-- Daily &amp; Weekly Plan Generator -->
+  <rect x="770" y="640" width="380" height="210" class="box"/>
+  <text x="960" y="670" text-anchor="middle" class="title">Daily &amp; Weekly Plan Generator</text>
+  <text x="790" y="695" class="text">• Assembles meals: breakfast, lunch, dinner, snacks</text>
+  <text x="790" y="715" class="text">• Computes scores: health, taste, variety</text>
+  <text x="790" y="735" class="text">• Renders shopping lists &amp; prep timelines</text>
+  <text x="790" y="755" class="text">• Feeds analytics dashboard &amp; feedback loop</text>
+
+  <!-- Arrows -->
+  <!-- User Inputs to Health &amp; Taste Engines -->
+  <line x1="370" y1="180" x2="450" y2="180" class="arrow"/>
+  <line x1="370" y1="210" x2="860" y2="210" class="arrow"/>
+
+  <!-- Health Engine to Recipe Engine -->
+  <line x1="630" y1="300" x2="440" y2="360" class="arrow"/>
+
+  <!-- Taste Engine to Pairing + Recipe Engines -->
+  <line x1="1040" y1="300" x2="960" y2="360" class="arrow"/>
+  <line x1="1040" y1="300" x2="440" y2="360" class="arrow"/>
+
+  <!-- Recipe Engine to Variety Optimizer -->
+  <line x1="440" y1="590" x2="440" y2="640" class="arrow"/>
+
+  <!-- Pairing Engine to Recipe Engine &amp; Plan Generator -->
+  <line x1="960" y1="590" x2="960" y2="640" class="arrow"/>
+  <line x1="770" y1="475" x2="630" y2="475" class="arrow"/>
+
+  <!-- Variety Optimizer to Plan Generator -->
+  <line x1="630" y1="745" x2="770" y2="745" class="arrow"/>
+
+  <!-- Feedback loop from Plan Generator back to User Inputs (implicit) -->
+  <path d="M 1160 745 C 1250 745 1250 200 370 200" class="arrow" stroke-dasharray="6,4"/>
+  <text x="1210" y="720" class="text">User feedback, ratings, adherence</text>
+</svg>

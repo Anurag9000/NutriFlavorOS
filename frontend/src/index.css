@@ -1,0 +1,130 @@
+:root {
+  --bg-dark: #0f1115;
+  --bg-card: #181b21;
+  --bg-card-hover: #1f2329;
+  --text-primary: #ffffff;
+  --text-secondary: #9ca3af;
+  --primary: #10b981; /* Emerald for Health */
+  --secondary: #8b5cf6; /* Violet for Taste */
+  --accent: #f59e0b; /* Amber for Variety */
+  --error: #ef4444;
+  
+  --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+  
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.5);
+  --glow-primary: 0 0 20px rgba(16, 185, 129, 0.15);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+h1, h2, h3, h4 {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+/* Utilities */
+.text-gradient {
+  background: linear-gradient(to right, var(--primary), var(--secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(255,255,255,0.05);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg), var(--glow-primary);
+  background: var(--bg-card-hover);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #000;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+}
+.btn-primary:hover {
+  filter: brightness(1.1);
+  transform: scale(1.02);
+}
+
+.btn-secondary {
+  background: rgba(255,255,255,0.1);
+  color: var(--text-primary);
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-md);
+}
+.btn-secondary:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+.input-field {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: white;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 1rem;
+}
+.input-field:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.badge-health { background: rgba(16, 185, 129, 0.2); color: var(--primary); }
+.badge-taste { background: rgba(139, 92, 246, 0.2); color: var(--secondary); }
+.badge-variety { background: rgba(245, 158, 11, 0.2); color: var(--accent); }
+
+/* Animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-enter {
+  animation: fadeIn 0.4s ease-out forwards;
+}
