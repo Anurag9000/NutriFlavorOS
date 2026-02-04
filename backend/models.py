@@ -14,6 +14,7 @@ class Goal(str, Enum):
 
 class UserProfile(BaseModel):
     # Biometrics
+    name: Optional[str] = None
     age: int
     weight_kg: float
     height_cm: float
@@ -25,6 +26,10 @@ class UserProfile(BaseModel):
     liked_ingredients: List[str] = []
     disliked_ingredients: List[str] = []
     dietary_restrictions: List[str] = []
+    
+    # Health (optional)
+    health_conditions: List[str] = []  # e.g., ["diabetes", "hypertension"]
+    medications: List[str] = []  # For drug-food interaction checks
 
 class NutrientTarget(BaseModel):
     calories: int
@@ -48,6 +53,8 @@ class Recipe(BaseModel):
     macros: Dict[str, int] # {"protein": 20, "carbs": 30, "fat": 10}
     flavor_profile: Dict[str, float] = {} # Aggregated or specific
     tags: List[str] = []
+    cuisine: Optional[str] = None  # For variety tracking
+    instructions: List[str] = []  # Cooking steps
 
 class DailyPlan(BaseModel):
     day: int
@@ -58,3 +65,7 @@ class DailyPlan(BaseModel):
 class PlanResponse(BaseModel):
     user_id: str
     days: List[DailyPlan]
+    shopping_list: Optional[Dict[str, Dict]] = None  # Categorized shopping list
+    prep_timeline: Optional[Dict[int, List[str]]] = None  # Day -> prep tasks
+    overall_stats: Optional[Dict] = None  # Overall plan statistics
+

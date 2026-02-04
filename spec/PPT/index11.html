@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NutriFlavorOS - Competitive Landscape</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', sans-serif;
+  background-color: #0f172a;
+  color: white;
+}
+.slide-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  background-color: #0f172a;
+  padding: 48px;
+}
+
+/* Fonts */
+h1, h2, h3, h4 { font-family: 'Poppins', sans-serif; }
+
+/* Background Ambience */
+.bg-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  z-index: 0;
+  opacity: 0.1;
+}
+.orb-blue { top: -100px; right: -100px; width: 600px; height: 600px; background-color: #3b82f6; }
+.orb-purple { bottom: -100px; left: -100px; width: 500px; height: 500px; background-color: #8b5cf6; }
+
+/* Glass Components */
+.glass-card {
+  background-color: rgba(30, 41, 59, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  transition: all 0.3s ease;
+}
+.glass-card:hover {
+  background-color: rgba(30, 41, 59, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Competitor Brand Colors (simulated) */
+.brand-mfp { color: #3b82f6; border-color: #3b82f6; } /* Blue */
+.brand-yazio { color: #8b5cf6; border-color: #8b5cf6; } /* Purple */
+.brand-lifesum { color: #10b981; border-color: #10b981; } /* Green */
+.brand-etm { color: #f97316; border-color: #f97316; } /* Orange */
+
+.competitor-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  background: rgba(255,255,255,0.05);
+  margin-bottom: 12px;
+}
+
+/* Limitation List */
+.limitation-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 16px;
+  margin-bottom: 16px;
+  background: rgba(239, 68, 68, 0.05); /* Red tint */
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 12px;
+}
+.limitation-icon {
+  color: #ef4444;
+  font-size: 20px;
+  margin-right: 16px;
+  margin-top: 2px;
+}
+
+/* Chart Container */
+.chart-wrapper {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+</style>
+</head>
+
+<body>
+<div class="slide-container">
+
+<!-- Background -->
+<div class="bg-orb orb-blue"></div>
+<div class="bg-orb orb-purple"></div>
+
+<!-- Header -->
+<div class="relative z-10 mb-8">
+  <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white bg-opacity-5 border border-white border-opacity-10 mb-3">
+    <i class="fas fa-search-dollar text-gray-400 text-xs"></i>
+    <span class="text-gray-300 text-xs font-semibold tracking-widest uppercase">Market Analysis</span>
+  </div>
+  <h1 class="text-4xl font-bold text-white tracking-tight">Similar Products</h1>
+  <p class="text-gray-400 mt-2 text-lg">Leading apps have mastered tracking, but fail at enjoyment.</p>
+</div>
+
+<!-- Main Content -->
+<div class="grid grid-cols-12 gap-8 relative z-10 flex-1">
+
+<!-- Left Column: Competitors (5 cols) -->
+<div class="col-span-5 flex flex-col">
+  <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Current Market Leaders</h3>
+
+  <div class="grid grid-cols-2 gap-4">
+    <!-- Card 1 -->
+    <div class="glass-card p-6 flex flex-col items-center text-center group">
+      <div class="competitor-icon group-hover:bg-blue-500 group-hover:bg-opacity-20 group-hover:text-blue-400 transition-colors">
+        <i class="fas fa-dumbbell"></i>
+      </div>
+      <h4 class="font-bold text-white">MyFitnessPal</h4>
+      <p class="text-xs text-gray-500 mt-1">The Calorie Giant</p>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="glass-card p-6 flex flex-col items-center text-center group">
+      <div class="competitor-icon group-hover:bg-purple-500 group-hover:bg-opacity-20 group-hover:text-purple-400 transition-colors">
+        <i class="fas fa-chart-pie"></i>
+      </div>
+      <h4 class="font-bold text-white">Yazio</h4>
+      <p class="text-xs text-gray-500 mt-1">Fasting Focus</p>
+    </div>
+
+    <!-- Card 3 -->
+    <div class="glass-card p-6 flex flex-col items-center text-center group">
+      <div class="competitor-icon group-hover:bg-green-500 group-hover:bg-opacity-20 group-hover:text-green-400 transition-colors">
+        <i class="fas fa-apple-alt"></i>
+      </div>
+      <h4 class="font-bold text-white">Lifesum</h4>
+      <p class="text-xs text-gray-500 mt-1">Lifestyle Scoring</p>
+    </div>
+
+    <!-- Card 4 -->
+    <div class="glass-card p-6 flex flex-col items-center text-center group">
+      <div class="competitor-icon group-hover:bg-orange-500 group-hover:bg-opacity-20 group-hover:text-orange-400 transition-colors">
+        <i class="fas fa-robot"></i>
+      </div>
+      <h4 class="font-bold text-white">EatThisMuch</h4>
+      <p class="text-xs text-gray-500 mt-1">Auto-Generator</p>
+    </div>
+  </div>
+
+  <!-- Market Summary Badge -->
+  <div class="mt-6 p-4 rounded-xl bg-slate-800 bg-opacity-50 border border-slate-700 flex items-center gap-4">
+    <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-gray-400">
+      <i class="fas fa-users"></i>
+    </div>
+    <div>
+      <p class="text-xs text-gray-400 font-semibold uppercase">Market Reach</p>
+      <p class="text-sm text-white">Millions of users, high churn rates.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Right Column: Limitations (7 cols) -->
+<div class="col-span-7 flex flex-col pl-4 relative" style="top: -180px;">
+
+
+  <h3 class="text-sm font-bold text-red-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+    <i class="fas fa-exclamation-circle"></i> Critical Limitations
+  </h3>
+
+  <div class="glass-card p-8 flex-1 flex flex-col">
+
+    <!-- Limitation Items -->
+    <div class="space-y-4 mb-8">
+      <div class="limitation-item">
+        <i class="fas fa-calculator limitation-icon"></i>
+        <div>
+          <h4 class="font-bold text-white text-md">Mostly Calorie-Focused</h4>
+          <p class="text-sm text-gray-400 mt-1">Current apps treat food as math, ignoring the sensory experience of eating.</p>
+        </div>
+      </div>
+
+      <div class="limitation-item">
+        <i class="fas fa-cookie-bite limitation-icon"></i>
+        <div>
+          <h4 class="font-bold text-white text-md">Little Personalization for Taste</h4>
+          <p class="text-sm text-gray-400 mt-1">Generic recipe databases don't adapt to individual flavor preferences or hedonic responses.</p>
+        </div>
+      </div>
+
+      <div class="limitation-item">
+        <i class="fas fa-sync-alt limitation-icon"></i>
+        <div>
+          <h4 class="font-bold text-white text-md">No Flavor Diversity Management</h4>
+          <p class="text-sm text-gray-400 mt-1">Zero mechanisms to prevent "chicken and rice" burnout. Repetition leads to abandonment.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart Section -->
+    <div class="flex-1 border-t border-gray-700 pt-4 flex gap-6">
+      <div class="w-1/2 flex flex-col justify-center">
+        <p class="text-xs text-gray-500 uppercase tracking-wide mb-2 font-bold">The Engagement Gap</p>
+        <p class="text-2xl text-white font-bold mb-1">65% <span class="text-sm font-normal text-gray-400">Abandonment</span></p>
+        <p class="text-xs text-gray-400">Most users quit diet apps within 4 weeks due to boredom and lack of enjoyment.</p>
+      </div>
+      <div class="w-1/2 h-40 chart-wrapper">
+        <canvas id="comparisonChart"></canvas>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</div>
+</div>
+
+<script>
+// Radar Chart Configuration
+const ctx = document.getElementById('comparisonChart').getContext('2d');
+
+// Custom plugin to draw background
+const plugin = {
+  id: 'customCanvasBackgroundColor',
+  beforeDraw: (chart, args, options) => {
+    const {ctx} = chart;
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.fillStyle = options.color || 'transparent';
+    ctx.fillRect(0, 0, chart.width, chart.height);
+    ctx.restore();
+  }
+};
+
+new Chart(ctx, {
+  type: 'radar',
+  data: {
+    labels: ['Nutrition', 'Taste', 'Variety', 'Ease', 'Price'],
+    datasets: [{
+      label: 'Market Standard',
+      data: [90, 30, 20, 80, 70],
+      backgroundColor: 'rgba(148, 163, 184, 0.2)', // Slate-400
+      borderColor: 'rgba(148, 163, 184, 0.8)',
+      pointBackgroundColor: 'rgba(148, 163, 184, 1)',
+      pointBorderColor: '#fff',
+      pointHoverBackgroundColor: '#fff',
+      pointHoverBorderColor: 'rgba(148, 163, 184, 1)',
+      borderWidth: 2
+    },
+    {
+      label: 'NutriFlavorOS',
+      data: [95, 90, 95, 85, 60],
+      backgroundColor: 'rgba(74, 222, 128, 0.2)', // Green-400
+      borderColor: 'rgba(74, 222, 128, 0.8)',
+      pointBackgroundColor: 'rgba(74, 222, 128, 1)',
+      pointBorderColor: '#fff',
+      pointHoverBackgroundColor: '#fff',
+      pointHoverBorderColor: 'rgba(74, 222, 128, 1)',
+      borderWidth: 2
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    elements: {
+      line: { tension: 0.3 }
+    },
+    scales: {
+      r: {
+        angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
+        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+        pointLabels: {
+          color: 'rgba(255, 255, 255, 0.7)',
+          font: { size: 10, family: 'Inter' }
+        },
+        ticks: { display: false, backdropColor: 'transparent' },
+        suggestedMin: 0,
+        suggestedMax: 100
+      }
+    },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'bottom',
+        labels: {
+          color: 'rgba(255, 255, 255, 0.7)',
+          font: { size: 10, family: 'Inter' },
+          boxWidth: 8,
+          usePointStyle: true
+        }
+      }
+    }
+  }
+});
+</script>
+
+</body>
+</html>

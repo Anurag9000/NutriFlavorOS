@@ -1,0 +1,36 @@
+# Python Dependencies for NutriFlavorOS
+
+# Core Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+python-dotenv==1.0.0
+
+# HTTP & API
+requests==2.31.0
+httpx==0.25.1
+
+# ML & Deep Learning
+torch==2.1.0
+torchvision==0.16.0
+transformers==4.35.0
+numpy==1.24.3
+scikit-learn==1.3.2
+
+# Data Processing
+pandas==2.1.3
+
+# Caching (Optional - for production)
+redis==5.0.1
+
+# Image Processing
+Pillow==10.1.0
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+
+# Development
+black==23.11.0
+flake8==6.1.0
+mypy==1.7.0
