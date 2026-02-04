@@ -54,8 +54,11 @@ class TasteEngine:
                         flavor_genome[group_key] = 0.0
                     flavor_genome[group_key] += 1.0
                     
-            except Exception as e:
+            except (KeyError, ValueError, TypeError) as e:
                 print(f"Warning: Could not fetch flavor data for {ingredient}: {e}")
+                continue
+            except Exception as e:
+                print(f"Unexpected error fetching flavor data for {ingredient}: {e}")
                 continue
         
         # Subtract disliked ingredients
@@ -69,7 +72,11 @@ class TasteEngine:
                         flavor_genome[compound] = 0.0
                     flavor_genome[compound] -= intensity * 0.5  # Negative weight
                     
+            except (KeyError, ValueError, TypeError) as e:
+                print(f"Warning: Could not fetch disliked ingredient data for {ingredient}: {e}")
+                continue
             except Exception as e:
+                print(f"Unexpected error processing disliked ingredient {ingredient}: {e}")
                 continue
         
         # Normalize genome values to 0-1 range
@@ -103,7 +110,11 @@ class TasteEngine:
                         recipe_profile[compound] = 0.0
                     recipe_profile[compound] += intensity * weight
                     
+            except (KeyError, ValueError, TypeError) as e:
+                print(f"Warning: Could not fetch flavor profile for ingredient {ingredient}: {e}")
+                continue
             except Exception as e:
+                print(f"Unexpected error processing ingredient {ingredient}: {e}")
                 continue
         
         # Normalize
@@ -140,7 +151,11 @@ class TasteEngine:
                 # Lower threshold = stronger aroma = higher boost
                 if threshold < 1.0:
                     aroma_boost += (1.0 - threshold) * 0.1
-            except:
+            except (KeyError, ValueError, TypeError) as e:
+                print(f"Warning: Could not get aroma threshold for {ingredient}: {e}")
+                continue
+            except Exception as e:
+                print(f"Unexpected error processing aroma for {ingredient}: {e}")
                 continue
         
         # Final hedonic score
