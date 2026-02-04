@@ -177,8 +177,12 @@ class HealthEngine:
                         warnings.extend(compatibility["warnings"])
                     elif compatibility["score"] < 50:
                         condition_score *= 0.7
-                except:
-                    pass
+                except (KeyError, ValueError, TypeError) as e:
+                    # Log but don't fail the entire scoring if one ingredient check fails
+                    print(f"Warning: Could not check compatibility for ingredient '{ingredient}': {e}")
+                except Exception as e:
+                    # Catch unexpected errors but log them for debugging
+                    print(f"Unexpected error checking ingredient '{ingredient}': {e}")
         
         # Final weighted score
         final_score = (macro_score * 0.4) + (micro_score * 0.3) + (condition_score * 0.3)
