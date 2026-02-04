@@ -148,8 +148,11 @@ class PlanGenerator:
         avg_taste_score = sum(taste_scores) / len(taste_scores) if taste_scores else 0.5
         
         # Calculate health match
-        health_match = min(1.0, total_cals / targets.calories if total_cals < targets.calories 
-                          else targets.calories / total_cals)
+        if targets.calories > 0 and total_cals > 0:
+            health_match = min(1.0, total_cals / targets.calories if total_cals < targets.calories 
+                              else targets.calories / total_cals)
+        else:
+            health_match = 0.5
         
         # Calculate carbon footprint
         all_ingredients = []
@@ -159,7 +162,11 @@ class PlanGenerator:
         try:
             sustainability = self.sustainability_service.get_sustainability_score(all_ingredients)
             carbon_footprint = sustainability.get("carbon_footprint_kg", 0)
-        except:
+        except (KeyError, ValueError, TypeError) as e:
+            print(f"Warning: Could not calculate sustainability score: {e}")
+            carbon_footprint = 0
+        except Exception as e:
+            print(f"Unexpected error calculating sustainability: {e}")
             carbon_footprint = 0
         
         return DailyPlan(
@@ -205,7 +212,10 @@ class PlanGenerator:
             # Calculate component scores
             # 1. Health score (40% weight)
             cal_diff = abs(recipe.calories - calorie_target)
-            health_score = max(0, 1.0 - (cal_diff / calorie_target))
+            if calorie_target > 0:
+                health_score = max(0, 1.0 - (cal_diff / calorie_target))
+            else:
+                health_score = 0.5
             
             # 2. Taste score (40% weight) - REAL CALCULATION
             taste_score = self.taste_engine.predict_hedonic_score(recipe, genome)
@@ -221,8 +231,12 @@ class PlanGenerator:
                 best_recipe = recipe
         
         # Fallback
-        if not best_recipe:
+        if not best_recipe and candidates:
             best_recipe = random.choice(candidates)
+        elif not best_recipe:
+            # No candidates available at all
+            print("Warning: No valid recipes available for selection")
+            return None
         
         return best_recipe
     
