@@ -1,7 +1,7 @@
-"""
-Streak Flames Component(Duolingo - inspired)
-Visual streak counter with progressive flame animations
-"""
+/**
+ * Streak Flames Component (Duolingo-inspired)
+ * Visual streak counter with progressive flame animations
+ */
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 

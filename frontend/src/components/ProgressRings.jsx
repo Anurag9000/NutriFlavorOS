@@ -1,7 +1,7 @@
-"""
-Animated Progress Rings Component(Apple Watch Style)
-Beautiful, fluid animations for daily nutrition goals
-"""
+/**
+ * Animated Progress Rings Component (Apple Watch Style)
+ * Beautiful, fluid animations for daily nutrition goals
+ */
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 
