@@ -1,9 +1,18 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Clock, ChefHat, Flame, Users, BookOpen } from 'lucide-react';
+import { X, Clock, ChefHat, Flame, Users, BookOpen, Star, RefreshCw } from 'lucide-react';
+import FeedbackModal from '../learning/FeedbackModal';
+import toast from 'react-hot-toast';
 
 export default function RecipeDetailModal({ recipe, onClose, onSwap }) {
     const [activeTab, setActiveTab] = useState('ingredients');
+    const [showFeedback, setShowFeedback] = useState(false);
+
+    const handleFeedbackSubmit = (data) => {
+        console.log('Feedback submitted:', data);
+        toast.success('Thanks for your feedback! We\'ll improve your recommendations.');
+        setShowFeedback(false);
+    };
 
     if (!recipe) return null;
 
@@ -59,8 +68,8 @@ export default function RecipeDetailModal({ recipe, onClose, onSwap }) {
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
                                 className={`flex-1 py-3 px-4 capitalize font-medium transition-colors ${activeTab === tab
-                                        ? 'text-primary border-b-2 border-primary'
-                                        : 'text-gray-400 hover:text-white'
+                                    ? 'text-primary border-b-2 border-primary'
+                                    : 'text-gray-400 hover:text-white'
                                     }`}
                             >
                                 {tab}
@@ -175,19 +184,28 @@ export default function RecipeDetailModal({ recipe, onClose, onSwap }) {
                     {/* Footer Actions */}
                     <div className="p-6 border-t border-white/10 flex gap-3">
                         <button
-                            onClick={onSwap}
-                            className="flex-1 btn-secondary flex items-center justify-center gap-2"
+                            onClick={() => setShowFeedback(true)}
+                            className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-semibold shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 transition-all flex justify-center items-center gap-2"
                         >
-                            <Flame size={18} />
-                            Swap Recipe
+                            <Star size={18} /> Rate Meal
                         </button>
-                        <button className="flex-1 btn-primary flex items-center justify-center gap-2">
-                            <BookOpen size={18} />
-                            Save to Favorites
+                        <button
+                            onClick={onSwap}
+                            className="flex-1 py-3 bg-white/10 text-white rounded-xl font-semibold hover:bg-white/20 transition-all flex justify-center items-center gap-2"
+                        >
+                            <RefreshCw size={18} /> Swap
                         </button>
                     </div>
                 </motion.div>
             </motion.div>
+
+            {showFeedback && (
+                <FeedbackModal
+                    recipe={recipe}
+                    onClose={() => setShowFeedback(false)}
+                    onSubmit={handleFeedbackSubmit}
+                />
+            )}
         </AnimatePresence>
     );
 }

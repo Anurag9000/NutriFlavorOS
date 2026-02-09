@@ -7,6 +7,17 @@ from backend.models import UserProfile, PlanResponse
 
 from backend.engines.plan_generator import PlanGenerator
 
+# Import Routers
+from backend.api import (
+    user_routes,
+    meal_routes,
+    analytics_routes,
+    recipe_routes,
+    vision_routes,
+    sustainability_routes,
+    online_learning_routes
+)
+
 app = FastAPI(title="NutriFlavorOS API", version="0.1.0")
 
 # Setup CORS
@@ -25,17 +36,15 @@ generator = PlanGenerator()
 def read_root():
     return {"message": "Welcome to NutriFlavorOS API"}
 
-@app.post("/generate_plan", response_model=PlanResponse)
-def generate_meal_plan(user: UserProfile):
-    """
-    Generate a personalized meal plan based on user profile.
-    This uses the Health, Taste, and Variety engines.
-    """
-    try:
-        plan = generator.create_plan(user, days=3)
-        return plan
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# Mount Routers
+app.include_router(user_routes.router)
+app.include_router(meal_routes.router)
+app.include_router(analytics_routes.router)
+app.include_router(recipe_routes.router)
+app.include_router(vision_routes.router)
+app.include_router(sustainability_routes.router)
+app.include_router(online_learning_routes.router)
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

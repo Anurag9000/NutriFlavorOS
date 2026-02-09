@@ -50,7 +50,7 @@ export default function MealCard({
                 </span>
             </div>
 
-            {/* Recipe Image Placeholder */}
+            {/* Recipe Image or Icon */}
             <div className="h-40 bg-gradient-to-br from-primary/20 to-emerald-700/20 flex items-center justify-center relative overflow-hidden">
                 <div className="absolute inset-0 bg-black/20"></div>
                 <ChefHat size={48} className="text-white/30 relative z-10" />

@@ -9,10 +9,23 @@ import RecipeDetailModal from '../components/meals/RecipeDetailModal';
 import { Calendar } from 'lucide-react';
 
 export default function DashboardPage() {
-    const { currentPlan } = useMealPlan();
+    const { currentPlan, swapMealSlot } = useMealPlan();
     const { streak, impactMetrics, achievements, fetchStreak, fetchImpactMetrics, fetchAchievements } = useGamification();
     const { profile } = useUser();
     const [selectedRecipe, setSelectedRecipe] = useState(null);
+
+    const handleSwapMeal = async (dayIndex, mealSlot) => {
+        if (!profile?.id) return;
+
+        const toastId = toast.loading('Swapping meal...');
+        try {
+            await swapMealSlot(profile.id, dayIndex, mealSlot);
+            toast.success('Meal swapped!', { id: toastId });
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to swap meal', { id: toastId });
+        }
+    };
 
     useEffect(() => {
         if (profile?.id) {
@@ -82,7 +95,7 @@ export default function DashboardPage() {
                     {Object.entries(day1.meals).map(([slot, recipe]) => (
                         <div key={slot} className="flex flex-col gap-2">
                             <h3 className="uppercase tracking-wider text-sm font-semibold text-gray-500">{slot}</h3>
-                            <div onClick={() => setSelectedRecipe(recipe)}>
+                            <div onClick={() => setSelectedRecipe({ ...recipe, slot, dayIndex: 0 })} className="cursor-pointer transition-transform hover:scale-[1.02]">
                                 <RecipeCard recipe={recipe} />
                             </div>
                         </div>
@@ -90,14 +103,15 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* Recipe Detail Modal */}
             {selectedRecipe && (
                 <RecipeDetailModal
                     recipe={selectedRecipe}
                     onClose={() => setSelectedRecipe(null)}
                     onSwap={() => {
-                        // TODO: Implement swap functionality
-                        setSelectedRecipe(null);
+                        if (selectedRecipe.slot && selectedRecipe.dayIndex !== undefined) {
+                            handleSwapMeal(selectedRecipe.dayIndex, selectedRecipe.slot);
+                            setSelectedRecipe(null);
+                        }
                     }}
                 />
             )}

@@ -1,7 +1,4 @@
-import React, { useEffect } from 'react';
-import { useGrocery } from '../contexts/GroceryContext';
-import { useUser } from '../contexts/UserContext';
-import { ShoppingCart, TrendingUp, Package } from 'lucide-react';
+import InventoryTracker from '../components/grocery/InventoryTracker';
 
 export default function GroceryPage() {
     const { shoppingList, predictions, fetchShoppingList, fetchPredictions } = useGrocery();
@@ -34,7 +31,7 @@ export default function GroceryPage() {
                         {shoppingList.map((item, i) => (
                             <div key={i} className="p-3 bg-white/5 rounded-lg border border-white/10">
                                 <p className="font-medium">{item.name || item}</p>
-                                {item.quantity && <p className="text-sm text-gray-400">{item.quantity}</p>}
+                                <p className="text-sm text-gray-400">{item.quantity} {item.unit}</p>
                             </div>
                         ))}
                     </div>
@@ -71,13 +68,7 @@ export default function GroceryPage() {
             </div>
 
             {/* Inventory */}
-            <div className="card p-6">
-                <div className="flex items-center gap-3 mb-6">
-                    <Package className="text-emerald-500" size={24} />
-                    <h2 className="text-2xl font-semibold">Inventory</h2>
-                </div>
-                <p className="text-gray-400">Coming soon - Track your pantry items and consumption rates</p>
-            </div>
+            <InventoryTracker />
         </div>
     );
 }

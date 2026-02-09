@@ -37,7 +37,7 @@ export default function RecipeCard({ recipe, metrics }) {
                 </div>
             </div>
 
-            {/* Flavor Genome Viz Placeholder */}
+            {/* Flavor Genome Viz */}
             <div className="flex items-center gap-1 h-2 bg-gray-800 rounded-full overflow-hidden mt-1">
                 {Object.entries(recipe.flavor_profile).map(([key, val], i) => (
                     <div

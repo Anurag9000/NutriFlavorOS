@@ -3,49 +3,47 @@ import { Activity, TrendingUp, BarChart3, PieChart as PieChartIcon } from 'lucid
 import {
     HealthTrendChart,
     MacroDistributionChart,
-    TastePreferenceRadar,
     VarietyChart,
     CalorieProgressChart,
 } from '../components/analytics/Charts';
+import TasteProfileVisualizer from '../components/learning/TasteProfileVisualizer';
 
 export default function AnalyticsPage() {
     const [timeRange, setTimeRange] = useState('7d');
 
-    // Sample data - would come from API in production
+    // Mock data
     const healthData = [
-        { date: 'Mon', weight: 70, calories: 1950 },
-        { date: 'Tue', weight: 69.8, calories: 2100 },
-        { date: 'Wed', weight: 69.7, calories: 1850 },
-        { date: 'Thu', weight: 69.5, calories: 2000 },
-        { date: 'Fri', weight: 69.4, calories: 1900 },
-        { date: 'Sat', weight: 69.3, calories: 2200 },
-        { date: 'Sun', weight: 69.2, calories: 1950 },
-    ];
-
-    const tasteData = [
-        { cuisine: 'Italian', score: 85 },
-        { cuisine: 'Mexican', score: 72 },
-        { cuisine: 'Indian', score: 90 },
-        { cuisine: 'Chinese', score: 68 },
-        { cuisine: 'Japanese', score: 75 },
-        { cuisine: 'Mediterranean', score: 88 },
+        { date: 'Mon', score: 82 },
+        { date: 'Tue', score: 85 },
+        { date: 'Wed', score: 78 },
+        { date: 'Thu', score: 90 },
+        { date: 'Fri', score: 88 },
+        { date: 'Sat', score: 92 },
+        { date: 'Sun', score: 95 },
     ];
 
     const varietyData = [
-        { week: 'Week 1', ingredients: 45, cuisines: 8 },
-        { week: 'Week 2', ingredients: 52, cuisines: 9 },
-        { week: 'Week 3', ingredients: 48, cuisines: 7 },
-        { week: 'Week 4', ingredients: 55, cuisines: 10 },
+        { name: 'Vegetables', value: 35 },
+        { name: 'Fruits', value: 25 },
+        { name: 'Grains', value: 20 },
+        { name: 'Proteins', value: 15 },
+        { name: 'Dairy', value: 5 },
     ];
 
     const calorieData = [
-        { day: 'Mon', consumed: 1950, target: 2000 },
-        { day: 'Tue', consumed: 2100, target: 2000 },
-        { day: 'Wed', consumed: 1850, target: 2000 },
-        { day: 'Thu', consumed: 2000, target: 2000 },
-        { day: 'Fri', consumed: 1900, target: 2000 },
-        { day: 'Sat', consumed: 2200, target: 2000 },
-        { day: 'Sun', consumed: 1950, target: 2000 },
+        { date: 'Mon', calories: 2100, target: 2000 },
+        { date: 'Tue', calories: 1950, target: 2000 },
+        { date: 'Wed', calories: 2200, target: 2000 },
+        { date: 'Thu', calories: 2000, target: 2000 },
+        { date: 'Fri', calories: 1800, target: 2000 },
+        { date: 'Sat', calories: 2300, target: 2000 },
+        { date: 'Sun', calories: 2050, target: 2000 },
+    ];
+
+    const macroData = [
+        { name: 'Carbs', value: 45, color: '#10B981' },
+        { name: 'Protein', value: 30, color: '#3B82F6' },
+        { name: 'Fat', value: 25, color: '#F59E0B' },
     ];
 
     return (
@@ -53,57 +51,35 @@ export default function AnalyticsPage() {
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold mb-2">Analytics & Insights</h1>
-                    <p className="text-gray-400">Track your nutrition trends and progress</p>
+                    <h1 className="text-3xl font-bold mb-2">Analytics</h1>
+                    <p className="text-gray-400">Deep dive into your nutrition data</p>
                 </div>
 
-                {/* Time Range Selector */}
-                <div className="flex gap-2">
-                    {['7d', '30d', '90d', '1y'].map((range) => (
+                <div className="flex bg-white/5 rounded-lg p-1 border border-white/10">
+                    {['7d', '30d', '3m', '1y'].map(range => (
                         <button
                             key={range}
                             onClick={() => setTimeRange(range)}
-                            className={`px-4 py-2 rounded-lg transition-colors ${timeRange === range
-                                    ? 'bg-primary text-white'
-                                    : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                            className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${timeRange === range
+                                    ? 'bg-primary text-white shadow-lg'
+                                    : 'text-gray-400 hover:text-white hover:bg-white/5'
                                 }`}
                         >
-                            {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : range === '90d' ? '90 Days' : '1 Year'}
+                            {range}
                         </button>
                     ))}
                 </div>
             </div>
 
-            {/* Charts Grid */}
+            {/* Main Visualizations Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Health Insights */}
-                <div className="card p-6">
-                    <div className="flex items-center gap-3 mb-4">
+                {/* Health Trend */}
+                <div className="card p-6 lg:col-span-2">
+                    <div className="flex items-center gap-3 mb-6">
                         <Activity className="text-emerald-500" size={24} />
-                        <h2 className="text-xl font-semibold">Health Trends</h2>
+                        <h2 className="text-xl font-semibold">Health Score Trend</h2>
                     </div>
-                    <p className="text-gray-400 mb-4 text-sm">Weight and calorie tracking over time</p>
                     <HealthTrendChart data={healthData} />
-                </div>
-
-                {/* Taste Insights */}
-                <div className="card p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                        <TrendingUp className="text-violet-500" size={24} />
-                        <h2 className="text-xl font-semibold">Taste Preferences</h2>
-                    </div>
-                    <p className="text-gray-400 mb-4 text-sm">Your favorite cuisines based on ratings</p>
-                    <TastePreferenceRadar data={tasteData} />
-                </div>
-
-                {/* Variety Metrics */}
-                <div className="card p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                        <BarChart3 className="text-amber-500" size={24} />
-                        <h2 className="text-xl font-semibold">Variety Metrics</h2>
-                    </div>
-                    <p className="text-gray-400 mb-4 text-sm">Unique ingredients and cuisine diversity</p>
-                    <VarietyChart data={varietyData} />
                 </div>
 
                 {/* Macro Distribution */}
@@ -112,38 +88,55 @@ export default function AnalyticsPage() {
                         <PieChartIcon className="text-blue-500" size={24} />
                         <h2 className="text-xl font-semibold">Macro Distribution</h2>
                     </div>
-                    <p className="text-gray-400 mb-4 text-sm">Average protein, carbs, and fat breakdown</p>
-                    <MacroDistributionChart protein={120} carbs={250} fat={65} />
+                    <p className="text-gray-400 mb-4 text-sm">Average daily ratio over selected period</p>
+                    <MacroDistributionChart data={macroData} />
+                </div>
+
+                {/* Calorie Progress */}
+                <div className="card p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                        <Activity className="text-orange-500" size={24} />
+                        <h2 className="text-xl font-semibold">Calorie Adherence</h2>
+                    </div>
+                    <p className="text-gray-400 mb-4 text-sm">Daily intake vs target</p>
+                    <CalorieProgressChart data={calorieData} />
                 </div>
             </div>
 
-            {/* Weekly Calorie Progress */}
-            <div className="card p-6">
-                <div className="flex items-center gap-3 mb-4">
-                    <Activity className="text-primary" size={24} />
-                    <h2 className="text-xl font-semibold">Weekly Calorie Progress</h2>
+            {/* Row 2: Taste & Variety */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="card p-6">
+                    <h3 className="text-xl font-semibold mb-4">Taste Profile</h3>
+                    <TasteProfileVisualizer />
                 </div>
-                <p className="text-gray-400 mb-4 text-sm">Daily calorie consumption vs target</p>
-                <CalorieProgressChart data={calorieData} />
+
+                <div className="card p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                        <BarChart3 className="text-amber-500" size={24} />
+                        <h2 className="text-xl font-semibold">Dietary Variety</h2>
+                    </div>
+                    <p className="text-gray-400 mb-4 text-sm">Unique ingredients and food groups</p>
+                    <VarietyChart data={varietyData} />
+                </div>
             </div>
 
             {/* Summary Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="card p-6 text-center">
-                    <p className="text-3xl font-bold text-emerald-500 mb-2">94%</p>
-                    <p className="text-sm text-gray-400">Avg Health Match</p>
+                    <p className="text-gray-400 text-sm mb-1">Avg. Health Score</p>
+                    <p className="text-2xl font-bold text-emerald-400">87</p>
                 </div>
                 <div className="card p-6 text-center">
-                    <p className="text-3xl font-bold text-violet-500 mb-2">87%</p>
-                    <p className="text-sm text-gray-400">Avg Taste Match</p>
+                    <p className="text-gray-400 text-sm mb-1">Most Eaten</p>
+                    <p className="text-2xl font-bold text-blue-400">Avocado</p>
                 </div>
                 <div className="card p-6 text-center">
-                    <p className="text-3xl font-bold text-amber-500 mb-2">156</p>
-                    <p className="text-sm text-gray-400">Unique Ingredients</p>
+                    <p className="text-gray-400 text-sm mb-1">Cravings count</p>
+                    <p className="text-2xl font-bold text-pink-400">12</p>
                 </div>
                 <div className="card p-6 text-center">
-                    <p className="text-3xl font-bold text-blue-500 mb-2">23</p>
-                    <p className="text-sm text-gray-400">Cuisines Tried</p>
+                    <p className="text-gray-400 text-sm mb-1">Data Points</p>
+                    <p className="text-2xl font-bold text-gray-200">1,450</p>
                 </div>
             </div>
         </div>

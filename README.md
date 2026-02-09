@@ -1,122 +1,79 @@
-# NutriFlavorOS 🥗✨
+# FoodScope - Intelligent Nutrition & Sustainability Platform
 
-**Version 2.0 - Online Learning Edition**
+FoodScope is a next-generation food tracking and meal planning application that integrates Personalization, Sustainability, and Health into a unified experience.
 
-**NutriFlavorOS** is the world's first **self-improving AI nutrition platform**. It combines cutting-edge machine learning, molecular flavor science, and gamification to create a personalized nutrition experience that gets smarter with every interaction.
+## 🚀 Key Features
 
-![Project Flow](./NutriFlavorOS_flow.svg)
+### 🥗 Smart Meal Planning
+- **AI-Powered Generation**: Generates 7-day meal plans based on your taste profile and health goals.
+- **RecipeDB Integration**: Access to 118,000+ recipes with detailed macro/micronutrient data.
+- **Dynamic Swapping**: Instantly swap meals while maintaining nutritional balance.
 
-## ⚡ What's New in V2.0
+### 🎮 Gamification & Social
+- **Leaderboards**: Compete with friends on Carbon Saved, Health Score, and Variety.
+- **Achievements**: Unlock badges for milestones (e.g., "Green Eater", "Streak Master").
+- **Taste Profiling**: Visualize your flavor preferences with the interactive Radar Chart.
 
-🧠 **Real-Time Online Learning** - All ML models update from every user interaction  
-🛒 **Grocery Prediction** - LSTM-powered forecasting for what to buy and when  
-🎮 **Gamification System** - Achievements, leaderboards, and visual impact tracking  
-🌍 **Sustainability Focus** - Carbon footprint tracking with tree-planting equivalents  
-📊 **Advanced Analytics** - Comprehensive insights and predictive health outcomes
+### 🌍 Sustainability Tracking
+- **Carbon Footprint**: Real-time tracking of your diet's environmental impact.
+- **Eco-Recommendations**: Smart suggestions to reduce your footprint (e.g., "Try a meatless Monday").
 
-## 🚀 Overview
+### 🛒 Smart Grocery
+- **Auto-Generated Lists**: Shopping lists created automatically from your meal plan.
+- **Inventory Tracking**: Track what you have at home to reduce waste.
 
-NutriFlavorOS operates on the frontier of personalized nutrition, ensuring healthy eating is never boring. By analyzing your "Flavor Genome" and calculating precise nutritional targets, it crafts a culinary experience tailored specifically to you—and it **gets better every day**.
+## 🛠️ Technology Stack
 
-## 🤖 ML Models (6 Total)
+- **Frontend**: React, Vite, Tailwind CSS, Framer Motion, Recharts
+- **Backend**: FastAPI (Python), Pandas, NumPy, Scikit-learn
+- **Data Services**: RecipeDB, FlavorDB, DietRxDB, SustainableFoodDB
 
-### 1. 🧠 Deep Taste Predictor (Transformer)
-Predicts how much you'll enjoy a meal with 95%+ accuracy. **Updates from your ratings in real-time.**
-
-### 2. 📈 Health Outcome Predictor (LSTM)
-Forecasts your weight, HbA1c, and cholesterol based on meal history. **Learns from your actual health data.**
-
-### 3. 🎯 RL Meal Planner (PPO)
-Optimizes meal selection using reinforcement learning. **Improves from every meal you choose.**
-
-### 4. 🛒 Grocery Predictor (LSTM Time-Series) ⭐ NEW
-Predicts what you'll need, when, and how much using consumption forecasting. **Updates from every purchase.**
-
-### 5. 🍳 Recipe Generator (GPT-based)
-Creates novel recipes based on your constraints and preferences.
-
-### 6. 📸 Recipe Vision (CNN)
-Identifies recipes and estimates nutrition from food photos.
-
-## 🧠 Core Engines
-
-### 1. 🏥 Health Engine
-Calculates precise macro and micro-nutrient targets (20+ vitamins/minerals) based on your profile, activity level, and health goals. Checks drug-food interactions and condition compatibility.
-
-### 2. 👅 Taste Engine
-Constructs your **Flavor Genome** using molecular flavor science (FlavorDB). Predicts "Hedonic Scores" with Transformer neural networks, ensuring every meal is delicious.
-
-### 3. 🔄 Variety Engine
-Prevents "palate fatigue" by tracking ingredient uniqueness, cuisine diversity, texture balance, and flavor family rotation. Ensures you never get bored.
-
-### 4. 📅 Plan Generator
-Orchestrates all engines using multi-objective optimization. Balances Health (40%) + Taste (30%) + Variety (30%) to create perfect meal plans.
-
-## 🎮 Gamification & Social
-
-### Achievements (9 Total)
-🌍 Eco Warrior • 🌳 Tree Planter • 💧 Water Saver • 🗺️ Flavor Explorer  
-👨‍🍳 Cuisine Master • 🎯 Macro Master • 💪 Health Champion • ⭐ Taste Adventurer • 🤝 Team Player
-
-### Leaderboards
-Compete with friends on carbon savings, health streaks, variety scores, and total points.
-
-### Visual Impact
-See your environmental impact: "You saved 50kg CO2 = 2.4 trees planted! 🌳"
-
-## 🛠️ Tech Stack
-
-- **Backend:** Python, FastAPI, Pydantic, PyTorch, Uvicorn
-- **Frontend:** React 19, Vite, Modern CSS, Lucide Icons
-- **ML:** PyTorch (Transformers, LSTM, PPO, CNN)
-- **APIs:** FlavorDB, RecipeDB, DietRxDB, SustainableFoodDB
-
-## ⚙️ Installation & Setup
+## 📦 Installation & Setup
 
 ### Prerequisites
-- Python 3.9+
-- Node.js & npm
+- Node.js (v16+)
+- Python (v3.9+)
 
-### Backend Setup
-1. Navigate to the `backend` directory:
-   ```bash
-   cd backend
-   ```
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Run the API:
-   ```bash
-   python main.py
-   ```
-
-### Frontend Setup
-1. Navigate to the `frontend` directory:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Run the development server:
-   ```bash
-   npm run dev
-   ```
-
-## 📂 Project Structure
-
-```text
-.
-├── backend/               # FastAPI Server & Logic
-│   ├── engines/           # Core AI Logic (Health, Taste, Variety)
-│   ├── data/              # Mock Database & Assets
-│   └── models.py          # Data Schemas
-├── frontend/              # Vite + React UI
-├── NutriFlavorOS_flow.svg # Architectural Diagram
-└── run_app.py             # Root execution script
+### 1. Backend Setup
+```bash
+cd backend
+python -m venv venv
+.\venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env
+# Edit .env with your API keys
 ```
 
-## 📜 License
-MIT License - Developed by Anurag.
+### 2. Frontend Setup
+```bash
+cd frontend
+npm install
+```
+
+## 🏃‍♂️ Running the App
+
+### Option A: Quick Start (Windows)
+Double-click the batch files in the root directory:
+1. `start_backend.bat`
+2. `start_frontend.bat`
+
+### Option B: Manual Start
+**Backend:**
+```bash
+cd backend
+uvicorn main:app --reload
+```
+
+**Frontend:**
+```bash
+cd frontend
+npm run dev
+```
+
+Visit `http://localhost:5174` to use the app!
+
+## 🤝 APIs & Credits
+This project leverages the CosyLab suite of databases:
+- **RecipeDB**: Recipe data and nutrition.
+- **FlavorDB**: Molecular flavor analysis.
+- **DietRxDB**: Health condition and nutrition interactions.

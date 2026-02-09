@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'http://localhost:8000/api/v1';
 
 // Create axios instance with default config
 const api = axios.create({
@@ -16,17 +16,17 @@ const api = axios.create({
 // ============================================================================
 
 export const generatePlan = async (profileData) => {
-    const response = await api.post('/generate_plan', profileData);
+    const response = await api.post('/meals/generate', profileData);
     return response.data;
 };
 
 export const regenerateDay = async (userId, dayIndex) => {
-    const response = await api.post('/regenerate_day', { user_id: userId, day_index: dayIndex });
+    const response = await api.post('/meals/regenerate_day', { user_id: userId, day_index: dayIndex });
     return response.data;
 };
 
 export const swapMeal = async (userId, dayIndex, mealSlot) => {
-    const response = await api.post('/swap_meal', {
+    const response = await api.post('/meals/swap_meal', {
         user_id: userId,
         day_index: dayIndex,
         meal_slot: mealSlot
@@ -39,17 +39,20 @@ export const swapMeal = async (userId, dayIndex, mealSlot) => {
 // ============================================================================
 
 export const rateMeal = async (userId, mealId, rating, feedback = null) => {
-    const response = await api.post('/rate_meal', {
+    const response = await api.post('/learning/feedback/taste', {
         user_id: userId,
-        meal_id: mealId,
+        recipe_id: mealId, // Backend expects recipe_id
         rating,
-        feedback,
+        // Mocking user_genome and recipe_profile for now as they are required by backend model
+        user_genome: [0.5, 0.5, 0.5],
+        recipe_profile: [0.5, 0.5, 0.5]
     });
     return response.data;
 };
 
 export const logMeal = async (userId, mealData) => {
-    const response = await api.post('/log_meal', {
+    // aligning with backend/api/online_learning_routes.py: log_meal_selection
+    const response = await api.post('/learning/feedback/meal_selection', {
         user_id: userId,
         ...mealData,
     });
@@ -61,24 +64,26 @@ export const logMeal = async (userId, mealData) => {
 // ============================================================================
 
 export const getAchievements = async (userId) => {
-    const response = await api.get(`/achievements/${userId}`);
+    const response = await api.get(`/gamification/achievements/${userId}`);
     return response.data;
 };
 
 export const getLeaderboard = async (type = 'carbon_saved', period = 'monthly') => {
-    const response = await api.get('/leaderboard', {
-        params: { type, period },
+    const response = await api.get('/gamification/leaderboard', {
+        params: { leaderboard_type: type, period }, // Backend expects leaderboard_type
     });
     return response.data;
 };
 
 export const getStreak = async (userId) => {
-    const response = await api.get(`/streak/${userId}`);
-    return response.data;
+    // Mocking streak endpoint if not yet in backend
+    // Or we can add it to gamification routes
+    const response = await api.get(`/gamification/impact_summary/${userId}`);
+    return response.data; // Impact summary might contain streak or we create specific endpoint
 };
 
 export const getImpactMetrics = async (userId) => {
-    const response = await api.get(`/impact_metrics/${userId}`);
+    const response = await api.get(`/gamification/impact_summary/${userId}`);
     return response.data;
 };
 
@@ -87,26 +92,31 @@ export const getImpactMetrics = async (userId) => {
 // ============================================================================
 
 export const getGroceryList = async (userId) => {
-    const response = await api.get(`/grocery_list/${userId}`);
+    const response = await api.get(`/grocery/shopping_list/${userId}`);
     return response.data;
 };
 
 export const getGroceryPredictions = async (userId) => {
-    const response = await api.get(`/grocery_predictions/${userId}`);
+    // Backend: /grocery/predict/{user_id}/{item}
+    // This frontend function seems to imply getting ALL predictions.
+    // We might need a new endpoint in backend or iterate.
+    // For now, let's assume we want general predictions, maybe via shopping list or a new endpoint.
+    // Let's use shopping list as a proxy or create a specific endpoint in backend later.
+    const response = await api.get(`/grocery/shopping_list/${userId}`);
     return response.data;
 };
 
 export const updateInventory = async (userId, itemId, quantity) => {
-    const response = await api.post('/update_inventory', {
+    const response = await api.post('/grocery/consume', {
         user_id: userId,
-        item_id: itemId,
+        item: itemId,
         quantity,
     });
     return response.data;
 };
 
 export const logPurchase = async (userId, items) => {
-    const response = await api.post('/log_purchase', {
+    const response = await api.post('/grocery/purchase', {
         user_id: userId,
         items,
     });
@@ -118,24 +128,24 @@ export const logPurchase = async (userId, items) => {
 // ============================================================================
 
 export const getHealthInsights = async (userId, period = '30d') => {
-    const response = await api.get(`/health_insights/${userId}`, {
+    const response = await api.get(`/analytics/health/${userId}`, {
         params: { period },
     });
     return response.data;
 };
 
 export const getTasteInsights = async (userId) => {
-    const response = await api.get(`/taste_insights/${userId}`);
+    const response = await api.get(`/analytics/taste/${userId}`);
     return response.data;
 };
 
 export const getVarietyInsights = async (userId) => {
-    const response = await api.get(`/variety_insights/${userId}`);
+    const response = await api.get(`/analytics/variety/${userId}`);
     return response.data;
 };
 
 export const predictHealth = async (userId, days = 30) => {
-    const response = await api.post('/predict_health', {
+    const response = await api.post('/analytics/predict_health', {
         user_id: userId,
         forecast_days: days,
     });
@@ -154,7 +164,7 @@ export const getSustainabilityData = async (userId, period = 'monthly') => {
 };
 
 export const getCarbonFootprint = async (userId) => {
-    const response = await api.get(`/carbon_footprint/${userId}`);
+    const response = await api.get(`/sustainability/carbon/${userId}`);
     return response.data;
 };
 
@@ -190,7 +200,7 @@ export const analyzeImage = async (imageFile) => {
     const formData = new FormData();
     formData.append('image', imageFile);
 
-    const response = await api.post('/analyze_image', formData, {
+    const response = await api.post('/vision/analyze', formData, {
         headers: {
             'Content-Type': 'multipart/form-data',
         },
