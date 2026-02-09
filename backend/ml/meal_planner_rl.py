@@ -9,6 +9,7 @@ from torch.distributions import Categorical
 import numpy as np
 from typing import List, Dict, Tuple
 from collections import deque
+from .device_config import get_device, to_device
 
 class PolicyNetwork(nn.Module):
     """Actor network for meal selection"""
@@ -56,13 +57,16 @@ class RLMealPlanner:
     Uses PPO (Proximal Policy Optimization) for stable training
     """
     
-    def __init__(self, state_dim=256, action_dim=100, lr=3e-4):
+    def __init__(self, state_dim=256, action_dim=100, lr=3e-4, device=None):
         self.state_dim = state_dim
         self.action_dim = action_dim
         
+        # Set device
+        self.device = device if device is not None else get_device()
+        
         # Networks
-        self.policy = PolicyNetwork(state_dim, action_dim)
-        self.value = ValueNetwork(state_dim)
+        self.policy = PolicyNetwork(state_dim, action_dim).to(self.device)
+        self.value = ValueNetwork(state_dim).to(self.device)
         
         # Optimizers
         self.policy_optimizer = optim.Adam(self.policy.parameters(), lr=lr)
@@ -142,11 +146,14 @@ class RLMealPlanner:
         Returns:
             (selected_recipe_idx, log_prob)
         """
+        # Move state to device
+        state = state.to(self.device)
+        
         with torch.no_grad():
             action_probs = self.policy(state)
         
         # Mask unavailable recipes
-        mask = torch.zeros(self.action_dim)
+        mask = torch.zeros(self.action_dim, device=self.device)
         mask[available_recipes] = 1.0
         masked_probs = action_probs * mask
         masked_probs = masked_probs / masked_probs.sum()
@@ -196,12 +203,12 @@ class RLMealPlanner:
         if len(self.states) < 32:  # Minimum batch size
             return
         
-        # Convert lists to tensors
-        states = torch.stack(self.states)
-        actions = torch.LongTensor(self.actions)
-        old_log_probs = torch.FloatTensor(self.log_probs)
-        rewards = torch.FloatTensor(self.rewards)
-        dones = torch.FloatTensor(self.dones)
+        # Convert lists to tensors and move to device
+        states = torch.stack(self.states).to(self.device)
+        actions = torch.LongTensor(self.actions).to(self.device)
+        old_log_probs = torch.FloatTensor(self.log_probs).to(self.device)
+        rewards = torch.FloatTensor(self.rewards).to(self.device)
+        dones = torch.FloatTensor(self.dones).to(self.device)
         
         # Calculate returns and advantages
         returns = self._calculate_returns(rewards, dones)
@@ -270,6 +277,8 @@ class RLMealPlanner:
     
     def load_model(self, path: str):
         """Load model weights"""
-        checkpoint = torch.load(path)
+        checkpoint = torch.load(path, map_location=self.device)
         self.policy.load_state_dict(checkpoint['policy'])
         self.value.load_state_dict(checkpoint['value'])
+        self.policy.to(self.device)
+        self.value.to(self.device)

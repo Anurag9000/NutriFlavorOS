@@ -7,6 +7,7 @@ import torch.nn as nn
 import numpy as np
 from typing import List, Dict, Tuple
 from collections import deque
+from .device_config import get_device, to_device
 
 class HealthLSTM(nn.Module):
     """LSTM model for health outcome prediction"""
@@ -60,10 +61,14 @@ class HealthOutcomePredictor:
     - Meal adherence
     """
     
-    def __init__(self, input_dim=10, hidden_dim=128):
+    def __init__(self, input_dim=10, hidden_dim=128, device=None):
         self.model = HealthLSTM(input_dim=input_dim, hidden_dim=hidden_dim, output_dim=3)
         self.input_dim = input_dim
         self.history_window = 30  # Days
+        
+        # Set device
+        self.device = device if device is not None else get_device()
+        self.model = self.model.to(self.device)
         
         # Normalization parameters (learned from training data)
         self.feature_means = np.zeros(input_dim)
@@ -96,8 +101,11 @@ class HealthOutcomePredictor:
         # Prepare input tensor
         input_tensor = self._prepare_input(user_history[-self.history_window:])
         
+        # Model prediction
         self.model.eval()
         with torch.no_grad():
+            # Move to device
+            input_tensor = input_tensor.to(self.device)
             predictions = self.model(input_tensor)
         
         # Extract predictions

@@ -9,6 +9,7 @@ from typing import Dict, List, Tuple, Optional
 from datetime import datetime, timedelta
 from collections import defaultdict
 import json
+from .device_config import get_device, to_device
 
 class GroceryLSTM(nn.Module):
     """
@@ -73,9 +74,13 @@ class GroceryPredictor:
     Intelligent grocery prediction system with online learning
     """
     
-    def __init__(self, user_id: str):
+    def __init__(self, user_id: str, device=None):
         self.user_id = user_id
-        self.model = GroceryLSTM()
+        
+        # Set device
+        self.device = device if device is not None else get_device()
+        
+        self.model = GroceryLSTM().to(self.device)
         self.item_to_id = {}
         self.id_to_item = {}
         self.next_id = 0
@@ -180,6 +185,9 @@ class GroceryPredictor:
         # Model prediction
         self.model.eval()
         with torch.no_grad():
+            # Move to device
+            item_ids = item_ids.to(self.device)
+            temporal_features = temporal_features.to(self.device)
             quantity, days_until, probability = self.model(item_ids, temporal_features)
         
         return {
@@ -367,8 +375,9 @@ class GroceryPredictor:
         save_path = f"backend/ml/models/grocery_predictor_{self.user_id}.pth"
         
         if os.path.exists(save_path):
-            checkpoint = torch.load(save_path)
+            checkpoint = torch.load(save_path, map_location=self.device)
             self.model.load_state_dict(checkpoint["model_state"])
+            self.model.to(self.device)
             self.item_to_id = checkpoint["item_to_id"]
             self.id_to_item = checkpoint["id_to_item"]
             self.next_id = checkpoint["next_id"]

@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from typing import List, Dict
+from .device_config import get_device, to_device
 
 class NLPRecipeGenerator:
     """
@@ -17,8 +18,11 @@ class NLPRecipeGenerator:
     Fine-tuned on RecipeDB corpus + user ratings
     """
     
-    def __init__(self, model_name='gpt2'):
+    def __init__(self, model_name='gpt2', device=None):
         """Initialize with pretrained GPT-2"""
+        # Set device
+        self.device = device if device is not None else get_device()
+        
         self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
         self.model = GPT2LMHeadModel.from_pretrained(model_name)
         
@@ -30,6 +34,8 @@ class NLPRecipeGenerator:
         self.tokenizer.add_special_tokens(special_tokens)
         self.model.resize_token_embeddings(len(self.tokenizer))
         
+        # Move model to device
+        self.model = self.model.to(self.device)
         self.model.eval()
     
     def generate_recipe(self, 
@@ -59,7 +65,7 @@ class NLPRecipeGenerator:
         prompt = self._construct_prompt(ingredients, dietary_constraints, cuisine)
         
         # Tokenize
-        input_ids = self.tokenizer.encode(prompt, return_tensors='pt')
+        input_ids = self.tokenizer.encode(prompt, return_tensors='pt').to(self.device)
         
         # Generate
         with torch.no_grad():
@@ -150,7 +156,7 @@ class NLPRecipeGenerator:
             prompt += f"Make it more {'spicy' if i == 0 else 'healthy' if i == 1 else 'quick'}\n\n"
             prompt += "New Recipe Name: "
             
-            input_ids = self.tokenizer.encode(prompt, return_tensors='pt')
+            input_ids = self.tokenizer.encode(prompt, return_tensors='pt').to(self.device)
             
             with torch.no_grad():
                 output = self.model.generate(
@@ -175,7 +181,7 @@ class NLPRecipeGenerator:
             prompt += f" that are {dietary_constraint}"
         prompt += ":\n1. "
         
-        input_ids = self.tokenizer.encode(prompt, return_tensors='pt')
+        input_ids = self.tokenizer.encode(prompt, return_tensors='pt').to(self.device)
         
         with torch.no_grad():
             output = self.model.generate(

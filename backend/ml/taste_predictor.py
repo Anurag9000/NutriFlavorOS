@@ -7,6 +7,7 @@ import torch.nn as nn
 import numpy as np
 from typing import Dict, List, Tuple
 import os
+from .device_config import get_device, to_device
 
 class TransformerEncoder(nn.Module):
     """Transformer encoder for flavor profile encoding"""
@@ -71,8 +72,11 @@ class DeepTastePredictor(nn.Module):
     Output: Hedonic score (0-1) + confidence interval
     """
     
-    def __init__(self, input_dim=512, hidden_dim=256):
+    def __init__(self, input_dim=512, hidden_dim=256, device=None):
         super().__init__()
+        
+        # Set device
+        self.device = device if device is not None else get_device()
         
         # Encoders
         self.user_encoder = TransformerEncoder(input_dim, hidden_dim)
@@ -93,6 +97,9 @@ class DeepTastePredictor(nn.Module):
         )
         
         self.sigmoid = nn.Sigmoid()
+        
+        # Move model to device
+        self.to(self.device)
         
     def forward(self, user_genome, recipe_profile):
         """
@@ -142,6 +149,10 @@ class DeepTastePredictor(nn.Module):
             # Add batch dimension and sequence dimension
             user_tensor = user_tensor.unsqueeze(0).unsqueeze(0)
             recipe_tensor = recipe_tensor.unsqueeze(0).unsqueeze(0)
+            
+            # Move to device
+            user_tensor = user_tensor.to(self.device)
+            recipe_tensor = recipe_tensor.to(self.device)
             
             # Predict
             score, conf = self.forward(user_tensor, recipe_tensor)
@@ -194,7 +205,8 @@ class DeepTastePredictor(nn.Module):
     def load_model(self, path: str):
         """Load model weights"""
         if os.path.exists(path):
-            self.load_state_dict(torch.load(path))
+            self.load_state_dict(torch.load(path, map_location=self.device))
+            self.to(self.device)
             self.eval()
             return True
         return False

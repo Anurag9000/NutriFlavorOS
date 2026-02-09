@@ -9,6 +9,7 @@ import torchvision.transforms as transforms
 from PIL import Image
 import numpy as np
 from typing import Dict, Tuple
+from .device_config import get_device, to_device
 
 class RecipeVisionAnalyzer(nn.Module):
     """
@@ -21,8 +22,11 @@ class RecipeVisionAnalyzer(nn.Module):
     Training: Food-101 dataset + nutrition labels
     """
     
-    def __init__(self, num_classes=101, pretrained=True):
+    def __init__(self, num_classes=101, pretrained=True, device=None):
         super().__init__()
+        
+        # Set device
+        self.device = device if device is not None else get_device()
         
         # Load pretrained ResNet50
         self.backbone = models.resnet50(pretrained=pretrained)
@@ -55,6 +59,9 @@ class RecipeVisionAnalyzer(nn.Module):
                 std=[0.229, 0.224, 0.225]
             )
         ])
+        
+        # Move model to device
+        self.to(self.device)
     
     def forward(self, x):
         """
@@ -101,6 +108,9 @@ class RecipeVisionAnalyzer(nn.Module):
         # Load and preprocess image
         image = Image.open(image_path).convert('RGB')
         image_tensor = self.transform(image).unsqueeze(0)
+        
+        # Move to device
+        image_tensor = image_tensor.to(self.device)
         
         with torch.no_grad():
             food_class, nutrition = self.forward(image_tensor)
