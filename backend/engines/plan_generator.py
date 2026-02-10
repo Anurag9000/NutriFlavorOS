@@ -34,11 +34,14 @@ class PlanGenerator:
         self.recipe_service = RecipeDBService()
         self.sustainability_service = SustainableFoodDBService()
         
-        # Load mock DB (will be replaced with real API calls)
-        self.db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'mock_db.json')
-        with open(self.db_path, 'r') as f:
-            data = json.load(f)
-            self.recipes = [Recipe(**item) for item in data]
+        # Load recipes via Service (supports both Mock and Live modes)
+        # We fetch a broad set of recipes to initialize the generator
+        # In production, this might be a more specific query or cached set
+        try:
+            self.recipes = [Recipe(**r) for r in self.recipe_service.search_by_title("")]
+        except Exception as e:
+            print(f"Error loading recipes from service: {e}")
+            self.recipes = []
     
     def create_plan(self, user: UserProfile, days: int = 7) -> PlanResponse:
         """Generate comprehensive meal plan"""

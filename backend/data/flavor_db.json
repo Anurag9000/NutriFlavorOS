@@ -1,0 +1,1048 @@
+{
+  "chicken breast": {
+    "ingredient": "chicken breast",
+    "category": "protein",
+    "flavor_vector": {
+      "geraniol": 0.3133,
+      "cinnamaldehyde": 0.3548,
+      "linalool": 0.6461
+    },
+    "functional_groups": [
+      "sulfur-containing"
+    ],
+    "aroma_threshold": 0.12,
+    "taste_threshold": 9.68,
+    "molecular_properties": {
+      "weight": 495.11,
+      "alogp": 1.58,
+      "hbd_count": 3,
+      "hba_count": 2
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "salmon fillet": {
+    "ingredient": "salmon fillet",
+    "category": "protein",
+    "flavor_vector": {
+      "cinnamaldehyde": 0.0674,
+      "limonene": 0.1694,
+      "vanillin": 0.6608,
+      "pinene": 0.8756,
+      "ethanethiol": 0.0586,
+      "geraniol": 0.4015,
+      "eugenol": 0.6263,
+      "menthol": 0.5464
+    },
+    "functional_groups": [
+      "acid",
+      "terpene",
+      "ketone"
+    ],
+    "aroma_threshold": 0.96,
+    "taste_threshold": 3.21,
+    "molecular_properties": {
+      "weight": 389.56,
+      "alogp": -1.52,
+      "hbd_count": 4,
+      "hba_count": 2
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "beef steak": {
+    "ingredient": "beef steak",
+    "category": "other",
+    "flavor_vector": {
+      "vanillin": 0.4334,
+      "linalool": 0.7652,
+      "benzaldehyde": 0.0592,
+      "pinene": 0.2966,
+      "menthol": 0.012,
+      "ethanethiol": 0.966,
+      "geraniol": 0.2981,
+      "cinnamaldehyde": 0.1545
+    },
+    "functional_groups": [
+      "terpene",
+      "ester",
+      "acid"
+    ],
+    "aroma_threshold": 4.28,
+    "taste_threshold": 8.21,
+    "molecular_properties": {
+      "weight": 497.4,
+      "alogp": 0.33,
+      "hbd_count": 3,
+      "hba_count": 2
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "tofu": {
+    "ingredient": "tofu",
+    "category": "other",
+    "flavor_vector": {
+      "vanillin": 0.0231,
+      "benzaldehyde": 0.1051,
+      "ethanethiol": 0.2101,
+      "limonene": 0.3164,
+      "menthol": 0.0386,
+      "pinene": 0.9282,
+      "eugenol": 0.1804
+    },
+    "functional_groups": [
+      "lactone",
+      "terpene",
+      "sulfur-containing"
+    ],
+    "aroma_threshold": 1.8,
+    "taste_threshold": 6.35,
+    "molecular_properties": {
+      "weight": 71.78,
+      "alogp": 3.49,
+      "hbd_count": 1,
+      "hba_count": 2
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "chickpeas": {
+    "ingredient": "chickpeas",
+    "category": "other",
+    "flavor_vector": {
+      "geraniol": 0.2424,
+      "ethanethiol": 0.2543,
+      "eugenol": 0.5469,
+      "menthol": 0.6449,
+      "benzaldehyde": 0.4754,
+      "pinene": 0.9587,
+      "vanillin": 0.572
+    },
+    "functional_groups": [
+      "ester",
+      "alcohol",
+      "sulfur-containing"
+    ],
+    "aroma_threshold": 1.8,
+    "taste_threshold": 4.59,
+    "molecular_properties": {
+      "weight": 127.37,
+      "alogp": 1.3,
+      "hbd_count": 1,
+      "hba_count": 3
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "brown rice": {
+    "ingredient": "brown rice",
+    "category": "other",
+    "flavor_vector": {
+      "eugenol": 0.6099,
+      "limonene": 0.2345,
+      "benzaldehyde": 0.2114
+    },
+    "functional_groups": [
+      "aldehyde",
+      "lactone",
+      "ester"
+    ],
+    "aroma_threshold": 2.52,
+    "taste_threshold": 5.2,
+    "molecular_properties": {
+      "weight": 147.92,
+      "alogp": 3.7,
+      "hbd_count": 1,
+      "hba_count": 6
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "quinoa": {
+    "ingredient": "quinoa",
+    "category": "other",
+    "flavor_vector": {
+      "linalool": 0.0228,
+      "cinnamaldehyde": 0.1596,
+      "pinene": 0.5209,
+      "limonene": 0.9021,
+      "benzaldehyde": 0.6529,
+      "eugenol": 0.0274,
+      "geraniol": 0.7163,
+      "menthol": 0.2793
+    },
+    "functional_groups": [
+      "phenolic",
+      "ester",
+      "terpene"
+    ],
+    "aroma_threshold": 2.26,
+    "taste_threshold": 5.64,
+    "molecular_properties": {
+      "weight": 223.93,
+      "alogp": 4.37,
+      "hbd_count": 3,
+      "hba_count": 3
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "sweet potato": {
+    "ingredient": "sweet potato",
+    "category": "other",
+    "flavor_vector": {
+      "pinene": 0.179,
+      "geraniol": 0.0119,
+      "menthol": 0.9624
+    },
+    "functional_groups": [
+      "aldehyde"
+    ],
+    "aroma_threshold": 1.8,
+    "taste_threshold": 1.83,
+    "molecular_properties": {
+      "weight": 69.73,
+      "alogp": -0.42,
+      "hbd_count": 0,
+      "hba_count": 2
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "spinach": {
+    "ingredient": "spinach",
+    "category": "vegetable",
+    "flavor_vector": {
+      "menthol": 0.9114,
+      "eugenol": 0.6737,
+      "vanillin": 0.4404,
+      "cinnamaldehyde": 0.9592,
+      "pinene": 0.3106,
+      "limonene": 0.0974
+    },
+    "functional_groups": [
+      "alcohol",
+      "acid",
+      "sulfur-containing"
+    ],
+    "aroma_threshold": 0.65,
+    "taste_threshold": 9.3,
+    "molecular_properties": {
+      "weight": 123.71,
+      "alogp": 0.55,
+      "hbd_count": 4,
+      "hba_count": 3
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "kale": {
+    "ingredient": "kale",
+    "category": "vegetable",
+    "flavor_vector": {
+      "vanillin": 0.0462,
+      "ethanethiol": 0.1544,
+      "eugenol": 0.2058,
+      "linalool": 0.8477,
+      "pinene": 0.3506,
+      "geraniol": 0.4802
+    },
+    "functional_groups": [
+      "ester",
+      "aldehyde"
+    ],
+    "aroma_threshold": 4.84,
+    "taste_threshold": 7.41,
+    "molecular_properties": {
+      "weight": 403.66,
+      "alogp": -0.02,
+      "hbd_count": 0,
+      "hba_count": 8
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "broccoli": {
+    "ingredient": "broccoli",
+    "category": "vegetable",
+    "flavor_vector": {
+      "vanillin": 0.0837,
+      "menthol": 0.0238,
+      "limonene": 0.5669,
+      "cinnamaldehyde": 0.8633
+    },
+    "functional_groups": [
+      "lactone"
+    ],
+    "aroma_threshold": 3.47,
+    "taste_threshold": 6.71,
+    "molecular_properties": {
+      "weight": 181.21,
+      "alogp": 3.67,
+      "hbd_count": 1,
+      "hba_count": 8
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "avocado": {
+    "ingredient": "avocado",
+    "category": "other",
+    "flavor_vector": {
+      "linalool": 0.3101,
+      "limonene": 0.6125,
+      "cinnamaldehyde": 0.1409,
+      "geraniol": 0.5433,
+      "benzaldehyde": 0.1304,
+      "ethanethiol": 0.1458
+    },
+    "functional_groups": [
+      "ketone",
+      "phenolic"
+    ],
+    "aroma_threshold": 0.4,
+    "taste_threshold": 0.65,
+    "molecular_properties": {
+      "weight": 361.26,
+      "alogp": 2.8,
+      "hbd_count": 2,
+      "hba_count": 2
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "almonds": {
+    "ingredient": "almonds",
+    "category": "other",
+    "flavor_vector": {
+      "cinnamaldehyde": 0.4898,
+      "pinene": 0.1889,
+      "geraniol": 0.4118
+    },
+    "functional_groups": [
+      "lactone"
+    ],
+    "aroma_threshold": 0.11,
+    "taste_threshold": 2.88,
+    "molecular_properties": {
+      "weight": 81.07,
+      "alogp": -0.92,
+      "hbd_count": 3,
+      "hba_count": 10
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "walnuts": {
+    "ingredient": "walnuts",
+    "category": "other",
+    "flavor_vector": {
+      "cinnamaldehyde": 0.5137,
+      "pinene": 0.599,
+      "benzaldehyde": 0.3773,
+      "ethanethiol": 0.4271,
+      "limonene": 0.2766,
+      "eugenol": 0.3253,
+      "vanillin": 0.6509
+    },
+    "functional_groups": [
+      "sulfur-containing"
+    ],
+    "aroma_threshold": 4.26,
+    "taste_threshold": 6.35,
+    "molecular_properties": {
+      "weight": 481.54,
+      "alogp": -0.45,
+      "hbd_count": 1,
+      "hba_count": 5
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "olive oil": {
+    "ingredient": "olive oil",
+    "category": "other",
+    "flavor_vector": {
+      "limonene": 0.0563,
+      "menthol": 0.3424,
+      "geraniol": 0.3831,
+      "pinene": 0.4407,
+      "cinnamaldehyde": 0.1193,
+      "vanillin": 0.3842
+    },
+    "functional_groups": [
+      "lactone"
+    ],
+    "aroma_threshold": 3.92,
+    "taste_threshold": 4.35,
+    "molecular_properties": {
+      "weight": 185.9,
+      "alogp": 2.14,
+      "hbd_count": 3,
+      "hba_count": 3
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "garlic": {
+    "ingredient": "garlic",
+    "category": "other",
+    "flavor_vector": {
+      "pinene": 0.0183,
+      "vanillin": 0.7761,
+      "geraniol": 0.8646,
+      "limonene": 0.0885,
+      "cinnamaldehyde": 0.1324
+    },
+    "functional_groups": [
+      "aldehyde",
+      "ester",
+      "sulfur-containing"
+    ],
+    "aroma_threshold": 0.93,
+    "taste_threshold": 3.86,
+    "molecular_properties": {
+      "weight": 162.38,
+      "alogp": 2.64,
+      "hbd_count": 5,
+      "hba_count": 2
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "onion": {
+    "ingredient": "onion",
+    "category": "other",
+    "flavor_vector": {
+      "benzaldehyde": 0.1966,
+      "vanillin": 0.8695,
+      "menthol": 0.1814,
+      "linalool": 0.9066,
+      "cinnamaldehyde": 0.2668,
+      "geraniol": 0.8375,
+      "ethanethiol": 0.2527
+    },
+    "functional_groups": [
+      "terpene"
+    ],
+    "aroma_threshold": 3.05,
+    "taste_threshold": 4.88,
+    "molecular_properties": {
+      "weight": 97.98,
+      "alogp": 1.35,
+      "hbd_count": 5,
+      "hba_count": 7
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "ginger": {
+    "ingredient": "ginger",
+    "category": "other",
+    "flavor_vector": {
+      "benzaldehyde": 0.1729,
+      "eugenol": 0.3421,
+      "vanillin": 0.111,
+      "ethanethiol": 0.9511
+    },
+    "functional_groups": [
+      "phenolic",
+      "acid"
+    ],
+    "aroma_threshold": 1.16,
+    "taste_threshold": 7.96,
+    "molecular_properties": {
+      "weight": 440.51,
+      "alogp": 4.21,
+      "hbd_count": 4,
+      "hba_count": 3
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "lemon": {
+    "ingredient": "lemon",
+    "category": "other",
+    "flavor_vector": {
+      "vanillin": 0.9859,
+      "benzaldehyde": 0.3611,
+      "eugenol": 0.2084,
+      "linalool": 0.3844,
+      "menthol": 0.0615
+    },
+    "functional_groups": [
+      "ketone",
+      "phenolic"
+    ],
+    "aroma_threshold": 0.1,
+    "taste_threshold": 3.49,
+    "molecular_properties": {
+      "weight": 469.46,
+      "alogp": -0.4,
+      "hbd_count": 1,
+      "hba_count": 3
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "basil": {
+    "ingredient": "basil",
+    "category": "other",
+    "flavor_vector": {
+      "pinene": 0.2071,
+      "ethanethiol": 0.5739,
+      "geraniol": 0.698,
+      "linalool": 0.1922,
+      "vanillin": 0.5293,
+      "menthol": 0.4124,
+      "limonene": 0.699,
+      "cinnamaldehyde": 0.7413
+    },
+    "functional_groups": [
+      "acid",
+      "lactone"
+    ],
+    "aroma_threshold": 2.83,
+    "taste_threshold": 5.04,
+    "molecular_properties": {
+      "weight": 64.99,
+      "alogp": 3.97,
+      "hbd_count": 5,
+      "hba_count": 9
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "tomato": {
+    "ingredient": "tomato",
+    "category": "other",
+    "flavor_vector": {
+      "pinene": 0.9303,
+      "vanillin": 0.4709,
+      "menthol": 0.6881,
+      "linalool": 0.4309,
+      "geraniol": 0.8439,
+      "eugenol": 0.6531,
+      "cinnamaldehyde": 0.2062,
+      "ethanethiol": 0.2087
+    },
+    "functional_groups": [
+      "acid",
+      "terpene",
+      "sulfur-containing"
+    ],
+    "aroma_threshold": 2.54,
+    "taste_threshold": 0.83,
+    "molecular_properties": {
+      "weight": 250.76,
+      "alogp": 3.42,
+      "hbd_count": 1,
+      "hba_count": 8
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "bell pepper": {
+    "ingredient": "bell pepper",
+    "category": "other",
+    "flavor_vector": {
+      "linalool": 0.5709,
+      "eugenol": 0.4873,
+      "vanillin": 0.2875,
+      "menthol": 0.6267,
+      "pinene": 0.7337,
+      "cinnamaldehyde": 0.3857,
+      "limonene": 0.1564
+    },
+    "functional_groups": [
+      "aldehyde",
+      "alcohol"
+    ],
+    "aroma_threshold": 3.77,
+    "taste_threshold": 2.02,
+    "molecular_properties": {
+      "weight": 453.64,
+      "alogp": 4.73,
+      "hbd_count": 3,
+      "hba_count": 8
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "carrot": {
+    "ingredient": "carrot",
+    "category": "other",
+    "flavor_vector": {
+      "cinnamaldehyde": 0.1078,
+      "benzaldehyde": 0.8457,
+      "vanillin": 0.4839,
+      "ethanethiol": 0.9622
+    },
+    "functional_groups": [
+      "acid"
+    ],
+    "aroma_threshold": 1.57,
+    "taste_threshold": 9.48,
+    "molecular_properties": {
+      "weight": 205.11,
+      "alogp": 4.5,
+      "hbd_count": 4,
+      "hba_count": 8
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "cucumber": {
+    "ingredient": "cucumber",
+    "category": "other",
+    "flavor_vector": {
+      "menthol": 0.3462,
+      "limonene": 0.1177,
+      "benzaldehyde": 0.578,
+      "cinnamaldehyde": 0.6063
+    },
+    "functional_groups": [
+      "acid",
+      "aldehyde",
+      "phenolic"
+    ],
+    "aroma_threshold": 1.3,
+    "taste_threshold": 7.71,
+    "molecular_properties": {
+      "weight": 210.75,
+      "alogp": 3.09,
+      "hbd_count": 3,
+      "hba_count": 8
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "yogurt": {
+    "ingredient": "yogurt",
+    "category": "other",
+    "flavor_vector": {
+      "cinnamaldehyde": 0.5608,
+      "benzaldehyde": 0.557,
+      "vanillin": 0.8828
+    },
+    "functional_groups": [
+      "ketone",
+      "lactone"
+    ],
+    "aroma_threshold": 4.92,
+    "taste_threshold": 7.21,
+    "molecular_properties": {
+      "weight": 276.8,
+      "alogp": 3.3,
+      "hbd_count": 5,
+      "hba_count": 3
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "cheese": {
+    "ingredient": "cheese",
+    "category": "other",
+    "flavor_vector": {
+      "menthol": 0.7363,
+      "limonene": 0.8632,
+      "cinnamaldehyde": 0.6048,
+      "ethanethiol": 0.7412
+    },
+    "functional_groups": [
+      "terpene",
+      "phenolic"
+    ],
+    "aroma_threshold": 0.82,
+    "taste_threshold": 0.58,
+    "molecular_properties": {
+      "weight": 290.42,
+      "alogp": 1.18,
+      "hbd_count": 0,
+      "hba_count": 1
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "milk": {
+    "ingredient": "milk",
+    "category": "other",
+    "flavor_vector": {
+      "linalool": 0.1249,
+      "eugenol": 0.5262,
+      "vanillin": 0.9117,
+      "ethanethiol": 0.6918,
+      "cinnamaldehyde": 0.495,
+      "menthol": 0.9664,
+      "limonene": 0.1996,
+      "benzaldehyde": 0.7298
+    },
+    "functional_groups": [
+      "alcohol",
+      "acid"
+    ],
+    "aroma_threshold": 1.41,
+    "taste_threshold": 5.62,
+    "molecular_properties": {
+      "weight": 171.97,
+      "alogp": 2.84,
+      "hbd_count": 3,
+      "hba_count": 2
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "egg": {
+    "ingredient": "egg",
+    "category": "other",
+    "flavor_vector": {
+      "ethanethiol": 0.1769,
+      "linalool": 0.1612,
+      "geraniol": 0.7591,
+      "limonene": 0.4638,
+      "eugenol": 0.404,
+      "menthol": 0.4244,
+      "benzaldehyde": 0.8611
+    },
+    "functional_groups": [
+      "acid"
+    ],
+    "aroma_threshold": 0.42,
+    "taste_threshold": 1.71,
+    "molecular_properties": {
+      "weight": 359.29,
+      "alogp": 2.33,
+      "hbd_count": 1,
+      "hba_count": 1
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "honey": {
+    "ingredient": "honey",
+    "category": "other",
+    "flavor_vector": {
+      "menthol": 0.8795,
+      "linalool": 0.5908,
+      "benzaldehyde": 0.6214,
+      "eugenol": 0.226,
+      "vanillin": 0.8002,
+      "pinene": 0.1291,
+      "cinnamaldehyde": 0.4445,
+      "limonene": 0.1361
+    },
+    "functional_groups": [
+      "terpene",
+      "ester",
+      "alcohol"
+    ],
+    "aroma_threshold": 4.33,
+    "taste_threshold": 1.68,
+    "molecular_properties": {
+      "weight": 157.42,
+      "alogp": 0.03,
+      "hbd_count": 5,
+      "hba_count": 6
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "soy sauce": {
+    "ingredient": "soy sauce",
+    "category": "other",
+    "flavor_vector": {
+      "eugenol": 0.6132,
+      "vanillin": 0.848,
+      "benzaldehyde": 0.335,
+      "ethanethiol": 0.6336,
+      "menthol": 0.8802,
+      "linalool": 0.0173,
+      "geraniol": 0.7811
+    },
+    "functional_groups": [
+      "alcohol"
+    ],
+    "aroma_threshold": 1.89,
+    "taste_threshold": 3.63,
+    "molecular_properties": {
+      "weight": 303.66,
+      "alogp": 4.92,
+      "hbd_count": 3,
+      "hba_count": 8
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "cumin": {
+    "ingredient": "cumin",
+    "category": "other",
+    "flavor_vector": {
+      "vanillin": 0.3614,
+      "ethanethiol": 0.5458,
+      "cinnamaldehyde": 0.8619
+    },
+    "functional_groups": [
+      "phenolic",
+      "acid"
+    ],
+    "aroma_threshold": 2.2,
+    "taste_threshold": 2.93,
+    "molecular_properties": {
+      "weight": 499.57,
+      "alogp": 4.5,
+      "hbd_count": 1,
+      "hba_count": 3
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "turmeric": {
+    "ingredient": "turmeric",
+    "category": "other",
+    "flavor_vector": {
+      "geraniol": 0.5856,
+      "menthol": 0.2595,
+      "eugenol": 0.9373,
+      "linalool": 0.9276,
+      "vanillin": 0.6446,
+      "cinnamaldehyde": 0.5415,
+      "pinene": 0.8707
+    },
+    "functional_groups": [
+      "ketone",
+      "phenolic",
+      "terpene"
+    ],
+    "aroma_threshold": 4.29,
+    "taste_threshold": 7.08,
+    "molecular_properties": {
+      "weight": 286.36,
+      "alogp": 0.98,
+      "hbd_count": 4,
+      "hba_count": 4
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "black pepper": {
+    "ingredient": "black pepper",
+    "category": "other",
+    "flavor_vector": {
+      "cinnamaldehyde": 0.5048,
+      "linalool": 0.3496,
+      "geraniol": 0.1652,
+      "benzaldehyde": 0.2712
+    },
+    "functional_groups": [
+      "sulfur-containing",
+      "ester",
+      "phenolic"
+    ],
+    "aroma_threshold": 1.95,
+    "taste_threshold": 2.17,
+    "molecular_properties": {
+      "weight": 155.63,
+      "alogp": 2.14,
+      "hbd_count": 5,
+      "hba_count": 5
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "cinnamon": {
+    "ingredient": "cinnamon",
+    "category": "other",
+    "flavor_vector": {
+      "cinnamaldehyde": 0.3068,
+      "pinene": 0.133,
+      "vanillin": 0.9485,
+      "linalool": 0.5729,
+      "eugenol": 0.7448,
+      "ethanethiol": 0.5524,
+      "menthol": 0.114,
+      "limonene": 0.1932
+    },
+    "functional_groups": [
+      "sulfur-containing",
+      "lactone",
+      "acid"
+    ],
+    "aroma_threshold": 1.2,
+    "taste_threshold": 3.04,
+    "molecular_properties": {
+      "weight": 108.21,
+      "alogp": 3.39,
+      "hbd_count": 2,
+      "hba_count": 7
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  },
+  "vanilla": {
+    "ingredient": "vanilla",
+    "category": "other",
+    "flavor_vector": {
+      "limonene": 0.4317,
+      "vanillin": 0.0323,
+      "eugenol": 0.3214,
+      "benzaldehyde": 0.2737,
+      "menthol": 0.1031,
+      "pinene": 0.727,
+      "cinnamaldehyde": 0.1809
+    },
+    "functional_groups": [
+      "sulfur-containing"
+    ],
+    "aroma_threshold": 2.6,
+    "taste_threshold": 2.12,
+    "molecular_properties": {
+      "weight": 316.27,
+      "alogp": 1.98,
+      "hbd_count": 2,
+      "hba_count": 9
+    },
+    "natural_occurrence": true,
+    "safety_approvals": {
+      "fema": true,
+      "jecfa": true,
+      "efsa": true
+    }
+  }
+}

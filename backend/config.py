@@ -33,3 +33,15 @@ class APIConfig:
     # Retry Configuration
     MAX_RETRIES: int = 3
     RETRY_BACKOFF_FACTOR: float = 0.5
+
+    # Mock Mode Configuration
+    # Defaults to True if API keys are not set, or can be forced via env var
+    MOCK_MODE: bool = os.getenv("MOCK_MODE", "true").lower() == "true"
+    
+    # Mock Data Paths
+    # config.py is in backend/, so we want backend/data
+    DATA_DIR: str = os.path.join(os.path.dirname(__file__), "data")
+    MOCK_RECIPES_FILE: str = os.path.join(DATA_DIR, "recipes.json")
+    MOCK_FLAVOR_DB_FILE: str = os.path.join(DATA_DIR, "flavor_db.json")
+    MOCK_DIET_RX_FILE: str = os.path.join(DATA_DIR, "diet_rx_db.json")
+    MOCK_SUSTAINABLE_DB_FILE: str = os.path.join(DATA_DIR, "sustainable_db.json")

@@ -1,0 +1,177 @@
+{
+  "chicken breast": {
+    "carbon_footprint_kg": 6.18,
+    "water_usage_l": 3090.0,
+    "land_use_m2": 30.9
+  },
+  "salmon fillet": {
+    "carbon_footprint_kg": 6.87,
+    "water_usage_l": 3435.0,
+    "land_use_m2": 34.4
+  },
+  "beef steak": {
+    "carbon_footprint_kg": 24.38,
+    "water_usage_l": 12190.0,
+    "land_use_m2": 121.9
+  },
+  "tofu": {
+    "carbon_footprint_kg": 1.68,
+    "water_usage_l": 840.0,
+    "land_use_m2": 8.4
+  },
+  "chickpeas": {
+    "carbon_footprint_kg": 0.55,
+    "water_usage_l": 275.0,
+    "land_use_m2": 2.8
+  },
+  "brown rice": {
+    "carbon_footprint_kg": 0.51,
+    "water_usage_l": 255.0,
+    "land_use_m2": 2.5
+  },
+  "quinoa": {
+    "carbon_footprint_kg": 0.46,
+    "water_usage_l": 230.0,
+    "land_use_m2": 2.3
+  },
+  "sweet potato": {
+    "carbon_footprint_kg": 0.54,
+    "water_usage_l": 270.0,
+    "land_use_m2": 2.7
+  },
+  "spinach": {
+    "carbon_footprint_kg": 0.45,
+    "water_usage_l": 225.0,
+    "land_use_m2": 2.2
+  },
+  "kale": {
+    "carbon_footprint_kg": 0.53,
+    "water_usage_l": 265.0,
+    "land_use_m2": 2.7
+  },
+  "broccoli": {
+    "carbon_footprint_kg": 0.41,
+    "water_usage_l": 205.0,
+    "land_use_m2": 2.0
+  },
+  "avocado": {
+    "carbon_footprint_kg": 0.59,
+    "water_usage_l": 295.0,
+    "land_use_m2": 2.9
+  },
+  "almonds": {
+    "carbon_footprint_kg": 2.2,
+    "water_usage_l": 1100.0,
+    "land_use_m2": 11.0
+  },
+  "walnuts": {
+    "carbon_footprint_kg": 0.5,
+    "water_usage_l": 250.0,
+    "land_use_m2": 2.5
+  },
+  "olive oil": {
+    "carbon_footprint_kg": 0.43,
+    "water_usage_l": 215.0,
+    "land_use_m2": 2.1
+  },
+  "garlic": {
+    "carbon_footprint_kg": 0.52,
+    "water_usage_l": 260.0,
+    "land_use_m2": 2.6
+  },
+  "onion": {
+    "carbon_footprint_kg": 0.42,
+    "water_usage_l": 210.0,
+    "land_use_m2": 2.1
+  },
+  "ginger": {
+    "carbon_footprint_kg": 0.44,
+    "water_usage_l": 220.0,
+    "land_use_m2": 2.2
+  },
+  "lemon": {
+    "carbon_footprint_kg": 0.45,
+    "water_usage_l": 225.0,
+    "land_use_m2": 2.2
+  },
+  "basil": {
+    "carbon_footprint_kg": 0.52,
+    "water_usage_l": 260.0,
+    "land_use_m2": 2.6
+  },
+  "tomato": {
+    "carbon_footprint_kg": 0.4,
+    "water_usage_l": 200.0,
+    "land_use_m2": 2.0
+  },
+  "bell pepper": {
+    "carbon_footprint_kg": 0.43,
+    "water_usage_l": 215.0,
+    "land_use_m2": 2.1
+  },
+  "carrot": {
+    "carbon_footprint_kg": 0.6,
+    "water_usage_l": 300.0,
+    "land_use_m2": 3.0
+  },
+  "cucumber": {
+    "carbon_footprint_kg": 0.56,
+    "water_usage_l": 280.0,
+    "land_use_m2": 2.8
+  },
+  "yogurt": {
+    "carbon_footprint_kg": 2.76,
+    "water_usage_l": 1380.0,
+    "land_use_m2": 13.8
+  },
+  "cheese": {
+    "carbon_footprint_kg": 12.66,
+    "water_usage_l": 6330.0,
+    "land_use_m2": 63.3
+  },
+  "milk": {
+    "carbon_footprint_kg": 2.78,
+    "water_usage_l": 1390.0,
+    "land_use_m2": 13.9
+  },
+  "egg": {
+    "carbon_footprint_kg": 0.54,
+    "water_usage_l": 270.0,
+    "land_use_m2": 2.7
+  },
+  "honey": {
+    "carbon_footprint_kg": 0.44,
+    "water_usage_l": 220.0,
+    "land_use_m2": 2.2
+  },
+  "soy sauce": {
+    "carbon_footprint_kg": 0.46,
+    "water_usage_l": 230.0,
+    "land_use_m2": 2.3
+  },
+  "cumin": {
+    "carbon_footprint_kg": 0.41,
+    "water_usage_l": 205.0,
+    "land_use_m2": 2.0
+  },
+  "turmeric": {
+    "carbon_footprint_kg": 0.4,
+    "water_usage_l": 200.0,
+    "land_use_m2": 2.0
+  },
+  "black pepper": {
+    "carbon_footprint_kg": 0.48,
+    "water_usage_l": 240.0,
+    "land_use_m2": 2.4
+  },
+  "cinnamon": {
+    "carbon_footprint_kg": 0.49,
+    "water_usage_l": 245.0,
+    "land_use_m2": 2.5
+  },
+  "vanilla": {
+    "carbon_footprint_kg": 0.45,
+    "water_usage_l": 225.0,
+    "land_use_m2": 2.2
+  }
+}

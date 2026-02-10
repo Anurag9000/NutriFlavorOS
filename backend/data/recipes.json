@@ -1,0 +1,4243 @@
+[
+  {
+    "id": "1",
+    "title": "American Kale with Tofu",
+    "image": "https://example.com/recipe_1.jpg",
+    "cuisines": [
+      "American"
+    ],
+    "diets": [
+      "Vegetarian"
+    ],
+    "instructions": [
+      "Prepare the kale.",
+      "Mix with tofu.",
+      "Cook using Saut\u00e9ing method for 21 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 504,
+      "protein": "44g",
+      "fat": "6g",
+      "carbohydrates": "68g",
+      "sugar": "12g",
+      "fiber": "7g",
+      "sodium": "710mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 31,
+      "Vitamin C": 98,
+      "Calcium": 19,
+      "Iron": 41
+    },
+    "ingredients": [
+      "cucumber",
+      "cinnamon",
+      "carrot",
+      "kale",
+      "tofu",
+      "yogurt"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.7624904151648861,
+      "sour": 0.924806483185598,
+      "sweet": 0.7213867211069209,
+      "salty": 0.8776642034773655,
+      "umami": 0.12234693964010634
+    },
+    "name": "American Kale with Tofu",
+    "description": "A delicious American dish made with kale.",
+    "image_url": "https://example.com/recipe_1.jpg",
+    "cuisine": "American",
+    "calories": 504,
+    "macros": {
+      "protein": 44,
+      "fat": 6,
+      "carbohydrates": 68
+    },
+    "flavor_profile": {
+      "bitter": 0.12960106582648578,
+      "sour": 0.067251054941316,
+      "sweet": 0.8495205626039706,
+      "salty": 0.7139448902160541,
+      "umami": 0.8544413190842197
+    },
+    "tags": [
+      "American",
+      "Healthy"
+    ],
+    "readyInMinutes": 32,
+    "servings": 1
+  },
+  {
+    "id": "2",
+    "title": "Mediterranean Lemon with Turmeric",
+    "image": "https://example.com/recipe_2.jpg",
+    "cuisines": [
+      "Mediterranean"
+    ],
+    "diets": [
+      "Vegetarian",
+      "Paleo"
+    ],
+    "instructions": [
+      "Prepare the lemon.",
+      "Mix with turmeric.",
+      "Cook using Boiling method for 17 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 738,
+      "protein": "13g",
+      "fat": "13g",
+      "carbohydrates": "142g",
+      "sugar": "7g",
+      "fiber": "6g",
+      "sodium": "123mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 27,
+      "Vitamin C": 25,
+      "Calcium": 34,
+      "Iron": 4
+    },
+    "ingredients": [
+      "almonds",
+      "quinoa",
+      "lemon",
+      "egg",
+      "turmeric"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.2987581931877479,
+      "sour": 0.06056861626180221,
+      "sweet": 0.737308099210132,
+      "salty": 0.2593925768358849,
+      "umami": 0.0911920369425715
+    },
+    "name": "Mediterranean Lemon with Turmeric",
+    "description": "A delicious Mediterranean dish made with lemon.",
+    "image_url": "https://example.com/recipe_2.jpg",
+    "cuisine": "Mediterranean",
+    "calories": 738,
+    "macros": {
+      "protein": 13,
+      "fat": 13,
+      "carbohydrates": 142
+    },
+    "flavor_profile": {
+      "bitter": 0.258721157546158,
+      "sour": 0.3294160599425514,
+      "sweet": 0.12315924706105974,
+      "salty": 0.15631312523813234,
+      "umami": 0.06577808997506185
+    },
+    "tags": [
+      "Mediterranean",
+      "Healthy"
+    ],
+    "readyInMinutes": 17,
+    "servings": 4
+  },
+  {
+    "id": "3",
+    "title": "American Milk with Almonds",
+    "image": "https://example.com/recipe_3.jpg",
+    "cuisines": [
+      "American"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the milk.",
+      "Mix with almonds.",
+      "Cook using Boiling method for 19 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 497,
+      "protein": "11g",
+      "fat": "35g",
+      "carbohydrates": "34g",
+      "sugar": "11g",
+      "fiber": "4g",
+      "sodium": "370mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 33,
+      "Vitamin C": 45,
+      "Calcium": 10,
+      "Iron": 24
+    },
+    "ingredients": [
+      "vanilla",
+      "cumin",
+      "milk",
+      "almonds",
+      "tofu"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.2376413780603538,
+      "sour": 0.43803409338029886,
+      "sweet": 0.4538690085449486,
+      "salty": 0.8516426676237463,
+      "umami": 0.5311816146484772
+    },
+    "name": "American Milk with Almonds",
+    "description": "A delicious American dish made with milk.",
+    "image_url": "https://example.com/recipe_3.jpg",
+    "cuisine": "American",
+    "calories": 497,
+    "macros": {
+      "protein": 11,
+      "fat": 35,
+      "carbohydrates": 34
+    },
+    "flavor_profile": {
+      "bitter": 0.07683405150514211,
+      "sour": 0.2478743950713419,
+      "sweet": 0.34611615574782495,
+      "salty": 0.7290298833433507,
+      "umami": 0.39389093987566737
+    },
+    "tags": [
+      "American",
+      "Healthy"
+    ],
+    "readyInMinutes": 32,
+    "servings": 3
+  },
+  {
+    "id": "4",
+    "title": "Asian Ginger with Turmeric",
+    "image": "https://example.com/recipe_4.jpg",
+    "cuisines": [
+      "Asian"
+    ],
+    "diets": [
+      "Vegetarian"
+    ],
+    "instructions": [
+      "Prepare the ginger.",
+      "Mix with turmeric.",
+      "Cook using Boiling method for 19 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 330,
+      "protein": "31g",
+      "fat": "12g",
+      "carbohydrates": "24g",
+      "sugar": "13g",
+      "fiber": "10g",
+      "sodium": "419mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 65,
+      "Vitamin C": 69,
+      "Calcium": 29,
+      "Iron": 38
+    },
+    "ingredients": [
+      "cucumber",
+      "kale",
+      "basil",
+      "cheese",
+      "beef steak",
+      "turmeric",
+      "ginger"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.8423160061582646,
+      "sour": 0.06430972263373014,
+      "sweet": 0.5580015546264195,
+      "salty": 0.8883388343133591,
+      "umami": 0.7090220902684541
+    },
+    "name": "Asian Ginger with Turmeric",
+    "description": "A delicious Asian dish made with ginger.",
+    "image_url": "https://example.com/recipe_4.jpg",
+    "cuisine": "Asian",
+    "calories": 330,
+    "macros": {
+      "protein": 31,
+      "fat": 12,
+      "carbohydrates": 24
+    },
+    "flavor_profile": {
+      "bitter": 0.2127108924559583,
+      "sour": 0.4464441565625912,
+      "sweet": 0.8938431345439497,
+      "salty": 0.5526366671876426,
+      "umami": 0.9162995864562432
+    },
+    "tags": [
+      "Asian",
+      "Healthy"
+    ],
+    "readyInMinutes": 17,
+    "servings": 3
+  },
+  {
+    "id": "5",
+    "title": "Indian Broccoli with Brown Rice",
+    "image": "https://example.com/recipe_5.jpg",
+    "cuisines": [
+      "Indian"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the broccoli.",
+      "Mix with brown rice.",
+      "Cook using Grilling method for 18 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 661,
+      "protein": "14g",
+      "fat": "40g",
+      "carbohydrates": "61g",
+      "sugar": "4g",
+      "fiber": "8g",
+      "sodium": "259mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 19,
+      "Vitamin C": 65,
+      "Calcium": 24,
+      "Iron": 5
+    },
+    "ingredients": [
+      "cinnamon",
+      "broccoli",
+      "black pepper",
+      "basil",
+      "cumin",
+      "brown rice",
+      "chicken breast",
+      "ginger",
+      "walnuts"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.624964855714649,
+      "sour": 0.39449241012595637,
+      "sweet": 0.4538974631824151,
+      "salty": 0.672653212452278,
+      "umami": 0.6201021140569585
+    },
+    "name": "Indian Broccoli with Brown Rice",
+    "description": "A delicious Indian dish made with broccoli.",
+    "image_url": "https://example.com/recipe_5.jpg",
+    "cuisine": "Indian",
+    "calories": 661,
+    "macros": {
+      "protein": 14,
+      "fat": 40,
+      "carbohydrates": 61
+    },
+    "flavor_profile": {
+      "bitter": 0.801588033272746,
+      "sour": 0.43837930570593453,
+      "sweet": 0.3407679199905521,
+      "salty": 0.3010810252163024,
+      "umami": 0.8068590385458876
+    },
+    "tags": [
+      "Indian",
+      "Healthy"
+    ],
+    "readyInMinutes": 27,
+    "servings": 2
+  },
+  {
+    "id": "6",
+    "title": "Italian Soy Sauce with Bell Pepper",
+    "image": "https://example.com/recipe_6.jpg",
+    "cuisines": [
+      "Italian"
+    ],
+    "diets": [
+      "Vegan"
+    ],
+    "instructions": [
+      "Prepare the soy sauce.",
+      "Mix with bell pepper.",
+      "Cook using Boiling method for 17 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 796,
+      "protein": "40g",
+      "fat": "39g",
+      "carbohydrates": "71g",
+      "sugar": "9g",
+      "fiber": "1g",
+      "sodium": "325mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 50,
+      "Vitamin C": 20,
+      "Calcium": 20,
+      "Iron": 36
+    },
+    "ingredients": [
+      "basil",
+      "chicken breast",
+      "soy sauce",
+      "bell pepper"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.3617438012104741,
+      "sour": 0.2702040807105843,
+      "sweet": 0.806515806695141,
+      "salty": 0.09776613292549763,
+      "umami": 0.8293255687325155
+    },
+    "name": "Italian Soy Sauce with Bell Pepper",
+    "description": "A delicious Italian dish made with soy sauce.",
+    "image_url": "https://example.com/recipe_6.jpg",
+    "cuisine": "Italian",
+    "calories": 796,
+    "macros": {
+      "protein": 40,
+      "fat": 39,
+      "carbohydrates": 71
+    },
+    "flavor_profile": {
+      "bitter": 0.7549524729477259,
+      "sour": 0.051822454114571315,
+      "sweet": 0.5839707823538727,
+      "salty": 0.25897928768827794,
+      "umami": 0.8287134013700218
+    },
+    "tags": [
+      "Italian",
+      "Healthy"
+    ],
+    "readyInMinutes": 56,
+    "servings": 4
+  },
+  {
+    "id": "7",
+    "title": "Italian Onion with Broccoli",
+    "image": "https://example.com/recipe_7.jpg",
+    "cuisines": [
+      "Italian"
+    ],
+    "diets": [
+      "Vegan",
+      "Vegetarian"
+    ],
+    "instructions": [
+      "Prepare the onion.",
+      "Mix with broccoli.",
+      "Cook using Boiling method for 30 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 566,
+      "protein": "25g",
+      "fat": "29g",
+      "carbohydrates": "51g",
+      "sugar": "10g",
+      "fiber": "4g",
+      "sodium": "358mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 52,
+      "Vitamin C": 100,
+      "Calcium": 0,
+      "Iron": 30
+    },
+    "ingredients": [
+      "tomato",
+      "chickpeas",
+      "broccoli",
+      "onion"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.4631085738791435,
+      "sour": 0.48373980468972455,
+      "sweet": 0.7690452171279488,
+      "salty": 0.7754748705092143,
+      "umami": 0.2755496629597517
+    },
+    "name": "Italian Onion with Broccoli",
+    "description": "A delicious Italian dish made with onion.",
+    "image_url": "https://example.com/recipe_7.jpg",
+    "cuisine": "Italian",
+    "calories": 566,
+    "macros": {
+      "protein": 25,
+      "fat": 29,
+      "carbohydrates": 51
+    },
+    "flavor_profile": {
+      "bitter": 0.18051005726097646,
+      "sour": 0.6912439910079516,
+      "sweet": 0.8111785334306039,
+      "salty": 0.2753975070963576,
+      "umami": 0.9722488425674672
+    },
+    "tags": [
+      "Italian",
+      "Healthy"
+    ],
+    "readyInMinutes": 25,
+    "servings": 1
+  },
+  {
+    "id": "8",
+    "title": "American Broccoli with Lemon",
+    "image": "https://example.com/recipe_8.jpg",
+    "cuisines": [
+      "American"
+    ],
+    "diets": [
+      "Vegetarian",
+      "Gluten-Free"
+    ],
+    "instructions": [
+      "Prepare the broccoli.",
+      "Mix with lemon.",
+      "Cook using Grilling method for 23 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 792,
+      "protein": "26g",
+      "fat": "6g",
+      "carbohydrates": "158g",
+      "sugar": "2g",
+      "fiber": "1g",
+      "sodium": "775mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 69,
+      "Vitamin C": 43,
+      "Calcium": 5,
+      "Iron": 1
+    },
+    "ingredients": [
+      "cinnamon",
+      "carrot",
+      "broccoli",
+      "basil",
+      "bell pepper",
+      "lemon",
+      "onion"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.826748349372258,
+      "sour": 0.14331126590305154,
+      "sweet": 0.936889774699363,
+      "salty": 0.01776978094939874,
+      "umami": 0.24503474696620087
+    },
+    "name": "American Broccoli with Lemon",
+    "description": "A delicious American dish made with broccoli.",
+    "image_url": "https://example.com/recipe_8.jpg",
+    "cuisine": "American",
+    "calories": 792,
+    "macros": {
+      "protein": 26,
+      "fat": 6,
+      "carbohydrates": 158
+    },
+    "flavor_profile": {
+      "bitter": 0.5631453118581711,
+      "sour": 0.06267116279905294,
+      "sweet": 0.9870412862953671,
+      "salty": 0.9826180814609271,
+      "umami": 0.08187022161641333
+    },
+    "tags": [
+      "American",
+      "Healthy"
+    ],
+    "readyInMinutes": 43,
+    "servings": 3
+  },
+  {
+    "id": "9",
+    "title": "Italian Chicken Breast with Tofu",
+    "image": "https://example.com/recipe_9.jpg",
+    "cuisines": [
+      "Italian"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the chicken breast.",
+      "Mix with tofu.",
+      "Cook using Boiling method for 24 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 777,
+      "protein": "35g",
+      "fat": "35g",
+      "carbohydrates": "80g",
+      "sugar": "4g",
+      "fiber": "8g",
+      "sodium": "398mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 97,
+      "Vitamin C": 67,
+      "Calcium": 34,
+      "Iron": 17
+    },
+    "ingredients": [
+      "garlic",
+      "kale",
+      "brown rice",
+      "cheese",
+      "chicken breast",
+      "almonds",
+      "turmeric",
+      "ginger",
+      "tofu",
+      "onion"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.5753064763839557,
+      "sour": 0.06202511615107753,
+      "sweet": 0.7616361738262499,
+      "salty": 0.623827156871833,
+      "umami": 0.5458651122857221
+    },
+    "name": "Italian Chicken Breast with Tofu",
+    "description": "A delicious Italian dish made with chicken breast.",
+    "image_url": "https://example.com/recipe_9.jpg",
+    "cuisine": "Italian",
+    "calories": 777,
+    "macros": {
+      "protein": 35,
+      "fat": 35,
+      "carbohydrates": 80
+    },
+    "flavor_profile": {
+      "bitter": 0.16583401103105933,
+      "sour": 0.8166168266928576,
+      "sweet": 0.6722690900767712,
+      "salty": 0.5331492248691793,
+      "umami": 0.7134405101514122
+    },
+    "tags": [
+      "Italian",
+      "Healthy"
+    ],
+    "readyInMinutes": 17,
+    "servings": 1
+  },
+  {
+    "id": "10",
+    "title": "Mexican Beef Steak with Cheese",
+    "image": "https://example.com/recipe_10.jpg",
+    "cuisines": [
+      "Mexican"
+    ],
+    "diets": [
+      "Gluten-Free",
+      "Vegan"
+    ],
+    "instructions": [
+      "Prepare the beef steak.",
+      "Mix with cheese.",
+      "Cook using Baking method for 26 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 750,
+      "protein": "39g",
+      "fat": "39g",
+      "carbohydrates": "60g",
+      "sugar": "5g",
+      "fiber": "9g",
+      "sodium": "210mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 17,
+      "Vitamin C": 97,
+      "Calcium": 4,
+      "Iron": 45
+    },
+    "ingredients": [
+      "carrot",
+      "soy sauce",
+      "cheese",
+      "beef steak",
+      "spinach"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.9784194259244438,
+      "sour": 0.931980328948571,
+      "sweet": 0.7645293391235988,
+      "salty": 0.8992805881788593,
+      "umami": 0.33087079466843405
+    },
+    "name": "Mexican Beef Steak with Cheese",
+    "description": "A delicious Mexican dish made with beef steak.",
+    "image_url": "https://example.com/recipe_10.jpg",
+    "cuisine": "Mexican",
+    "calories": 750,
+    "macros": {
+      "protein": 39,
+      "fat": 39,
+      "carbohydrates": 60
+    },
+    "flavor_profile": {
+      "bitter": 0.46575289864269753,
+      "sour": 0.43401346043320677,
+      "sweet": 0.44152277043986554,
+      "salty": 0.021024752548207792,
+      "umami": 0.42770121677720285
+    },
+    "tags": [
+      "Mexican",
+      "Healthy"
+    ],
+    "readyInMinutes": 58,
+    "servings": 2
+  },
+  {
+    "id": "11",
+    "title": "American Chicken Breast with Honey",
+    "image": "https://example.com/recipe_11.jpg",
+    "cuisines": [
+      "American"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the chicken breast.",
+      "Mix with honey.",
+      "Cook using Baking method for 10 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 262,
+      "protein": "45g",
+      "fat": "13g",
+      "carbohydrates": "5g",
+      "sugar": "9g",
+      "fiber": "1g",
+      "sodium": "488mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 18,
+      "Vitamin C": 33,
+      "Calcium": 29,
+      "Iron": 13
+    },
+    "ingredients": [
+      "cucumber",
+      "garlic",
+      "chicken breast",
+      "honey",
+      "egg"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.052835573462799434,
+      "sour": 0.5482623726457152,
+      "sweet": 0.3600844953444794,
+      "salty": 0.8199285883176566,
+      "umami": 0.9402089554021646
+    },
+    "name": "American Chicken Breast with Honey",
+    "description": "A delicious American dish made with chicken breast.",
+    "image_url": "https://example.com/recipe_11.jpg",
+    "cuisine": "American",
+    "calories": 262,
+    "macros": {
+      "protein": 45,
+      "fat": 13,
+      "carbohydrates": 5
+    },
+    "flavor_profile": {
+      "bitter": 0.28003292670342184,
+      "sour": 0.7487818398879991,
+      "sweet": 0.6250705198017634,
+      "salty": 0.29740553081711274,
+      "umami": 0.25166381292666795
+    },
+    "tags": [
+      "American",
+      "Healthy"
+    ],
+    "readyInMinutes": 15,
+    "servings": 2
+  },
+  {
+    "id": "12",
+    "title": "Italian Carrot with Yogurt",
+    "image": "https://example.com/recipe_12.jpg",
+    "cuisines": [
+      "Italian"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the carrot.",
+      "Mix with yogurt.",
+      "Cook using Baking method for 11 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 262,
+      "protein": "10g",
+      "fat": "12g",
+      "carbohydrates": "28g",
+      "sugar": "1g",
+      "fiber": "7g",
+      "sodium": "555mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 24,
+      "Vitamin C": 92,
+      "Calcium": 20,
+      "Iron": 48
+    },
+    "ingredients": [
+      "vanilla",
+      "carrot",
+      "black pepper",
+      "olive oil",
+      "chickpeas",
+      "lemon",
+      "turmeric",
+      "yogurt"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.4121383491935411,
+      "sour": 0.8793817256821238,
+      "sweet": 0.17268128125583704,
+      "salty": 0.7782120475995092,
+      "umami": 0.5649472664128576
+    },
+    "name": "Italian Carrot with Yogurt",
+    "description": "A delicious Italian dish made with carrot.",
+    "image_url": "https://example.com/recipe_12.jpg",
+    "cuisine": "Italian",
+    "calories": 262,
+    "macros": {
+      "protein": 10,
+      "fat": 12,
+      "carbohydrates": 28
+    },
+    "flavor_profile": {
+      "bitter": 0.8425638262386567,
+      "sour": 0.5453117384834486,
+      "sweet": 0.6240077026109282,
+      "salty": 0.572228074404914,
+      "umami": 0.9175453518032252
+    },
+    "tags": [
+      "Italian",
+      "Healthy"
+    ],
+    "readyInMinutes": 43,
+    "servings": 3
+  },
+  {
+    "id": "13",
+    "title": "Mexican Walnuts with Broccoli",
+    "image": "https://example.com/recipe_13.jpg",
+    "cuisines": [
+      "Mexican"
+    ],
+    "diets": [
+      "Paleo"
+    ],
+    "instructions": [
+      "Prepare the walnuts.",
+      "Mix with broccoli.",
+      "Cook using Grilling method for 30 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 442,
+      "protein": "11g",
+      "fat": "6g",
+      "carbohydrates": "86g",
+      "sugar": "15g",
+      "fiber": "6g",
+      "sodium": "466mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 30,
+      "Vitamin C": 31,
+      "Calcium": 15,
+      "Iron": 27
+    },
+    "ingredients": [
+      "broccoli",
+      "kale",
+      "salmon fillet",
+      "milk",
+      "quinoa",
+      "honey",
+      "walnuts"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.7744355939495697,
+      "sour": 0.9260042832227494,
+      "sweet": 0.7244785763947796,
+      "salty": 0.5251875458767279,
+      "umami": 0.09417609082271172
+    },
+    "name": "Mexican Walnuts with Broccoli",
+    "description": "A delicious Mexican dish made with walnuts.",
+    "image_url": "https://example.com/recipe_13.jpg",
+    "cuisine": "Mexican",
+    "calories": 442,
+    "macros": {
+      "protein": 11,
+      "fat": 6,
+      "carbohydrates": 86
+    },
+    "flavor_profile": {
+      "bitter": 0.4818475607938135,
+      "sour": 0.4655434161438393,
+      "sweet": 0.538247302925174,
+      "salty": 0.659572130119657,
+      "umami": 0.812456311723783
+    },
+    "tags": [
+      "Mexican",
+      "Healthy"
+    ],
+    "readyInMinutes": 35,
+    "servings": 4
+  },
+  {
+    "id": "14",
+    "title": "Mexican Cucumber with Brown Rice",
+    "image": "https://example.com/recipe_14.jpg",
+    "cuisines": [
+      "Mexican"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the cucumber.",
+      "Mix with brown rice.",
+      "Cook using Saut\u00e9ing method for 16 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 262,
+      "protein": "14g",
+      "fat": "14g",
+      "carbohydrates": "20g",
+      "sugar": "8g",
+      "fiber": "9g",
+      "sodium": "711mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 76,
+      "Vitamin C": 30,
+      "Calcium": 34,
+      "Iron": 12
+    },
+    "ingredients": [
+      "cucumber",
+      "broccoli",
+      "basil",
+      "brown rice",
+      "olive oil",
+      "almonds",
+      "walnuts"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.41657846938284915,
+      "sour": 0.7353560324817526,
+      "sweet": 0.24354157947787058,
+      "salty": 0.30108369112191924,
+      "umami": 0.029988586835478115
+    },
+    "name": "Mexican Cucumber with Brown Rice",
+    "description": "A delicious Mexican dish made with cucumber.",
+    "image_url": "https://example.com/recipe_14.jpg",
+    "cuisine": "Mexican",
+    "calories": 262,
+    "macros": {
+      "protein": 14,
+      "fat": 14,
+      "carbohydrates": 20
+    },
+    "flavor_profile": {
+      "bitter": 0.3561814135332574,
+      "sour": 0.45923477448057926,
+      "sweet": 0.8448073503458771,
+      "salty": 0.3521891359309549,
+      "umami": 0.12340451570986266
+    },
+    "tags": [
+      "Mexican",
+      "Healthy"
+    ],
+    "readyInMinutes": 36,
+    "servings": 4
+  },
+  {
+    "id": "15",
+    "title": "Mediterranean Milk with Broccoli",
+    "image": "https://example.com/recipe_15.jpg",
+    "cuisines": [
+      "Mediterranean"
+    ],
+    "diets": [
+      "Gluten-Free"
+    ],
+    "instructions": [
+      "Prepare the milk.",
+      "Mix with broccoli.",
+      "Cook using Saut\u00e9ing method for 21 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 782,
+      "protein": "21g",
+      "fat": "35g",
+      "carbohydrates": "95g",
+      "sugar": "15g",
+      "fiber": "3g",
+      "sodium": "330mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 35,
+      "Vitamin C": 95,
+      "Calcium": 7,
+      "Iron": 23
+    },
+    "ingredients": [
+      "kale",
+      "garlic",
+      "broccoli",
+      "milk"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.7910795732824571,
+      "sour": 0.12479473031608579,
+      "sweet": 0.3986873661115039,
+      "salty": 0.686943412008503,
+      "umami": 0.31620227784111565
+    },
+    "name": "Mediterranean Milk with Broccoli",
+    "description": "A delicious Mediterranean dish made with milk.",
+    "image_url": "https://example.com/recipe_15.jpg",
+    "cuisine": "Mediterranean",
+    "calories": 782,
+    "macros": {
+      "protein": 21,
+      "fat": 35,
+      "carbohydrates": 95
+    },
+    "flavor_profile": {
+      "bitter": 0.7247715125742739,
+      "sour": 0.1771866482924085,
+      "sweet": 0.05470080808515443,
+      "salty": 0.3543022023673307,
+      "umami": 0.5483061882333161
+    },
+    "tags": [
+      "Mediterranean",
+      "Healthy"
+    ],
+    "readyInMinutes": 26,
+    "servings": 1
+  },
+  {
+    "id": "16",
+    "title": "Indian Avocado with Olive Oil",
+    "image": "https://example.com/recipe_16.jpg",
+    "cuisines": [
+      "Indian"
+    ],
+    "diets": [
+      "Vegetarian"
+    ],
+    "instructions": [
+      "Prepare the avocado.",
+      "Mix with olive oil.",
+      "Cook using Roasting method for 15 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 696,
+      "protein": "26g",
+      "fat": "12g",
+      "carbohydrates": "121g",
+      "sugar": "11g",
+      "fiber": "5g",
+      "sodium": "578mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 23,
+      "Vitamin C": 27,
+      "Calcium": 23,
+      "Iron": 21
+    },
+    "ingredients": [
+      "tomato",
+      "cinnamon",
+      "black pepper",
+      "bell pepper",
+      "olive oil",
+      "chickpeas",
+      "almonds",
+      "onion",
+      "avocado"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.15094132648614045,
+      "sour": 0.7788540924815692,
+      "sweet": 0.9086093115651412,
+      "salty": 0.22928920759699334,
+      "umami": 0.585553968537041
+    },
+    "name": "Indian Avocado with Olive Oil",
+    "description": "A delicious Indian dish made with avocado.",
+    "image_url": "https://example.com/recipe_16.jpg",
+    "cuisine": "Indian",
+    "calories": 696,
+    "macros": {
+      "protein": 26,
+      "fat": 12,
+      "carbohydrates": 121
+    },
+    "flavor_profile": {
+      "bitter": 0.7041587778968763,
+      "sour": 0.7701753959247454,
+      "sweet": 0.6747160271522269,
+      "salty": 0.6316391747775303,
+      "umami": 0.005174903800099995
+    },
+    "tags": [
+      "Indian",
+      "Healthy"
+    ],
+    "readyInMinutes": 57,
+    "servings": 1
+  },
+  {
+    "id": "17",
+    "title": "Mexican Cumin with Beef Steak",
+    "image": "https://example.com/recipe_17.jpg",
+    "cuisines": [
+      "Mexican"
+    ],
+    "diets": [
+      "Keto"
+    ],
+    "instructions": [
+      "Prepare the cumin.",
+      "Mix with beef steak.",
+      "Cook using Boiling method for 13 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 258,
+      "protein": "45g",
+      "fat": "7g",
+      "carbohydrates": "5g",
+      "sugar": "8g",
+      "fiber": "4g",
+      "sodium": "651mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 93,
+      "Vitamin C": 19,
+      "Calcium": 6,
+      "Iron": 49
+    },
+    "ingredients": [
+      "garlic",
+      "black pepper",
+      "cumin",
+      "milk",
+      "olive oil",
+      "cheese",
+      "beef steak",
+      "onion"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.3657306590256949,
+      "sour": 0.8253059588199536,
+      "sweet": 0.699171070153886,
+      "salty": 0.6217600646711677,
+      "umami": 0.9451720956301984
+    },
+    "name": "Mexican Cumin with Beef Steak",
+    "description": "A delicious Mexican dish made with cumin.",
+    "image_url": "https://example.com/recipe_17.jpg",
+    "cuisine": "Mexican",
+    "calories": 258,
+    "macros": {
+      "protein": 45,
+      "fat": 7,
+      "carbohydrates": 5
+    },
+    "flavor_profile": {
+      "bitter": 0.19943805630937572,
+      "sour": 0.701065263368584,
+      "sweet": 0.30200764321925844,
+      "salty": 0.9660088514679042,
+      "umami": 0.9048480182091706
+    },
+    "tags": [
+      "Mexican",
+      "Healthy"
+    ],
+    "readyInMinutes": 36,
+    "servings": 1
+  },
+  {
+    "id": "18",
+    "title": "Italian Tomato with Turmeric",
+    "image": "https://example.com/recipe_18.jpg",
+    "cuisines": [
+      "Italian"
+    ],
+    "diets": [
+      "Vegetarian",
+      "Keto"
+    ],
+    "instructions": [
+      "Prepare the tomato.",
+      "Mix with turmeric.",
+      "Cook using Boiling method for 13 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 310,
+      "protein": "19g",
+      "fat": "20g",
+      "carbohydrates": "13g",
+      "sugar": "3g",
+      "fiber": "7g",
+      "sodium": "650mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 91,
+      "Vitamin C": 36,
+      "Calcium": 47,
+      "Iron": 18
+    },
+    "ingredients": [
+      "tomato",
+      "sweet potato",
+      "kale",
+      "milk",
+      "brown rice",
+      "spinach",
+      "ginger",
+      "turmeric",
+      "avocado"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.7515613812355616,
+      "sour": 0.7510479729774873,
+      "sweet": 0.11061304264834615,
+      "salty": 0.14262267084011127,
+      "umami": 0.8220582297954898
+    },
+    "name": "Italian Tomato with Turmeric",
+    "description": "A delicious Italian dish made with tomato.",
+    "image_url": "https://example.com/recipe_18.jpg",
+    "cuisine": "Italian",
+    "calories": 310,
+    "macros": {
+      "protein": 19,
+      "fat": 20,
+      "carbohydrates": 13
+    },
+    "flavor_profile": {
+      "bitter": 0.514220375478804,
+      "sour": 0.8857917050668851,
+      "sweet": 0.7152557431862211,
+      "salty": 0.09790056029393257,
+      "umami": 0.8697984385808027
+    },
+    "tags": [
+      "Italian",
+      "Healthy"
+    ],
+    "readyInMinutes": 53,
+    "servings": 2
+  },
+  {
+    "id": "19",
+    "title": "Mediterranean Egg with Cheese",
+    "image": "https://example.com/recipe_19.jpg",
+    "cuisines": [
+      "Mediterranean"
+    ],
+    "diets": [
+      "Keto",
+      "Vegan"
+    ],
+    "instructions": [
+      "Prepare the egg.",
+      "Mix with cheese.",
+      "Cook using Boiling method for 25 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 657,
+      "protein": "26g",
+      "fat": "13g",
+      "carbohydrates": "109g",
+      "sugar": "5g",
+      "fiber": "3g",
+      "sodium": "439mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 28,
+      "Vitamin C": 77,
+      "Calcium": 31,
+      "Iron": 10
+    },
+    "ingredients": [
+      "tomato",
+      "kale",
+      "cheese",
+      "chickpeas",
+      "egg"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.8403228149016728,
+      "sour": 0.4118207443034472,
+      "sweet": 0.335457453922263,
+      "salty": 0.7943450384257635,
+      "umami": 0.39338636513988057
+    },
+    "name": "Mediterranean Egg with Cheese",
+    "description": "A delicious Mediterranean dish made with egg.",
+    "image_url": "https://example.com/recipe_19.jpg",
+    "cuisine": "Mediterranean",
+    "calories": 657,
+    "macros": {
+      "protein": 26,
+      "fat": 13,
+      "carbohydrates": 109
+    },
+    "flavor_profile": {
+      "bitter": 0.9743528173414808,
+      "sour": 0.6746095040529271,
+      "sweet": 0.3240473414533437,
+      "salty": 0.5956578922283111,
+      "umami": 0.41991505649150096
+    },
+    "tags": [
+      "Mediterranean",
+      "Healthy"
+    ],
+    "readyInMinutes": 45,
+    "servings": 3
+  },
+  {
+    "id": "20",
+    "title": "Mediterranean Soy Sauce with Carrot",
+    "image": "https://example.com/recipe_20.jpg",
+    "cuisines": [
+      "Mediterranean"
+    ],
+    "diets": [
+      "Vegan"
+    ],
+    "instructions": [
+      "Prepare the soy sauce.",
+      "Mix with carrot.",
+      "Cook using Saut\u00e9ing method for 24 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 252,
+      "protein": "21g",
+      "fat": "11g",
+      "carbohydrates": "17g",
+      "sugar": "6g",
+      "fiber": "9g",
+      "sodium": "618mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 55,
+      "Vitamin C": 74,
+      "Calcium": 20,
+      "Iron": 46
+    },
+    "ingredients": [
+      "garlic",
+      "cinnamon",
+      "carrot",
+      "lemon",
+      "soy sauce",
+      "beef steak",
+      "honey",
+      "ginger"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.675250477889231,
+      "sour": 0.6130108470425631,
+      "sweet": 0.7375349458143671,
+      "salty": 0.815542863663768,
+      "umami": 0.3786688378265032
+    },
+    "name": "Mediterranean Soy Sauce with Carrot",
+    "description": "A delicious Mediterranean dish made with soy sauce.",
+    "image_url": "https://example.com/recipe_20.jpg",
+    "cuisine": "Mediterranean",
+    "calories": 252,
+    "macros": {
+      "protein": 21,
+      "fat": 11,
+      "carbohydrates": 17
+    },
+    "flavor_profile": {
+      "bitter": 0.25905782332738936,
+      "sour": 0.9337515408836841,
+      "sweet": 0.2823087869535589,
+      "salty": 0.43975018412634215,
+      "umami": 0.780869426555099
+    },
+    "tags": [
+      "Mediterranean",
+      "Healthy"
+    ],
+    "readyInMinutes": 35,
+    "servings": 3
+  },
+  {
+    "id": "21",
+    "title": "Mediterranean Almonds with Salmon Fillet",
+    "image": "https://example.com/recipe_21.jpg",
+    "cuisines": [
+      "Mediterranean"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the almonds.",
+      "Mix with salmon fillet.",
+      "Cook using Baking method for 28 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 750,
+      "protein": "25g",
+      "fat": "27g",
+      "carbohydrates": "101g",
+      "sugar": "4g",
+      "fiber": "8g",
+      "sodium": "447mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 35,
+      "Vitamin C": 65,
+      "Calcium": 32,
+      "Iron": 40
+    },
+    "ingredients": [
+      "garlic",
+      "salmon fillet",
+      "bell pepper",
+      "olive oil",
+      "cheese",
+      "chickpeas",
+      "lemon",
+      "almonds",
+      "yogurt"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.16502121367828193,
+      "sour": 0.1521209862147439,
+      "sweet": 0.2871418095880707,
+      "salty": 0.7015407934709915,
+      "umami": 0.024603731474194035
+    },
+    "name": "Mediterranean Almonds with Salmon Fillet",
+    "description": "A delicious Mediterranean dish made with almonds.",
+    "image_url": "https://example.com/recipe_21.jpg",
+    "cuisine": "Mediterranean",
+    "calories": 750,
+    "macros": {
+      "protein": 25,
+      "fat": 27,
+      "carbohydrates": 101
+    },
+    "flavor_profile": {
+      "bitter": 0.36802422475721885,
+      "sour": 0.5152728259820331,
+      "sweet": 0.6182307320655374,
+      "salty": 0.24460061571663316,
+      "umami": 0.6416211305607941
+    },
+    "tags": [
+      "Mediterranean",
+      "Healthy"
+    ],
+    "readyInMinutes": 28,
+    "servings": 2
+  },
+  {
+    "id": "22",
+    "title": "Indian Carrot with Black Pepper",
+    "image": "https://example.com/recipe_22.jpg",
+    "cuisines": [
+      "Indian"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the carrot.",
+      "Mix with black pepper.",
+      "Cook using Boiling method for 16 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 708,
+      "protein": "12g",
+      "fat": "38g",
+      "carbohydrates": "79g",
+      "sugar": "12g",
+      "fiber": "3g",
+      "sodium": "524mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 68,
+      "Vitamin C": 35,
+      "Calcium": 12,
+      "Iron": 9
+    },
+    "ingredients": [
+      "cucumber",
+      "carrot",
+      "black pepper",
+      "cumin",
+      "brown rice",
+      "milk",
+      "honey",
+      "turmeric",
+      "tofu"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.5033036923723907,
+      "sour": 0.746588582708968,
+      "sweet": 0.8886382852725015,
+      "salty": 0.5356198998874454,
+      "umami": 0.019603404711399208
+    },
+    "name": "Indian Carrot with Black Pepper",
+    "description": "A delicious Indian dish made with carrot.",
+    "image_url": "https://example.com/recipe_22.jpg",
+    "cuisine": "Indian",
+    "calories": 708,
+    "macros": {
+      "protein": 12,
+      "fat": 38,
+      "carbohydrates": 79
+    },
+    "flavor_profile": {
+      "bitter": 0.917900787003364,
+      "sour": 0.20540761506082406,
+      "sweet": 0.4579688120777319,
+      "salty": 0.9104236220130856,
+      "umami": 0.5576225515225421
+    },
+    "tags": [
+      "Indian",
+      "Healthy"
+    ],
+    "readyInMinutes": 33,
+    "servings": 4
+  },
+  {
+    "id": "23",
+    "title": "Italian Bell Pepper with Vanilla",
+    "image": "https://example.com/recipe_23.jpg",
+    "cuisines": [
+      "Italian"
+    ],
+    "diets": [
+      "Vegan",
+      "Vegetarian"
+    ],
+    "instructions": [
+      "Prepare the bell pepper.",
+      "Mix with vanilla.",
+      "Cook using Baking method for 13 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 567,
+      "protein": "17g",
+      "fat": "22g",
+      "carbohydrates": "75g",
+      "sugar": "3g",
+      "fiber": "1g",
+      "sodium": "187mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 28,
+      "Vitamin C": 33,
+      "Calcium": 20,
+      "Iron": 8
+    },
+    "ingredients": [
+      "vanilla",
+      "broccoli",
+      "kale",
+      "soy sauce",
+      "bell pepper",
+      "brown rice"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.5522652684859306,
+      "sour": 0.7807874771148821,
+      "sweet": 0.0741328307981084,
+      "salty": 0.31431147400100345,
+      "umami": 0.06884673456746371
+    },
+    "name": "Italian Bell Pepper with Vanilla",
+    "description": "A delicious Italian dish made with bell pepper.",
+    "image_url": "https://example.com/recipe_23.jpg",
+    "cuisine": "Italian",
+    "calories": 567,
+    "macros": {
+      "protein": 17,
+      "fat": 22,
+      "carbohydrates": 75
+    },
+    "flavor_profile": {
+      "bitter": 0.35445082651118975,
+      "sour": 0.2615082667142091,
+      "sweet": 0.7814701405166329,
+      "salty": 0.3025655465600833,
+      "umami": 0.6146709638445139
+    },
+    "tags": [
+      "Italian",
+      "Healthy"
+    ],
+    "readyInMinutes": 60,
+    "servings": 4
+  },
+  {
+    "id": "24",
+    "title": "Mediterranean Yogurt with Bell Pepper",
+    "image": "https://example.com/recipe_24.jpg",
+    "cuisines": [
+      "Mediterranean"
+    ],
+    "diets": [
+      "Keto",
+      "Gluten-Free"
+    ],
+    "instructions": [
+      "Prepare the yogurt.",
+      "Mix with bell pepper.",
+      "Cook using Roasting method for 17 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 674,
+      "protein": "18g",
+      "fat": "28g",
+      "carbohydrates": "87g",
+      "sugar": "5g",
+      "fiber": "4g",
+      "sodium": "604mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 85,
+      "Vitamin C": 6,
+      "Calcium": 17,
+      "Iron": 23
+    },
+    "ingredients": [
+      "cucumber",
+      "sweet potato",
+      "bell pepper",
+      "brown rice",
+      "ginger",
+      "yogurt"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.06421038559720327,
+      "sour": 0.9974355235382371,
+      "sweet": 0.7752083547181261,
+      "salty": 0.25063103688397836,
+      "umami": 0.5102893873083877
+    },
+    "name": "Mediterranean Yogurt with Bell Pepper",
+    "description": "A delicious Mediterranean dish made with yogurt.",
+    "image_url": "https://example.com/recipe_24.jpg",
+    "cuisine": "Mediterranean",
+    "calories": 674,
+    "macros": {
+      "protein": 18,
+      "fat": 28,
+      "carbohydrates": 87
+    },
+    "flavor_profile": {
+      "bitter": 0.9784177039463341,
+      "sour": 0.623854856539152,
+      "sweet": 0.28357169061487786,
+      "salty": 0.07947534554541624,
+      "umami": 0.4471586868162699
+    },
+    "tags": [
+      "Mediterranean",
+      "Healthy"
+    ],
+    "readyInMinutes": 47,
+    "servings": 4
+  },
+  {
+    "id": "25",
+    "title": "Indian Cumin with Sweet Potato",
+    "image": "https://example.com/recipe_25.jpg",
+    "cuisines": [
+      "Indian"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the cumin.",
+      "Mix with sweet potato.",
+      "Cook using Baking method for 10 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 551,
+      "protein": "10g",
+      "fat": "27g",
+      "carbohydrates": "67g",
+      "sugar": "5g",
+      "fiber": "9g",
+      "sodium": "728mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 82,
+      "Vitamin C": 65,
+      "Calcium": 0,
+      "Iron": 13
+    },
+    "ingredients": [
+      "sweet potato",
+      "broccoli",
+      "cumin",
+      "bell pepper",
+      "milk",
+      "beef steak",
+      "tofu"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.3597567118813575,
+      "sour": 0.7274497769051061,
+      "sweet": 0.6186667030755301,
+      "salty": 0.6278211048611432,
+      "umami": 0.24121856186356183
+    },
+    "name": "Indian Cumin with Sweet Potato",
+    "description": "A delicious Indian dish made with cumin.",
+    "image_url": "https://example.com/recipe_25.jpg",
+    "cuisine": "Indian",
+    "calories": 551,
+    "macros": {
+      "protein": 10,
+      "fat": 27,
+      "carbohydrates": 67
+    },
+    "flavor_profile": {
+      "bitter": 0.6592178810028839,
+      "sour": 0.25109908942397063,
+      "sweet": 0.12050885392580035,
+      "salty": 0.9813289742849411,
+      "umami": 0.3866914215492301
+    },
+    "tags": [
+      "Indian",
+      "Healthy"
+    ],
+    "readyInMinutes": 39,
+    "servings": 3
+  },
+  {
+    "id": "26",
+    "title": "Asian Vanilla with Tomato",
+    "image": "https://example.com/recipe_26.jpg",
+    "cuisines": [
+      "Asian"
+    ],
+    "diets": [
+      "Vegan"
+    ],
+    "instructions": [
+      "Prepare the vanilla.",
+      "Mix with tomato.",
+      "Cook using Baking method for 18 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 404,
+      "protein": "11g",
+      "fat": "31g",
+      "carbohydrates": "20g",
+      "sugar": "5g",
+      "fiber": "4g",
+      "sodium": "379mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 82,
+      "Vitamin C": 12,
+      "Calcium": 24,
+      "Iron": 5
+    },
+    "ingredients": [
+      "vanilla",
+      "tomato",
+      "salmon fillet",
+      "olive oil",
+      "cheese",
+      "egg",
+      "tofu"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.4098795909906957,
+      "sour": 0.8597242198953513,
+      "sweet": 0.3992922957720101,
+      "salty": 0.6931529540793848,
+      "umami": 0.967099747716016
+    },
+    "name": "Asian Vanilla with Tomato",
+    "description": "A delicious Asian dish made with vanilla.",
+    "image_url": "https://example.com/recipe_26.jpg",
+    "cuisine": "Asian",
+    "calories": 404,
+    "macros": {
+      "protein": 11,
+      "fat": 31,
+      "carbohydrates": 20
+    },
+    "flavor_profile": {
+      "bitter": 0.16601664059278876,
+      "sour": 0.7017310849884415,
+      "sweet": 0.37717771415107093,
+      "salty": 0.7428473263554533,
+      "umami": 0.6539614757670306
+    },
+    "tags": [
+      "Asian",
+      "Healthy"
+    ],
+    "readyInMinutes": 31,
+    "servings": 4
+  },
+  {
+    "id": "27",
+    "title": "Asian Cheese with Tofu",
+    "image": "https://example.com/recipe_27.jpg",
+    "cuisines": [
+      "Asian"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the cheese.",
+      "Mix with tofu.",
+      "Cook using Roasting method for 12 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 743,
+      "protein": "26g",
+      "fat": "8g",
+      "carbohydrates": "141g",
+      "sugar": "5g",
+      "fiber": "1g",
+      "sodium": "151mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 14,
+      "Vitamin C": 91,
+      "Calcium": 46,
+      "Iron": 9
+    },
+    "ingredients": [
+      "cucumber",
+      "milk",
+      "cheese",
+      "quinoa",
+      "tofu",
+      "onion"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.8463616586800061,
+      "sour": 0.5298424328683821,
+      "sweet": 0.8511378394273786,
+      "salty": 0.5861961924142288,
+      "umami": 0.10025173114857122
+    },
+    "name": "Asian Cheese with Tofu",
+    "description": "A delicious Asian dish made with cheese.",
+    "image_url": "https://example.com/recipe_27.jpg",
+    "cuisine": "Asian",
+    "calories": 743,
+    "macros": {
+      "protein": 26,
+      "fat": 8,
+      "carbohydrates": 141
+    },
+    "flavor_profile": {
+      "bitter": 0.025918989789892266,
+      "sour": 0.9116024255575893,
+      "sweet": 0.7427024774731711,
+      "salty": 0.8253855693458774,
+      "umami": 0.010085147696189956
+    },
+    "tags": [
+      "Asian",
+      "Healthy"
+    ],
+    "readyInMinutes": 23,
+    "servings": 3
+  },
+  {
+    "id": "28",
+    "title": "Mediterranean Quinoa with Tofu",
+    "image": "https://example.com/recipe_28.jpg",
+    "cuisines": [
+      "Mediterranean"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the quinoa.",
+      "Mix with tofu.",
+      "Cook using Saut\u00e9ing method for 27 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 719,
+      "protein": "11g",
+      "fat": "26g",
+      "carbohydrates": "110g",
+      "sugar": "9g",
+      "fiber": "6g",
+      "sodium": "563mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 58,
+      "Vitamin C": 30,
+      "Calcium": 50,
+      "Iron": 38
+    },
+    "ingredients": [
+      "garlic",
+      "black pepper",
+      "milk",
+      "olive oil",
+      "cheese",
+      "quinoa",
+      "honey",
+      "egg",
+      "spinach",
+      "tofu"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.5398546460362978,
+      "sour": 0.25391447534276057,
+      "sweet": 0.4184012044752822,
+      "salty": 0.4568531096769084,
+      "umami": 0.07741150666930274
+    },
+    "name": "Mediterranean Quinoa with Tofu",
+    "description": "A delicious Mediterranean dish made with quinoa.",
+    "image_url": "https://example.com/recipe_28.jpg",
+    "cuisine": "Mediterranean",
+    "calories": 719,
+    "macros": {
+      "protein": 11,
+      "fat": 26,
+      "carbohydrates": 110
+    },
+    "flavor_profile": {
+      "bitter": 0.1771535495954224,
+      "sour": 0.8458407967189773,
+      "sweet": 0.867005440592653,
+      "salty": 0.9700731025940579,
+      "umami": 0.4727154470409658
+    },
+    "tags": [
+      "Mediterranean",
+      "Healthy"
+    ],
+    "readyInMinutes": 29,
+    "servings": 4
+  },
+  {
+    "id": "29",
+    "title": "Italian Quinoa with Olive Oil",
+    "image": "https://example.com/recipe_29.jpg",
+    "cuisines": [
+      "Italian"
+    ],
+    "diets": [
+      "Vegetarian",
+      "Paleo"
+    ],
+    "instructions": [
+      "Prepare the quinoa.",
+      "Mix with olive oil.",
+      "Cook using Roasting method for 20 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 399,
+      "protein": "21g",
+      "fat": "21g",
+      "carbohydrates": "31g",
+      "sugar": "2g",
+      "fiber": "7g",
+      "sodium": "737mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 81,
+      "Vitamin C": 46,
+      "Calcium": 28,
+      "Iron": 28
+    },
+    "ingredients": [
+      "tomato",
+      "garlic",
+      "carrot",
+      "soy sauce",
+      "salmon fillet",
+      "milk",
+      "olive oil",
+      "quinoa",
+      "spinach",
+      "walnuts"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.308019575535725,
+      "sour": 0.3918130563380806,
+      "sweet": 0.5913345677785738,
+      "salty": 0.4014410502667931,
+      "umami": 0.9287473142667176
+    },
+    "name": "Italian Quinoa with Olive Oil",
+    "description": "A delicious Italian dish made with quinoa.",
+    "image_url": "https://example.com/recipe_29.jpg",
+    "cuisine": "Italian",
+    "calories": 399,
+    "macros": {
+      "protein": 21,
+      "fat": 21,
+      "carbohydrates": 31
+    },
+    "flavor_profile": {
+      "bitter": 0.7008575863103309,
+      "sour": 0.774289011048336,
+      "sweet": 0.5871164475927888,
+      "salty": 0.9744173566713272,
+      "umami": 0.929693046446626
+    },
+    "tags": [
+      "Italian",
+      "Healthy"
+    ],
+    "readyInMinutes": 58,
+    "servings": 3
+  },
+  {
+    "id": "30",
+    "title": "Mediterranean Salmon Fillet with Walnuts",
+    "image": "https://example.com/recipe_30.jpg",
+    "cuisines": [
+      "Mediterranean"
+    ],
+    "diets": [
+      "Gluten-Free"
+    ],
+    "instructions": [
+      "Prepare the salmon fillet.",
+      "Mix with walnuts.",
+      "Cook using Boiling method for 26 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 482,
+      "protein": "10g",
+      "fat": "13g",
+      "carbohydrates": "81g",
+      "sugar": "1g",
+      "fiber": "8g",
+      "sodium": "361mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 66,
+      "Vitamin C": 18,
+      "Calcium": 33,
+      "Iron": 38
+    },
+    "ingredients": [
+      "cucumber",
+      "sweet potato",
+      "soy sauce",
+      "salmon fillet",
+      "lemon",
+      "spinach",
+      "walnuts",
+      "onion"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.08660114274186514,
+      "sour": 0.15304268748291938,
+      "sweet": 0.8561255400232226,
+      "salty": 0.8298517761468462,
+      "umami": 0.7119997711988157
+    },
+    "name": "Mediterranean Salmon Fillet with Walnuts",
+    "description": "A delicious Mediterranean dish made with salmon fillet.",
+    "image_url": "https://example.com/recipe_30.jpg",
+    "cuisine": "Mediterranean",
+    "calories": 482,
+    "macros": {
+      "protein": 10,
+      "fat": 13,
+      "carbohydrates": 81
+    },
+    "flavor_profile": {
+      "bitter": 0.7216456867965713,
+      "sour": 0.9811614442116313,
+      "sweet": 0.05177910508998462,
+      "salty": 0.11360510432985738,
+      "umami": 0.0781619635247015
+    },
+    "tags": [
+      "Mediterranean",
+      "Healthy"
+    ],
+    "readyInMinutes": 29,
+    "servings": 4
+  },
+  {
+    "id": "31",
+    "title": "Mediterranean Soy Sauce with Beef Steak",
+    "image": "https://example.com/recipe_31.jpg",
+    "cuisines": [
+      "Mediterranean"
+    ],
+    "diets": [
+      "Paleo",
+      "Gluten-Free"
+    ],
+    "instructions": [
+      "Prepare the soy sauce.",
+      "Mix with beef steak.",
+      "Cook using Grilling method for 21 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 428,
+      "protein": "38g",
+      "fat": "34g",
+      "carbohydrates": "5g",
+      "sugar": "11g",
+      "fiber": "3g",
+      "sodium": "492mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 10,
+      "Vitamin C": 4,
+      "Calcium": 20,
+      "Iron": 48
+    },
+    "ingredients": [
+      "soy sauce",
+      "chicken breast",
+      "beef steak",
+      "quinoa",
+      "egg",
+      "tofu",
+      "avocado"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.6310221519294749,
+      "sour": 0.34196863609777606,
+      "sweet": 0.1922697739203051,
+      "salty": 0.030608635035797693,
+      "umami": 0.5275846144184128
+    },
+    "name": "Mediterranean Soy Sauce with Beef Steak",
+    "description": "A delicious Mediterranean dish made with soy sauce.",
+    "image_url": "https://example.com/recipe_31.jpg",
+    "cuisine": "Mediterranean",
+    "calories": 428,
+    "macros": {
+      "protein": 38,
+      "fat": 34,
+      "carbohydrates": 5
+    },
+    "flavor_profile": {
+      "bitter": 0.498619234761586,
+      "sour": 0.19083008904286447,
+      "sweet": 0.11566006863450129,
+      "salty": 0.2097107680193666,
+      "umami": 0.00440865092954601
+    },
+    "tags": [
+      "Mediterranean",
+      "Healthy"
+    ],
+    "readyInMinutes": 32,
+    "servings": 3
+  },
+  {
+    "id": "32",
+    "title": "American Garlic with Cheese",
+    "image": "https://example.com/recipe_32.jpg",
+    "cuisines": [
+      "American"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the garlic.",
+      "Mix with cheese.",
+      "Cook using Roasting method for 14 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 622,
+      "protein": "25g",
+      "fat": "22g",
+      "carbohydrates": "81g",
+      "sugar": "3g",
+      "fiber": "1g",
+      "sodium": "749mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 12,
+      "Vitamin C": 92,
+      "Calcium": 3,
+      "Iron": 49
+    },
+    "ingredients": [
+      "cucumber",
+      "garlic",
+      "brown rice",
+      "cheese",
+      "lemon"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.4719967827892445,
+      "sour": 0.5552814436700542,
+      "sweet": 0.6711981946442702,
+      "salty": 0.3626475775680523,
+      "umami": 0.9986123350473911
+    },
+    "name": "American Garlic with Cheese",
+    "description": "A delicious American dish made with garlic.",
+    "image_url": "https://example.com/recipe_32.jpg",
+    "cuisine": "American",
+    "calories": 622,
+    "macros": {
+      "protein": 25,
+      "fat": 22,
+      "carbohydrates": 81
+    },
+    "flavor_profile": {
+      "bitter": 0.9440472045643894,
+      "sour": 0.029095784865593166,
+      "sweet": 0.23724569839947873,
+      "salty": 0.8985186990966155,
+      "umami": 0.7763618622609237
+    },
+    "tags": [
+      "American",
+      "Healthy"
+    ],
+    "readyInMinutes": 58,
+    "servings": 1
+  },
+  {
+    "id": "33",
+    "title": "Asian Basil with Broccoli",
+    "image": "https://example.com/recipe_33.jpg",
+    "cuisines": [
+      "Asian"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the basil.",
+      "Mix with broccoli.",
+      "Cook using Boiling method for 29 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 656,
+      "protein": "13g",
+      "fat": "9g",
+      "carbohydrates": "130g",
+      "sugar": "10g",
+      "fiber": "7g",
+      "sodium": "612mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 8,
+      "Vitamin C": 98,
+      "Calcium": 2,
+      "Iron": 24
+    },
+    "ingredients": [
+      "vanilla",
+      "sweet potato",
+      "broccoli",
+      "basil",
+      "bell pepper",
+      "olive oil",
+      "quinoa",
+      "onion"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.5207829681205935,
+      "sour": 0.9811016308139684,
+      "sweet": 0.8796195409761868,
+      "salty": 0.3212410908309148,
+      "umami": 0.6085183088659155
+    },
+    "name": "Asian Basil with Broccoli",
+    "description": "A delicious Asian dish made with basil.",
+    "image_url": "https://example.com/recipe_33.jpg",
+    "cuisine": "Asian",
+    "calories": 656,
+    "macros": {
+      "protein": 13,
+      "fat": 9,
+      "carbohydrates": 130
+    },
+    "flavor_profile": {
+      "bitter": 0.6404506002343681,
+      "sour": 0.7311585561709655,
+      "sweet": 0.7013436028407851,
+      "salty": 0.7716839011487554,
+      "umami": 0.7692020879496738
+    },
+    "tags": [
+      "Asian",
+      "Healthy"
+    ],
+    "readyInMinutes": 40,
+    "servings": 3
+  },
+  {
+    "id": "34",
+    "title": "Italian Chicken Breast with Sweet Potato",
+    "image": "https://example.com/recipe_34.jpg",
+    "cuisines": [
+      "Italian"
+    ],
+    "diets": [
+      "Vegan"
+    ],
+    "instructions": [
+      "Prepare the chicken breast.",
+      "Mix with sweet potato.",
+      "Cook using Saut\u00e9ing method for 17 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 624,
+      "protein": "40g",
+      "fat": "6g",
+      "carbohydrates": "102g",
+      "sugar": "14g",
+      "fiber": "5g",
+      "sodium": "110mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 76,
+      "Vitamin C": 78,
+      "Calcium": 30,
+      "Iron": 27
+    },
+    "ingredients": [
+      "vanilla",
+      "sweet potato",
+      "kale",
+      "basil",
+      "brown rice",
+      "olive oil",
+      "chicken breast",
+      "honey",
+      "egg",
+      "turmeric"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.007505392905939656,
+      "sour": 0.7976687347903499,
+      "sweet": 0.9994215692871619,
+      "salty": 0.9474408957628804,
+      "umami": 0.5898300177728402
+    },
+    "name": "Italian Chicken Breast with Sweet Potato",
+    "description": "A delicious Italian dish made with chicken breast.",
+    "image_url": "https://example.com/recipe_34.jpg",
+    "cuisine": "Italian",
+    "calories": 624,
+    "macros": {
+      "protein": 40,
+      "fat": 6,
+      "carbohydrates": 102
+    },
+    "flavor_profile": {
+      "bitter": 0.43200528654307746,
+      "sour": 0.2906157896366369,
+      "sweet": 0.3737714614848333,
+      "salty": 0.5298744874568858,
+      "umami": 0.812714950934562
+    },
+    "tags": [
+      "Italian",
+      "Healthy"
+    ],
+    "readyInMinutes": 31,
+    "servings": 2
+  },
+  {
+    "id": "35",
+    "title": "Mexican Cucumber with Turmeric",
+    "image": "https://example.com/recipe_35.jpg",
+    "cuisines": [
+      "Mexican"
+    ],
+    "diets": [
+      "Keto",
+      "Vegan"
+    ],
+    "instructions": [
+      "Prepare the cucumber.",
+      "Mix with turmeric.",
+      "Cook using Grilling method for 19 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 334,
+      "protein": "23g",
+      "fat": "11g",
+      "carbohydrates": "35g",
+      "sugar": "6g",
+      "fiber": "2g",
+      "sodium": "181mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 60,
+      "Vitamin C": 18,
+      "Calcium": 12,
+      "Iron": 24
+    },
+    "ingredients": [
+      "vanilla",
+      "cucumber",
+      "cinnamon",
+      "sweet potato",
+      "basil",
+      "chicken breast",
+      "beef steak",
+      "quinoa",
+      "turmeric",
+      "yogurt"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.805348093109943,
+      "sour": 0.321830834018615,
+      "sweet": 0.10853964967564222,
+      "salty": 0.8999568328029505,
+      "umami": 0.16452973237747726
+    },
+    "name": "Mexican Cucumber with Turmeric",
+    "description": "A delicious Mexican dish made with cucumber.",
+    "image_url": "https://example.com/recipe_35.jpg",
+    "cuisine": "Mexican",
+    "calories": 334,
+    "macros": {
+      "protein": 23,
+      "fat": 11,
+      "carbohydrates": 35
+    },
+    "flavor_profile": {
+      "bitter": 0.18003885568403433,
+      "sour": 0.052436982271697796,
+      "sweet": 0.246601561383181,
+      "salty": 0.7699967204949278,
+      "umami": 0.6581147649664381
+    },
+    "tags": [
+      "Mexican",
+      "Healthy"
+    ],
+    "readyInMinutes": 36,
+    "servings": 4
+  },
+  {
+    "id": "36",
+    "title": "Mexican Honey with Cinnamon",
+    "image": "https://example.com/recipe_36.jpg",
+    "cuisines": [
+      "Mexican"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the honey.",
+      "Mix with cinnamon.",
+      "Cook using Grilling method for 21 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 370,
+      "protein": "35g",
+      "fat": "10g",
+      "carbohydrates": "35g",
+      "sugar": "2g",
+      "fiber": "8g",
+      "sodium": "100mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 25,
+      "Vitamin C": 9,
+      "Calcium": 16,
+      "Iron": 18
+    },
+    "ingredients": [
+      "milk",
+      "garlic",
+      "cinnamon",
+      "honey"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.3518914079397868,
+      "sour": 0.4564361420281948,
+      "sweet": 0.051366797239660644,
+      "salty": 0.4842466383871694,
+      "umami": 0.5411526755026366
+    },
+    "name": "Mexican Honey with Cinnamon",
+    "description": "A delicious Mexican dish made with honey.",
+    "image_url": "https://example.com/recipe_36.jpg",
+    "cuisine": "Mexican",
+    "calories": 370,
+    "macros": {
+      "protein": 35,
+      "fat": 10,
+      "carbohydrates": 35
+    },
+    "flavor_profile": {
+      "bitter": 0.6205968446102744,
+      "sour": 0.8087514691024688,
+      "sweet": 0.9730435787353106,
+      "salty": 0.6958486154033225,
+      "umami": 0.8609769867388283
+    },
+    "tags": [
+      "Mexican",
+      "Healthy"
+    ],
+    "readyInMinutes": 51,
+    "servings": 4
+  },
+  {
+    "id": "37",
+    "title": "Asian Tofu with Brown Rice",
+    "image": "https://example.com/recipe_37.jpg",
+    "cuisines": [
+      "Asian"
+    ],
+    "diets": [
+      "Vegan",
+      "Vegetarian"
+    ],
+    "instructions": [
+      "Prepare the tofu.",
+      "Mix with brown rice.",
+      "Cook using Roasting method for 27 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 359,
+      "protein": "25g",
+      "fat": "14g",
+      "carbohydrates": "33g",
+      "sugar": "15g",
+      "fiber": "9g",
+      "sodium": "624mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 37,
+      "Vitamin C": 2,
+      "Calcium": 1,
+      "Iron": 26
+    },
+    "ingredients": [
+      "tofu",
+      "bell pepper",
+      "broccoli",
+      "brown rice"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.6632364510937148,
+      "sour": 0.1598910539648799,
+      "sweet": 0.8482728058694792,
+      "salty": 0.9582339245073285,
+      "umami": 0.5312699300521907
+    },
+    "name": "Asian Tofu with Brown Rice",
+    "description": "A delicious Asian dish made with tofu.",
+    "image_url": "https://example.com/recipe_37.jpg",
+    "cuisine": "Asian",
+    "calories": 359,
+    "macros": {
+      "protein": 25,
+      "fat": 14,
+      "carbohydrates": 33
+    },
+    "flavor_profile": {
+      "bitter": 0.8642976137560767,
+      "sour": 0.15365897792675964,
+      "sweet": 0.9197167628268725,
+      "salty": 0.35773298226690575,
+      "umami": 0.12570380193159714
+    },
+    "tags": [
+      "Asian",
+      "Healthy"
+    ],
+    "readyInMinutes": 18,
+    "servings": 3
+  },
+  {
+    "id": "38",
+    "title": "American Bell Pepper with Kale",
+    "image": "https://example.com/recipe_38.jpg",
+    "cuisines": [
+      "American"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the bell pepper.",
+      "Mix with kale.",
+      "Cook using Boiling method for 17 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 542,
+      "protein": "29g",
+      "fat": "28g",
+      "carbohydrates": "43g",
+      "sugar": "3g",
+      "fiber": "2g",
+      "sodium": "208mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 12,
+      "Vitamin C": 62,
+      "Calcium": 3,
+      "Iron": 32
+    },
+    "ingredients": [
+      "vanilla",
+      "tomato",
+      "kale",
+      "bell pepper",
+      "quinoa",
+      "yogurt"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.27789284482684995,
+      "sour": 0.2013888634454991,
+      "sweet": 0.6933848603131635,
+      "salty": 0.8150292347972797,
+      "umami": 0.4656746413944247
+    },
+    "name": "American Bell Pepper with Kale",
+    "description": "A delicious American dish made with bell pepper.",
+    "image_url": "https://example.com/recipe_38.jpg",
+    "cuisine": "American",
+    "calories": 542,
+    "macros": {
+      "protein": 29,
+      "fat": 28,
+      "carbohydrates": 43
+    },
+    "flavor_profile": {
+      "bitter": 0.43401879578307434,
+      "sour": 0.15578248604691092,
+      "sweet": 0.9612629026034402,
+      "salty": 0.9890839920059376,
+      "umami": 0.624688159446427
+    },
+    "tags": [
+      "American",
+      "Healthy"
+    ],
+    "readyInMinutes": 17,
+    "servings": 1
+  },
+  {
+    "id": "39",
+    "title": "Mediterranean Vanilla with Broccoli",
+    "image": "https://example.com/recipe_39.jpg",
+    "cuisines": [
+      "Mediterranean"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the vanilla.",
+      "Mix with broccoli.",
+      "Cook using Baking method for 21 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 410,
+      "protein": "34g",
+      "fat": "28g",
+      "carbohydrates": "5g",
+      "sugar": "10g",
+      "fiber": "1g",
+      "sodium": "421mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 24,
+      "Vitamin C": 47,
+      "Calcium": 19,
+      "Iron": 43
+    },
+    "ingredients": [
+      "vanilla",
+      "basil",
+      "broccoli",
+      "honey"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.8231435174983248,
+      "sour": 0.03856754923920214,
+      "sweet": 0.8808323657962872,
+      "salty": 0.9953646580308884,
+      "umami": 0.0943524393700278
+    },
+    "name": "Mediterranean Vanilla with Broccoli",
+    "description": "A delicious Mediterranean dish made with vanilla.",
+    "image_url": "https://example.com/recipe_39.jpg",
+    "cuisine": "Mediterranean",
+    "calories": 410,
+    "macros": {
+      "protein": 34,
+      "fat": 28,
+      "carbohydrates": 5
+    },
+    "flavor_profile": {
+      "bitter": 0.30453720319157895,
+      "sour": 0.4478908390057187,
+      "sweet": 0.5478004423317752,
+      "salty": 0.3024795777647422,
+      "umami": 0.9658545863711769
+    },
+    "tags": [
+      "Mediterranean",
+      "Healthy"
+    ],
+    "readyInMinutes": 35,
+    "servings": 2
+  },
+  {
+    "id": "40",
+    "title": "Mediterranean Ginger with Vanilla",
+    "image": "https://example.com/recipe_40.jpg",
+    "cuisines": [
+      "Mediterranean"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the ginger.",
+      "Mix with vanilla.",
+      "Cook using Grilling method for 30 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 565,
+      "protein": "43g",
+      "fat": "35g",
+      "carbohydrates": "19g",
+      "sugar": "10g",
+      "fiber": "3g",
+      "sodium": "243mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 84,
+      "Vitamin C": 86,
+      "Calcium": 39,
+      "Iron": 18
+    },
+    "ingredients": [
+      "vanilla",
+      "garlic",
+      "olive oil",
+      "chickpeas",
+      "honey",
+      "ginger"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.8795193975619972,
+      "sour": 0.201539160928358,
+      "sweet": 0.3801805229807783,
+      "salty": 0.5701981285554092,
+      "umami": 0.11876559949973742
+    },
+    "name": "Mediterranean Ginger with Vanilla",
+    "description": "A delicious Mediterranean dish made with ginger.",
+    "image_url": "https://example.com/recipe_40.jpg",
+    "cuisine": "Mediterranean",
+    "calories": 565,
+    "macros": {
+      "protein": 43,
+      "fat": 35,
+      "carbohydrates": 19
+    },
+    "flavor_profile": {
+      "bitter": 0.04600834671900811,
+      "sour": 0.2133631977920336,
+      "sweet": 0.6547251525611114,
+      "salty": 0.8388340974448979,
+      "umami": 0.33342747851776
+    },
+    "tags": [
+      "Mediterranean",
+      "Healthy"
+    ],
+    "readyInMinutes": 60,
+    "servings": 3
+  },
+  {
+    "id": "41",
+    "title": "American Cumin with Soy Sauce",
+    "image": "https://example.com/recipe_41.jpg",
+    "cuisines": [
+      "American"
+    ],
+    "diets": [
+      "Gluten-Free",
+      "Keto"
+    ],
+    "instructions": [
+      "Prepare the cumin.",
+      "Mix with soy sauce.",
+      "Cook using Grilling method for 28 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 342,
+      "protein": "13g",
+      "fat": "19g",
+      "carbohydrates": "29g",
+      "sugar": "4g",
+      "fiber": "3g",
+      "sodium": "581mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 22,
+      "Vitamin C": 9,
+      "Calcium": 33,
+      "Iron": 10
+    },
+    "ingredients": [
+      "cucumber",
+      "broccoli",
+      "soy sauce",
+      "cumin",
+      "salmon fillet",
+      "olive oil",
+      "chicken breast",
+      "tofu",
+      "walnuts"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.4551835475533095,
+      "sour": 0.9817217269032976,
+      "sweet": 0.7157781570573152,
+      "salty": 0.9986711974679534,
+      "umami": 0.17099100744463913
+    },
+    "name": "American Cumin with Soy Sauce",
+    "description": "A delicious American dish made with cumin.",
+    "image_url": "https://example.com/recipe_41.jpg",
+    "cuisine": "American",
+    "calories": 342,
+    "macros": {
+      "protein": 13,
+      "fat": 19,
+      "carbohydrates": 29
+    },
+    "flavor_profile": {
+      "bitter": 0.11839585064868119,
+      "sour": 0.1819087495693259,
+      "sweet": 0.18611032664056504,
+      "salty": 0.35238325066119647,
+      "umami": 0.3032392894095892
+    },
+    "tags": [
+      "American",
+      "Healthy"
+    ],
+    "readyInMinutes": 60,
+    "servings": 3
+  },
+  {
+    "id": "42",
+    "title": "Indian Spinach with Quinoa",
+    "image": "https://example.com/recipe_42.jpg",
+    "cuisines": [
+      "Indian"
+    ],
+    "diets": [
+      "Keto"
+    ],
+    "instructions": [
+      "Prepare the spinach.",
+      "Mix with quinoa.",
+      "Cook using Roasting method for 26 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 417,
+      "protein": "11g",
+      "fat": "13g",
+      "carbohydrates": "64g",
+      "sugar": "14g",
+      "fiber": "4g",
+      "sodium": "707mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 29,
+      "Vitamin C": 66,
+      "Calcium": 26,
+      "Iron": 3
+    },
+    "ingredients": [
+      "cucumber",
+      "spinach",
+      "soy sauce",
+      "quinoa"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.21239641863227,
+      "sour": 0.13048164427183218,
+      "sweet": 0.7165658611892741,
+      "salty": 0.09763881669686003,
+      "umami": 0.20460877281250656
+    },
+    "name": "Indian Spinach with Quinoa",
+    "description": "A delicious Indian dish made with spinach.",
+    "image_url": "https://example.com/recipe_42.jpg",
+    "cuisine": "Indian",
+    "calories": 417,
+    "macros": {
+      "protein": 11,
+      "fat": 13,
+      "carbohydrates": 64
+    },
+    "flavor_profile": {
+      "bitter": 0.2285094834921444,
+      "sour": 0.5569486017138653,
+      "sweet": 0.23818923959840232,
+      "salty": 0.49038145392709076,
+      "umami": 0.8228371467336013
+    },
+    "tags": [
+      "Indian",
+      "Healthy"
+    ],
+    "readyInMinutes": 34,
+    "servings": 2
+  },
+  {
+    "id": "43",
+    "title": "Asian Quinoa with Bell Pepper",
+    "image": "https://example.com/recipe_43.jpg",
+    "cuisines": [
+      "Asian"
+    ],
+    "diets": [
+      "Keto",
+      "Vegan"
+    ],
+    "instructions": [
+      "Prepare the quinoa.",
+      "Mix with bell pepper.",
+      "Cook using Saut\u00e9ing method for 18 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 316,
+      "protein": "10g",
+      "fat": "27g",
+      "carbohydrates": "8g",
+      "sugar": "14g",
+      "fiber": "6g",
+      "sodium": "637mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 21,
+      "Vitamin C": 67,
+      "Calcium": 48,
+      "Iron": 13
+    },
+    "ingredients": [
+      "tomato",
+      "black pepper",
+      "bell pepper",
+      "cheese",
+      "quinoa",
+      "beef steak",
+      "almonds",
+      "turmeric"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.9685385795640562,
+      "sour": 0.09556847713992589,
+      "sweet": 0.3519979795162611,
+      "salty": 0.28494608250296527,
+      "umami": 0.4741468458197634
+    },
+    "name": "Asian Quinoa with Bell Pepper",
+    "description": "A delicious Asian dish made with quinoa.",
+    "image_url": "https://example.com/recipe_43.jpg",
+    "cuisine": "Asian",
+    "calories": 316,
+    "macros": {
+      "protein": 10,
+      "fat": 27,
+      "carbohydrates": 8
+    },
+    "flavor_profile": {
+      "bitter": 0.2646624624726577,
+      "sour": 0.20226924310121897,
+      "sweet": 0.564876478225959,
+      "salty": 0.8571317451436962,
+      "umami": 0.5932046587377144
+    },
+    "tags": [
+      "Asian",
+      "Healthy"
+    ],
+    "readyInMinutes": 54,
+    "servings": 4
+  },
+  {
+    "id": "44",
+    "title": "Asian Ginger with Cucumber",
+    "image": "https://example.com/recipe_44.jpg",
+    "cuisines": [
+      "Asian"
+    ],
+    "diets": [
+      "Gluten-Free"
+    ],
+    "instructions": [
+      "Prepare the ginger.",
+      "Mix with cucumber.",
+      "Cook using Grilling method for 28 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 748,
+      "protein": "37g",
+      "fat": "36g",
+      "carbohydrates": "69g",
+      "sugar": "7g",
+      "fiber": "5g",
+      "sodium": "694mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 67,
+      "Vitamin C": 67,
+      "Calcium": 21,
+      "Iron": 31
+    },
+    "ingredients": [
+      "vanilla",
+      "cucumber",
+      "tomato",
+      "milk",
+      "cheese",
+      "chickpeas",
+      "egg",
+      "ginger",
+      "tofu"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.011891493851672874,
+      "sour": 0.5672824255416288,
+      "sweet": 0.3850634623279262,
+      "salty": 0.2288941231180761,
+      "umami": 0.1400576604876138
+    },
+    "name": "Asian Ginger with Cucumber",
+    "description": "A delicious Asian dish made with ginger.",
+    "image_url": "https://example.com/recipe_44.jpg",
+    "cuisine": "Asian",
+    "calories": 748,
+    "macros": {
+      "protein": 37,
+      "fat": 36,
+      "carbohydrates": 69
+    },
+    "flavor_profile": {
+      "bitter": 0.362429472771852,
+      "sour": 0.5535407300864176,
+      "sweet": 0.6902551198292437,
+      "salty": 0.9420910075938299,
+      "umami": 0.8684886932932138
+    },
+    "tags": [
+      "Asian",
+      "Healthy"
+    ],
+    "readyInMinutes": 19,
+    "servings": 2
+  },
+  {
+    "id": "45",
+    "title": "Mediterranean Cumin with Quinoa",
+    "image": "https://example.com/recipe_45.jpg",
+    "cuisines": [
+      "Mediterranean"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the cumin.",
+      "Mix with quinoa.",
+      "Cook using Saut\u00e9ing method for 10 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 427,
+      "protein": "18g",
+      "fat": "30g",
+      "carbohydrates": "21g",
+      "sugar": "2g",
+      "fiber": "10g",
+      "sodium": "203mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 34,
+      "Vitamin C": 99,
+      "Calcium": 8,
+      "Iron": 50
+    },
+    "ingredients": [
+      "walnuts",
+      "cumin",
+      "quinoa",
+      "brown rice"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.6796018150582309,
+      "sour": 0.9044709765489267,
+      "sweet": 0.7040824404576763,
+      "salty": 0.09132131113272157,
+      "umami": 0.5473612136683756
+    },
+    "name": "Mediterranean Cumin with Quinoa",
+    "description": "A delicious Mediterranean dish made with cumin.",
+    "image_url": "https://example.com/recipe_45.jpg",
+    "cuisine": "Mediterranean",
+    "calories": 427,
+    "macros": {
+      "protein": 18,
+      "fat": 30,
+      "carbohydrates": 21
+    },
+    "flavor_profile": {
+      "bitter": 0.1973869520295617,
+      "sour": 0.9913536254301824,
+      "sweet": 0.1698464075967544,
+      "salty": 0.4605663966072344,
+      "umami": 0.531071622826817
+    },
+    "tags": [
+      "Mediterranean",
+      "Healthy"
+    ],
+    "readyInMinutes": 39,
+    "servings": 3
+  },
+  {
+    "id": "46",
+    "title": "Asian Black Pepper with Turmeric",
+    "image": "https://example.com/recipe_46.jpg",
+    "cuisines": [
+      "Asian"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the black pepper.",
+      "Mix with turmeric.",
+      "Cook using Saut\u00e9ing method for 18 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 511,
+      "protein": "42g",
+      "fat": "6g",
+      "carbohydrates": "72g",
+      "sugar": "14g",
+      "fiber": "10g",
+      "sodium": "686mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 90,
+      "Vitamin C": 8,
+      "Calcium": 20,
+      "Iron": 7
+    },
+    "ingredients": [
+      "garlic",
+      "cinnamon",
+      "black pepper",
+      "soy sauce",
+      "beef steak",
+      "turmeric",
+      "walnuts"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.6843960380183781,
+      "sour": 0.27170510284543514,
+      "sweet": 0.25834451082327037,
+      "salty": 0.7211446066670504,
+      "umami": 0.2810311404432586
+    },
+    "name": "Asian Black Pepper with Turmeric",
+    "description": "A delicious Asian dish made with black pepper.",
+    "image_url": "https://example.com/recipe_46.jpg",
+    "cuisine": "Asian",
+    "calories": 511,
+    "macros": {
+      "protein": 42,
+      "fat": 6,
+      "carbohydrates": 72
+    },
+    "flavor_profile": {
+      "bitter": 0.22727213535870738,
+      "sour": 0.2543333174516679,
+      "sweet": 0.047547259780286066,
+      "salty": 0.47400615927863676,
+      "umami": 0.6870719060338177
+    },
+    "tags": [
+      "Asian",
+      "Healthy"
+    ],
+    "readyInMinutes": 42,
+    "servings": 1
+  },
+  {
+    "id": "47",
+    "title": "Indian Basil with Cucumber",
+    "image": "https://example.com/recipe_47.jpg",
+    "cuisines": [
+      "Indian"
+    ],
+    "diets": [
+      "Paleo"
+    ],
+    "instructions": [
+      "Prepare the basil.",
+      "Mix with cucumber.",
+      "Cook using Boiling method for 13 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 603,
+      "protein": "29g",
+      "fat": "13g",
+      "carbohydrates": "92g",
+      "sugar": "2g",
+      "fiber": "4g",
+      "sodium": "371mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 15,
+      "Vitamin C": 87,
+      "Calcium": 33,
+      "Iron": 44
+    },
+    "ingredients": [
+      "cucumber",
+      "carrot",
+      "basil",
+      "soy sauce",
+      "beef steak",
+      "lemon",
+      "ginger",
+      "onion"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.8345854149898028,
+      "sour": 0.5304946052638764,
+      "sweet": 0.9571629825599893,
+      "salty": 0.03804803640901244,
+      "umami": 0.45934021397458313
+    },
+    "name": "Indian Basil with Cucumber",
+    "description": "A delicious Indian dish made with basil.",
+    "image_url": "https://example.com/recipe_47.jpg",
+    "cuisine": "Indian",
+    "calories": 603,
+    "macros": {
+      "protein": 29,
+      "fat": 13,
+      "carbohydrates": 92
+    },
+    "flavor_profile": {
+      "bitter": 0.0299952409114429,
+      "sour": 0.8902740859325284,
+      "sweet": 0.48321463519679997,
+      "salty": 0.6697128680942843,
+      "umami": 0.27717753996678485
+    },
+    "tags": [
+      "Indian",
+      "Healthy"
+    ],
+    "readyInMinutes": 15,
+    "servings": 3
+  },
+  {
+    "id": "48",
+    "title": "American Avocado with Vanilla",
+    "image": "https://example.com/recipe_48.jpg",
+    "cuisines": [
+      "American"
+    ],
+    "diets": [
+      "Vegetarian",
+      "Paleo"
+    ],
+    "instructions": [
+      "Prepare the avocado.",
+      "Mix with vanilla.",
+      "Cook using Boiling method for 10 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 609,
+      "protein": "29g",
+      "fat": "33g",
+      "carbohydrates": "49g",
+      "sugar": "7g",
+      "fiber": "3g",
+      "sodium": "115mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 46,
+      "Vitamin C": 38,
+      "Calcium": 15,
+      "Iron": 25
+    },
+    "ingredients": [
+      "vanilla",
+      "tomato",
+      "cumin",
+      "onion",
+      "avocado"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.7781255204292596,
+      "sour": 0.2448867592270958,
+      "sweet": 0.7210700591414706,
+      "salty": 0.9838042791584943,
+      "umami": 0.400932445744551
+    },
+    "name": "American Avocado with Vanilla",
+    "description": "A delicious American dish made with avocado.",
+    "image_url": "https://example.com/recipe_48.jpg",
+    "cuisine": "American",
+    "calories": 609,
+    "macros": {
+      "protein": 29,
+      "fat": 33,
+      "carbohydrates": 49
+    },
+    "flavor_profile": {
+      "bitter": 0.06581582820188803,
+      "sour": 0.025641826231986298,
+      "sweet": 0.5861188440496606,
+      "salty": 0.8543932573468028,
+      "umami": 0.4968358037915346
+    },
+    "tags": [
+      "American",
+      "Healthy"
+    ],
+    "readyInMinutes": 52,
+    "servings": 3
+  },
+  {
+    "id": "49",
+    "title": "American Honey with Avocado",
+    "image": "https://example.com/recipe_49.jpg",
+    "cuisines": [
+      "American"
+    ],
+    "diets": [
+      "Gluten-Free",
+      "Vegan"
+    ],
+    "instructions": [
+      "Prepare the honey.",
+      "Mix with avocado.",
+      "Cook using Saut\u00e9ing method for 21 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 678,
+      "protein": "44g",
+      "fat": "11g",
+      "carbohydrates": "100g",
+      "sugar": "7g",
+      "fiber": "1g",
+      "sodium": "613mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 51,
+      "Vitamin C": 14,
+      "Calcium": 22,
+      "Iron": 41
+    },
+    "ingredients": [
+      "garlic",
+      "sweet potato",
+      "broccoli",
+      "basil",
+      "salmon fillet",
+      "quinoa",
+      "honey",
+      "avocado"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.33328605124557054,
+      "sour": 0.14518123635778668,
+      "sweet": 0.6326201659122056,
+      "salty": 0.07559857031708805,
+      "umami": 0.6851353414699853
+    },
+    "name": "American Honey with Avocado",
+    "description": "A delicious American dish made with honey.",
+    "image_url": "https://example.com/recipe_49.jpg",
+    "cuisine": "American",
+    "calories": 678,
+    "macros": {
+      "protein": 44,
+      "fat": 11,
+      "carbohydrates": 100
+    },
+    "flavor_profile": {
+      "bitter": 0.4092238957440253,
+      "sour": 0.6745806319524165,
+      "sweet": 0.3846679599544226,
+      "salty": 0.06121350531265479,
+      "umami": 0.7172323769384745
+    },
+    "tags": [
+      "American",
+      "Healthy"
+    ],
+    "readyInMinutes": 25,
+    "servings": 4
+  },
+  {
+    "id": "50",
+    "title": "Italian Walnuts with Brown Rice",
+    "image": "https://example.com/recipe_50.jpg",
+    "cuisines": [
+      "Italian"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the walnuts.",
+      "Mix with brown rice.",
+      "Cook using Roasting method for 18 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 780,
+      "protein": "31g",
+      "fat": "6g",
+      "carbohydrates": "150g",
+      "sugar": "9g",
+      "fiber": "1g",
+      "sodium": "531mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 93,
+      "Vitamin C": 89,
+      "Calcium": 46,
+      "Iron": 34
+    },
+    "ingredients": [
+      "turmeric",
+      "cinnamon",
+      "walnuts",
+      "brown rice"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.1834402333035,
+      "sour": 0.5862546947067904,
+      "sweet": 0.45190224264304557,
+      "salty": 0.944760966530668,
+      "umami": 0.32030257995534595
+    },
+    "name": "Italian Walnuts with Brown Rice",
+    "description": "A delicious Italian dish made with walnuts.",
+    "image_url": "https://example.com/recipe_50.jpg",
+    "cuisine": "Italian",
+    "calories": 780,
+    "macros": {
+      "protein": 31,
+      "fat": 6,
+      "carbohydrates": 150
+    },
+    "flavor_profile": {
+      "bitter": 0.3048675341850535,
+      "sour": 0.9363312437553779,
+      "sweet": 0.6220301212954574,
+      "salty": 0.4392543657598935,
+      "umami": 0.538493278576972
+    },
+    "tags": [
+      "Italian",
+      "Healthy"
+    ],
+    "readyInMinutes": 55,
+    "servings": 1
+  },
+  {
+    "id": "51",
+    "title": "Mexican Spinach with Quinoa",
+    "image": "https://example.com/recipe_51.jpg",
+    "cuisines": [
+      "Mexican"
+    ],
+    "diets": [
+      "Paleo",
+      "Gluten-Free"
+    ],
+    "instructions": [
+      "Prepare the spinach.",
+      "Mix with quinoa.",
+      "Cook using Grilling method for 25 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 534,
+      "protein": "32g",
+      "fat": "19g",
+      "carbohydrates": "58g",
+      "sugar": "13g",
+      "fiber": "1g",
+      "sodium": "294mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 65,
+      "Vitamin C": 19,
+      "Calcium": 44,
+      "Iron": 35
+    },
+    "ingredients": [
+      "vanilla",
+      "cucumber",
+      "chickpeas",
+      "quinoa",
+      "spinach",
+      "walnuts"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.29312223512695035,
+      "sour": 0.33954518616705875,
+      "sweet": 0.14109368299242175,
+      "salty": 0.19384903771387463,
+      "umami": 0.12482270993067568
+    },
+    "name": "Mexican Spinach with Quinoa",
+    "description": "A delicious Mexican dish made with spinach.",
+    "image_url": "https://example.com/recipe_51.jpg",
+    "cuisine": "Mexican",
+    "calories": 534,
+    "macros": {
+      "protein": 32,
+      "fat": 19,
+      "carbohydrates": 58
+    },
+    "flavor_profile": {
+      "bitter": 0.8664665869753325,
+      "sour": 0.2967188352778912,
+      "sweet": 0.3945021991482708,
+      "salty": 0.7023857204882001,
+      "umami": 0.7238684423376691
+    },
+    "tags": [
+      "Mexican",
+      "Healthy"
+    ],
+    "readyInMinutes": 58,
+    "servings": 3
+  },
+  {
+    "id": "52",
+    "title": "Indian Beef Steak with Quinoa",
+    "image": "https://example.com/recipe_52.jpg",
+    "cuisines": [
+      "Indian"
+    ],
+    "diets": [
+      "Vegetarian",
+      "Paleo"
+    ],
+    "instructions": [
+      "Prepare the beef steak.",
+      "Mix with quinoa.",
+      "Cook using Grilling method for 23 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 438,
+      "protein": "46g",
+      "fat": "9g",
+      "carbohydrates": "43g",
+      "sugar": "12g",
+      "fiber": "3g",
+      "sodium": "707mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 72,
+      "Vitamin C": 80,
+      "Calcium": 18,
+      "Iron": 7
+    },
+    "ingredients": [
+      "garlic",
+      "lemon",
+      "black pepper",
+      "kale",
+      "soy sauce",
+      "olive oil",
+      "chicken breast",
+      "chickpeas",
+      "quinoa",
+      "beef steak"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.18428092592764156,
+      "sour": 0.2781360817240063,
+      "sweet": 0.19456223445171794,
+      "salty": 0.39394196741345633,
+      "umami": 0.26760069255042684
+    },
+    "name": "Indian Beef Steak with Quinoa",
+    "description": "A delicious Indian dish made with beef steak.",
+    "image_url": "https://example.com/recipe_52.jpg",
+    "cuisine": "Indian",
+    "calories": 438,
+    "macros": {
+      "protein": 46,
+      "fat": 9,
+      "carbohydrates": 43
+    },
+    "flavor_profile": {
+      "bitter": 0.43080669876172717,
+      "sour": 0.12197314856400088,
+      "sweet": 0.5541954308710858,
+      "salty": 0.818267995428438,
+      "umami": 0.3222277800468675
+    },
+    "tags": [
+      "Indian",
+      "Healthy"
+    ],
+    "readyInMinutes": 26,
+    "servings": 2
+  },
+  {
+    "id": "53",
+    "title": "Mediterranean Beef Steak with Egg",
+    "image": "https://example.com/recipe_53.jpg",
+    "cuisines": [
+      "Mediterranean"
+    ],
+    "diets": [
+      "Paleo"
+    ],
+    "instructions": [
+      "Prepare the beef steak.",
+      "Mix with egg.",
+      "Cook using Grilling method for 26 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 637,
+      "protein": "11g",
+      "fat": "37g",
+      "carbohydrates": "65g",
+      "sugar": "4g",
+      "fiber": "5g",
+      "sodium": "701mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 49,
+      "Vitamin C": 38,
+      "Calcium": 18,
+      "Iron": 32
+    },
+    "ingredients": [
+      "tomato",
+      "black pepper",
+      "basil",
+      "soy sauce",
+      "cumin",
+      "chickpeas",
+      "beef steak",
+      "egg"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.30465072736013943,
+      "sour": 0.858249626603437,
+      "sweet": 0.40548849490707883,
+      "salty": 0.3142914192555142,
+      "umami": 0.5070432608885567
+    },
+    "name": "Mediterranean Beef Steak with Egg",
+    "description": "A delicious Mediterranean dish made with beef steak.",
+    "image_url": "https://example.com/recipe_53.jpg",
+    "cuisine": "Mediterranean",
+    "calories": 637,
+    "macros": {
+      "protein": 11,
+      "fat": 37,
+      "carbohydrates": 65
+    },
+    "flavor_profile": {
+      "bitter": 0.09109194227877648,
+      "sour": 0.5696561556657816,
+      "sweet": 0.5552961955598447,
+      "salty": 0.8872360360066025,
+      "umami": 0.7886702231900214
+    },
+    "tags": [
+      "Mediterranean",
+      "Healthy"
+    ],
+    "readyInMinutes": 58,
+    "servings": 2
+  },
+  {
+    "id": "54",
+    "title": "Indian Garlic with Tofu",
+    "image": "https://example.com/recipe_54.jpg",
+    "cuisines": [
+      "Indian"
+    ],
+    "diets": [
+      "Gluten-Free"
+    ],
+    "instructions": [
+      "Prepare the garlic.",
+      "Mix with tofu.",
+      "Cook using Boiling method for 29 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 495,
+      "protein": "21g",
+      "fat": "10g",
+      "carbohydrates": "80g",
+      "sugar": "5g",
+      "fiber": "3g",
+      "sodium": "366mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 25,
+      "Vitamin C": 80,
+      "Calcium": 48,
+      "Iron": 5
+    },
+    "ingredients": [
+      "garlic",
+      "black pepper",
+      "basil",
+      "brown rice",
+      "milk",
+      "cheese",
+      "quinoa",
+      "tofu"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.033282255098241675,
+      "sour": 0.5776838781855684,
+      "sweet": 0.38541654353815347,
+      "salty": 0.8855896172402306,
+      "umami": 0.7611099161065437
+    },
+    "name": "Indian Garlic with Tofu",
+    "description": "A delicious Indian dish made with garlic.",
+    "image_url": "https://example.com/recipe_54.jpg",
+    "cuisine": "Indian",
+    "calories": 495,
+    "macros": {
+      "protein": 21,
+      "fat": 10,
+      "carbohydrates": 80
+    },
+    "flavor_profile": {
+      "bitter": 0.7744339715290973,
+      "sour": 0.25945279762725926,
+      "sweet": 0.7940056127203278,
+      "salty": 0.6845027619896186,
+      "umami": 0.6699545468808581
+    },
+    "tags": [
+      "Indian",
+      "Healthy"
+    ],
+    "readyInMinutes": 29,
+    "servings": 2
+  },
+  {
+    "id": "55",
+    "title": "Indian Egg with Bell Pepper",
+    "image": "https://example.com/recipe_55.jpg",
+    "cuisines": [
+      "Indian"
+    ],
+    "diets": [
+      "Gluten-Free"
+    ],
+    "instructions": [
+      "Prepare the egg.",
+      "Mix with bell pepper.",
+      "Cook using Boiling method for 14 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 587,
+      "protein": "19g",
+      "fat": "14g",
+      "carbohydrates": "96g",
+      "sugar": "3g",
+      "fiber": "8g",
+      "sodium": "412mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 86,
+      "Vitamin C": 91,
+      "Calcium": 27,
+      "Iron": 6
+    },
+    "ingredients": [
+      "broccoli",
+      "bell pepper",
+      "olive oil",
+      "cheese",
+      "chickpeas",
+      "honey",
+      "egg",
+      "yogurt"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.7277537713383201,
+      "sour": 0.7569833000460174,
+      "sweet": 0.988274234055996,
+      "salty": 0.37569015611860423,
+      "umami": 0.8761770312149625
+    },
+    "name": "Indian Egg with Bell Pepper",
+    "description": "A delicious Indian dish made with egg.",
+    "image_url": "https://example.com/recipe_55.jpg",
+    "cuisine": "Indian",
+    "calories": 587,
+    "macros": {
+      "protein": 19,
+      "fat": 14,
+      "carbohydrates": 96
+    },
+    "flavor_profile": {
+      "bitter": 0.46217685312805823,
+      "sour": 0.027652103046867493,
+      "sweet": 0.8081585223195337,
+      "salty": 0.06344570276079109,
+      "umami": 0.7751905169176987
+    },
+    "tags": [
+      "Indian",
+      "Healthy"
+    ],
+    "readyInMinutes": 47,
+    "servings": 3
+  },
+  {
+    "id": "56",
+    "title": "Mediterranean Carrot with Cheese",
+    "image": "https://example.com/recipe_56.jpg",
+    "cuisines": [
+      "Mediterranean"
+    ],
+    "diets": [
+      "Vegetarian",
+      "Keto"
+    ],
+    "instructions": [
+      "Prepare the carrot.",
+      "Mix with cheese.",
+      "Cook using Saut\u00e9ing method for 18 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 511,
+      "protein": "22g",
+      "fat": "30g",
+      "carbohydrates": "38g",
+      "sugar": "10g",
+      "fiber": "7g",
+      "sodium": "727mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 25,
+      "Vitamin C": 7,
+      "Calcium": 41,
+      "Iron": 21
+    },
+    "ingredients": [
+      "carrot",
+      "cumin",
+      "bell pepper",
+      "olive oil",
+      "cheese",
+      "honey",
+      "egg",
+      "ginger",
+      "onion"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.5614389712919432,
+      "sour": 0.3469285219493966,
+      "sweet": 0.20580652629010154,
+      "salty": 0.02800658121521382,
+      "umami": 0.022677988202284616
+    },
+    "name": "Mediterranean Carrot with Cheese",
+    "description": "A delicious Mediterranean dish made with carrot.",
+    "image_url": "https://example.com/recipe_56.jpg",
+    "cuisine": "Mediterranean",
+    "calories": 511,
+    "macros": {
+      "protein": 22,
+      "fat": 30,
+      "carbohydrates": 38
+    },
+    "flavor_profile": {
+      "bitter": 0.23765797876979367,
+      "sour": 0.9956602720229909,
+      "sweet": 0.33251180457744856,
+      "salty": 0.9585382763037155,
+      "umami": 0.175815860468996
+    },
+    "tags": [
+      "Mediterranean",
+      "Healthy"
+    ],
+    "readyInMinutes": 53,
+    "servings": 1
+  },
+  {
+    "id": "57",
+    "title": "Italian Cheese with Carrot",
+    "image": "https://example.com/recipe_57.jpg",
+    "cuisines": [
+      "Italian"
+    ],
+    "diets": [],
+    "instructions": [
+      "Prepare the cheese.",
+      "Mix with carrot.",
+      "Cook using Roasting method for 28 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 697,
+      "protein": "32g",
+      "fat": "16g",
+      "carbohydrates": "106g",
+      "sugar": "3g",
+      "fiber": "10g",
+      "sodium": "674mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 22,
+      "Vitamin C": 39,
+      "Calcium": 31,
+      "Iron": 20
+    },
+    "ingredients": [
+      "carrot",
+      "black pepper",
+      "basil",
+      "brown rice",
+      "milk",
+      "cheese",
+      "chickpeas",
+      "almonds",
+      "yogurt",
+      "onion"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.916944824246025,
+      "sour": 0.9661286556669186,
+      "sweet": 0.4563652508585222,
+      "salty": 0.7095995613786443,
+      "umami": 0.04791994852729442
+    },
+    "name": "Italian Cheese with Carrot",
+    "description": "A delicious Italian dish made with cheese.",
+    "image_url": "https://example.com/recipe_57.jpg",
+    "cuisine": "Italian",
+    "calories": 697,
+    "macros": {
+      "protein": 32,
+      "fat": 16,
+      "carbohydrates": 106
+    },
+    "flavor_profile": {
+      "bitter": 0.7151813162486256,
+      "sour": 0.6127418722139951,
+      "sweet": 0.8635873710334256,
+      "salty": 0.611198621061757,
+      "umami": 0.9199877695248507
+    },
+    "tags": [
+      "Italian",
+      "Healthy"
+    ],
+    "readyInMinutes": 40,
+    "servings": 2
+  },
+  {
+    "id": "58",
+    "title": "American Walnuts with Quinoa",
+    "image": "https://example.com/recipe_58.jpg",
+    "cuisines": [
+      "American"
+    ],
+    "diets": [
+      "Vegetarian",
+      "Vegan"
+    ],
+    "instructions": [
+      "Prepare the walnuts.",
+      "Mix with quinoa.",
+      "Cook using Saut\u00e9ing method for 28 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 672,
+      "protein": "27g",
+      "fat": "21g",
+      "carbohydrates": "93g",
+      "sugar": "12g",
+      "fiber": "8g",
+      "sodium": "466mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 64,
+      "Vitamin C": 84,
+      "Calcium": 10,
+      "Iron": 16
+    },
+    "ingredients": [
+      "sweet potato",
+      "basil",
+      "salmon fillet",
+      "yogurt",
+      "quinoa",
+      "ginger",
+      "walnuts",
+      "onion"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.22800234152604404,
+      "sour": 0.18005656395419878,
+      "sweet": 0.7227697006679945,
+      "salty": 0.043698632640307156,
+      "umami": 0.018332843498846563
+    },
+    "name": "American Walnuts with Quinoa",
+    "description": "A delicious American dish made with walnuts.",
+    "image_url": "https://example.com/recipe_58.jpg",
+    "cuisine": "American",
+    "calories": 672,
+    "macros": {
+      "protein": 27,
+      "fat": 21,
+      "carbohydrates": 93
+    },
+    "flavor_profile": {
+      "bitter": 0.5412615938071406,
+      "sour": 0.7000373673240242,
+      "sweet": 0.40125967699324894,
+      "salty": 0.43269217123031534,
+      "umami": 0.05589219802063694
+    },
+    "tags": [
+      "American",
+      "Healthy"
+    ],
+    "readyInMinutes": 19,
+    "servings": 3
+  },
+  {
+    "id": "59",
+    "title": "Asian Chickpeas with Cinnamon",
+    "image": "https://example.com/recipe_59.jpg",
+    "cuisines": [
+      "Asian"
+    ],
+    "diets": [
+      "Gluten-Free",
+      "Vegan"
+    ],
+    "instructions": [
+      "Prepare the chickpeas.",
+      "Mix with cinnamon.",
+      "Cook using Saut\u00e9ing method for 23 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 753,
+      "protein": "12g",
+      "fat": "24g",
+      "carbohydrates": "122g",
+      "sugar": "2g",
+      "fiber": "8g",
+      "sodium": "116mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 41,
+      "Vitamin C": 48,
+      "Calcium": 20,
+      "Iron": 30
+    },
+    "ingredients": [
+      "tomato",
+      "cinnamon",
+      "broccoli",
+      "salmon fillet",
+      "olive oil",
+      "chickpeas",
+      "quinoa",
+      "almonds",
+      "turmeric",
+      "tofu"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.7657973706265682,
+      "sour": 0.9409395046127023,
+      "sweet": 0.3531804198068139,
+      "salty": 0.5818264300988918,
+      "umami": 0.7859105886573888
+    },
+    "name": "Asian Chickpeas with Cinnamon",
+    "description": "A delicious Asian dish made with chickpeas.",
+    "image_url": "https://example.com/recipe_59.jpg",
+    "cuisine": "Asian",
+    "calories": 753,
+    "macros": {
+      "protein": 12,
+      "fat": 24,
+      "carbohydrates": 122
+    },
+    "flavor_profile": {
+      "bitter": 0.9287872714691257,
+      "sour": 0.5249559442405721,
+      "sweet": 0.34424887341651966,
+      "salty": 0.9106930478735633,
+      "umami": 0.001166451053082218
+    },
+    "tags": [
+      "Asian",
+      "Healthy"
+    ],
+    "readyInMinutes": 37,
+    "servings": 4
+  },
+  {
+    "id": "60",
+    "title": "Italian Chicken Breast with Lemon",
+    "image": "https://example.com/recipe_60.jpg",
+    "cuisines": [
+      "Italian"
+    ],
+    "diets": [
+      "Vegetarian",
+      "Gluten-Free"
+    ],
+    "instructions": [
+      "Prepare the chicken breast.",
+      "Mix with lemon.",
+      "Cook using Boiling method for 15 minutes.",
+      "Serve hot and enjoy!"
+    ],
+    "nutrition": {
+      "calories": 768,
+      "protein": "19g",
+      "fat": "38g",
+      "carbohydrates": "87g",
+      "sugar": "12g",
+      "fiber": "1g",
+      "sodium": "531mg"
+    },
+    "micronutrients": {
+      "Vitamin A": 75,
+      "Vitamin C": 96,
+      "Calcium": 44,
+      "Iron": 24
+    },
+    "ingredients": [
+      "chicken breast",
+      "sweet potato",
+      "beef steak",
+      "lemon"
+    ],
+    "aggregatedFlavorProfile": {
+      "bitter": 0.49273090356939175,
+      "sour": 0.5500176422375134,
+      "sweet": 0.9092687447582792,
+      "salty": 0.3982348117267369,
+      "umami": 0.7041213052788972
+    },
+    "name": "Italian Chicken Breast with Lemon",
+    "description": "A delicious Italian dish made with chicken breast.",
+    "image_url": "https://example.com/recipe_60.jpg",
+    "cuisine": "Italian",
+    "calories": 768,
+    "macros": {
+      "protein": 19,
+      "fat": 38,
+      "carbohydrates": 87
+    },
+    "flavor_profile": {
+      "bitter": 0.4230222667863849,
+      "sour": 0.980274419447695,
+      "sweet": 0.14071199295102432,
+      "salty": 0.16898702429976165,
+      "umami": 0.8483302653756625
+    },
+    "tags": [
+      "Italian",
+      "Healthy"
+    ],
+    "readyInMinutes": 16,
+    "servings": 1
+  }
+]

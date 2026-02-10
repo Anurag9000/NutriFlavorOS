@@ -1,0 +1,183 @@
+{
+  "diseases": {
+    "Diabetes Type 2": {
+      "name": "Diabetes Type 2",
+      "description": "Chronic condition affecting metabolic health.",
+      "beneficial_foods": [
+        "brown rice",
+        "tofu",
+        "garlic",
+        "carrot",
+        "almonds"
+      ],
+      "harmful_foods": [
+        "honey",
+        "milk",
+        "soy sauce",
+        "bell pepper",
+        "walnuts"
+      ],
+      "publications": 17
+    },
+    "Hypertension": {
+      "name": "Hypertension",
+      "description": "Chronic condition affecting metabolic health.",
+      "beneficial_foods": [
+        "kale",
+        "salmon fillet",
+        "broccoli",
+        "beef steak",
+        "vanilla"
+      ],
+      "harmful_foods": [
+        "cumin",
+        "black pepper",
+        "honey",
+        "turmeric",
+        "bell pepper"
+      ],
+      "publications": 50
+    },
+    "Celiac Disease": {
+      "name": "Celiac Disease",
+      "description": "Chronic condition affecting metabolic health.",
+      "beneficial_foods": [
+        "bell pepper",
+        "carrot",
+        "soy sauce",
+        "turmeric",
+        "avocado"
+      ],
+      "harmful_foods": [
+        "onion",
+        "basil",
+        "ginger",
+        "chicken breast",
+        "tomato"
+      ],
+      "publications": 5
+    },
+    "Acid Reflux": {
+      "name": "Acid Reflux",
+      "description": "Chronic condition affecting metabolic health.",
+      "beneficial_foods": [
+        "cinnamon",
+        "egg",
+        "chickpeas",
+        "beef steak",
+        "salmon fillet"
+      ],
+      "harmful_foods": [
+        "bell pepper",
+        "black pepper",
+        "vanilla",
+        "sweet potato",
+        "turmeric"
+      ],
+      "publications": 42
+    },
+    "High Cholesterol": {
+      "name": "High Cholesterol",
+      "description": "Chronic condition affecting metabolic health.",
+      "beneficial_foods": [
+        "cinnamon",
+        "milk",
+        "lemon",
+        "tomato",
+        "almonds"
+      ],
+      "harmful_foods": [
+        "kale",
+        "tofu",
+        "cheese",
+        "yogurt",
+        "garlic"
+      ],
+      "publications": 18
+    },
+    "Gout": {
+      "name": "Gout",
+      "description": "Chronic condition affecting metabolic health.",
+      "beneficial_foods": [
+        "brown rice",
+        "chicken breast",
+        "salmon fillet",
+        "honey",
+        "basil"
+      ],
+      "harmful_foods": [
+        "avocado",
+        "olive oil",
+        "almonds",
+        "broccoli",
+        "cheese"
+      ],
+      "publications": 10
+    }
+  },
+  "interactions": {
+    "spinach": [
+      {
+        "drug": "Warfarin",
+        "severity": "Moderate",
+        "effect": "Altered absorption or metabolism."
+      }
+    ],
+    "kale": [
+      {
+        "drug": "Warfarin",
+        "severity": "Moderate",
+        "effect": "Altered absorption or metabolism."
+      }
+    ],
+    "broccoli": [
+      {
+        "drug": "Metformin",
+        "severity": "Moderate",
+        "effect": "Altered absorption or metabolism."
+      }
+    ],
+    "walnuts": [
+      {
+        "drug": "Metformin",
+        "severity": "Moderate",
+        "effect": "Altered absorption or metabolism."
+      }
+    ],
+    "ginger": [
+      {
+        "drug": "Metformin",
+        "severity": "Moderate",
+        "effect": "Altered absorption or metabolism."
+      }
+    ],
+    "lemon": [
+      {
+        "drug": "Metformin",
+        "severity": "Moderate",
+        "effect": "Altered absorption or metabolism."
+      }
+    ],
+    "basil": [
+      {
+        "drug": "Metformin",
+        "severity": "Moderate",
+        "effect": "Altered absorption or metabolism."
+      }
+    ],
+    "honey": [
+      {
+        "drug": "Metformin",
+        "severity": "Moderate",
+        "effect": "Altered absorption or metabolism."
+      }
+    ],
+    "vanilla": [
+      {
+        "drug": "Metformin",
+        "severity": "Moderate",
+        "effect": "Altered absorption or metabolism."
+      }
+    ]
+  }
+}
