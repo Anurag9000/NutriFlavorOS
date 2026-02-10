@@ -210,9 +210,12 @@ class RLMealPlanner:
         rewards = torch.FloatTensor(self.rewards).to(self.device)
         dones = torch.FloatTensor(self.dones).to(self.device)
         
+        # Stack values and move to device
+        values = torch.stack(self.values).to(self.device)
+        
         # Calculate returns and advantages
-        returns = self._calculate_returns(rewards, dones)
-        advantages = returns - torch.stack(self.values).squeeze()
+        returns = self._calculate_returns(rewards, dones).to(self.device)
+        advantages = returns - values.squeeze()
         
         # Normalize advantages
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)

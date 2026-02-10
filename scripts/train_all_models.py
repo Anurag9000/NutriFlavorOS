@@ -170,9 +170,9 @@ def train_rl_planner():
             # Select action
             action, log_prob = planner.select_recipe(state, available_recipes)
             
-            # Get value estimate
+            # Get value estimate (keep as tensor, move to CPU for storage)
             with torch.no_grad():
-                value = planner.value(state.unsqueeze(0)).item()
+                value = planner.value(state.unsqueeze(0)).cpu()
             
             # Simulate reward (random for synthetic data)
             reward = planner.calculate_reward(
@@ -182,9 +182,9 @@ def train_rl_planner():
                 health_score=np.random.rand()
             )
             
-            # Store transition
+            # Store transition (state should also be on CPU for consistency)
             done = (step == 9)
-            planner.store_transition(state, action, reward, log_prob, value, done)
+            planner.store_transition(state.cpu(), action, reward, log_prob, value, done)
             
             # Next state
             state = torch.randn(256).to(device)
