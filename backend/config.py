@@ -3,6 +3,10 @@ Configuration for external API services
 """
 import os
 from typing import Optional
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 class APIConfig:
     """Configuration for all external APIs"""
