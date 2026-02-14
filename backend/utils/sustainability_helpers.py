@@ -71,6 +71,11 @@ def calculate_carbon_footprint(ingredients: List[Dict[str, Any]]) -> float:
     Calculate total carbon footprint for a list of ingredients
     Returns kg CO2
     """
+    # API First Architecture
+    from backend.services.sustainablefooddb_service import SustainableFoodDBService
+    # Instantiate service (BaseAPIService handles caching, so this isn't too expensive)
+    service = SustainableFoodDBService()
+    
     total_carbon = 0.0
     
     for ingredient in ingredients:
@@ -78,16 +83,21 @@ def calculate_carbon_footprint(ingredients: List[Dict[str, Any]]) -> float:
         quantity = ingredient.get("quantity", 1.0) if isinstance(ingredient, dict) else 1.0
         unit = ingredient.get("unit", "piece") if isinstance(ingredient, dict) else "piece"
         
-        # Find carbon factor
-        category = find_carbon_category(ingredient_name)
-        carbon_factor = CARBON_FACTORS.get(category, CARBON_FACTORS["default"])
-        
         # Estimate weight
         from backend.utils.analytics_helpers import estimate_ingredient_weight_kg
         weight_kg = estimate_ingredient_weight_kg(quantity, unit)
         
-        # Calculate carbon
-        total_carbon += weight_kg * carbon_factor
+        # 1. Try API / Local DB Service
+        # Service returns CO2 per kg
+        api_cf = service.get_ingredient_carbon_footprint(ingredient_name)
+        
+        if api_cf > 0:
+            total_carbon += weight_kg * api_cf
+        else:
+            # 2. Heuristic Fallback (Level 3)
+            category = find_carbon_category(ingredient_name)
+            carbon_factor = CARBON_FACTORS.get(category, CARBON_FACTORS["default"])
+            total_carbon += weight_kg * carbon_factor
     
     return total_carbon
 

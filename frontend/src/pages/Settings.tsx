@@ -57,7 +57,19 @@ export default function SettingsPage() {
       setActivityLevel(p.activity_level ?? 1.4);
       setGoal(p.goal ?? "maintenance");
       setRestrictions(p.dietary_restrictions?.join(", ") ?? "");
+
+      // Load dislikes/allergies from profile
+      const dislikes = p.disliked_ingredients ?? [];
+      setAllergies(dislikes.filter(d => d.includes("Allergy:")).map(d => d.replace("Allergy: ", "")).join(", "));
+      setFoodsToAvoid(dislikes.filter(d => !d.includes("Allergy:")).join(", "));
+
+      // Load cuisines/tastes from liked
+      const liked = p.liked_ingredients ?? [];
+      setCuisines(liked.filter(l => l.startsWith("Cuisine:")).map(l => l.replace("Cuisine: ", "")).join(", "));
+      setTastePrefs(liked.filter(l => !l.startsWith("Cuisine:")).join(", "));
+
       setConditions(p.health_conditions ?? []);
+
       setMedications(p.medications ?? []);
     }
   }, [profileQ.data]);
@@ -82,6 +94,16 @@ export default function SettingsPage() {
           activity_level: activityLevel,
           goal: goal as "weight_loss" | "maintenance" | "muscle_gain",
           dietary_restrictions: restrictions.split(",").map((s) => s.trim()).filter(Boolean),
+          // Combine allergies and avoiding foods into disliked_ingredients
+          disliked_ingredients: [
+            ...allergies.split(",").map(s => s.trim()).filter(Boolean).map(s => `Allergy: ${s}`),
+            ...foodsToAvoid.split(",").map(s => s.trim()).filter(Boolean)
+          ],
+          // Combine cuisines and taste prefs into liked_ingredients
+          liked_ingredients: [
+            ...cuisines.split(",").map(s => s.trim()).filter(Boolean).map(s => `Cuisine: ${s}`),
+            ...tastePrefs.split(",").map(s => s.trim()).filter(Boolean)
+          ],
           health_conditions: conditions,
           medications,
         },

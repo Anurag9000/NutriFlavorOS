@@ -13,19 +13,19 @@ class APIConfig:
     """Configuration for all external APIs"""
     
     # RecipeDB Configuration
-    RECIPEDB_BASE_URL: str = os.getenv("RECIPEDB_BASE_URL", "http://cosylab.iiitd.edu.in:6969")
+    RECIPEDB_BASE_URL: str = os.getenv("RECIPEDB_BASE_URL", "https://cosylab.iiitd.edu.in")
     RECIPEDB_API_KEY: Optional[str] = os.getenv("RECIPEDB_API_KEY")
     
     # FlavorDB Configuration
-    FLAVORDB_BASE_URL: str = os.getenv("FLAVORDB_BASE_URL", "http://cosylab.iiitd.edu.in:6969/flavordb")
+    FLAVORDB_BASE_URL: str = os.getenv("FLAVORDB_BASE_URL", "https://cosylab.iiitd.edu.in/flavordb")
     FLAVORDB_API_KEY: Optional[str] = os.getenv("FLAVORDB_API_KEY")
     
     # SustainableFoodDB Configuration
-    SUSTAINABLEFOODDB_BASE_URL: str = os.getenv("SUSTAINABLEFOODDB_BASE_URL", "http://cosylab.iiitd.edu.in:6969/sustainablefooddb")
+    SUSTAINABLEFOODDB_BASE_URL: str = os.getenv("SUSTAINABLEFOODDB_BASE_URL", "https://cosylab.iiitd.edu.in/sustainablefooddb")
     SUSTAINABLEFOODDB_API_KEY: Optional[str] = os.getenv("SUSTAINABLEFOODDB_API_KEY")
     
     # DietRxDB Configuration
-    DIETRXDB_BASE_URL: str = os.getenv("DIETRXDB_BASE_URL", "http://cosylab.iiitd.edu.in:6969/dietrxdb")
+    DIETRXDB_BASE_URL: str = os.getenv("DIETRXDB_BASE_URL", "https://cosylab.iiitd.edu.in/dietrxdb")
     DIETRXDB_API_KEY: Optional[str] = os.getenv("DIETRXDB_API_KEY")
     
     # Cache Configuration
