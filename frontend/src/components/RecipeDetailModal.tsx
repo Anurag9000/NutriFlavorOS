@@ -1,11 +1,12 @@
 
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useRecipeDetails } from "@/hooks/useApi";
-import { Loader2, Flame, Utensils, Printer, Download, Share2, ChefHat, Timer, Users, Leaf } from "lucide-react";
+import { Loader2, Flame, Utensils, Printer, ChefHat, Timer, Users, Leaf } from "lucide-react";
 
 interface RecipeDetailModalProps {
     recipeId: string | null;
@@ -15,8 +16,22 @@ interface RecipeDetailModalProps {
 
 export function RecipeDetailModal({ recipeId, open, onOpenChange }: RecipeDetailModalProps) {
     const { data: recipe, isLoading, error } = useRecipeDetails(recipeId);
+    const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+
+    // Reset progress when recipe changes
+    useEffect(() => {
+        setCompletedSteps([]);
+    }, [recipeId]);
 
     if (!recipeId) return null;
+
+    const toggleStep = (index: number) => {
+        setCompletedSteps(prev =>
+            prev.includes(index)
+                ? prev.filter(i => i !== index)
+                : [...prev, index]
+        );
+    };
 
     const handlePrint = () => {
         window.print();
@@ -30,7 +45,7 @@ export function RecipeDetailModal({ recipeId, open, onOpenChange }: RecipeDetail
                         <Loader2 className="h-10 w-10 animate-spin text-primary" />
                         <p className="text-muted-foreground animate-pulse">Consulting the Chef AI...</p>
                     </div>
-                ) : error ? (
+                ) : error || (recipe && !recipe.id) ? (
                     <div className="p-12 text-center flex flex-col items-center gap-4">
                         <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
                             <Utensils className="h-6 w-6 text-destructive" />
@@ -125,7 +140,7 @@ export function RecipeDetailModal({ recipeId, open, onOpenChange }: RecipeDetail
                                         </div>
                                         <div>
                                             <p className="text-sm font-medium text-muted-foreground">Score</p>
-                                            <p className="text-lg font-bold">{recipe.healthScore || 85}</p>
+                                            <p className="text-lg font-bold">{recipe.healthScore || 'N/A'}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -205,11 +220,22 @@ export function RecipeDetailModal({ recipeId, open, onOpenChange }: RecipeDetail
                                         <div className="space-y-4">
                                             {Array.isArray(recipe.instructions) && recipe.instructions.length > 0 ? (
                                                 recipe.instructions.map((step, i) => (
-                                                    <div key={i} className="group flex gap-4 p-4 rounded-xl bg-card border border-border/50 hover:border-primary/50 hover:shadow-md transition-all">
-                                                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm ring-4 ring-background group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                                                    <div
+                                                        key={i}
+                                                        onClick={() => toggleStep(i)}
+                                                        className={`group flex gap-4 p-4 rounded-xl border transition-all cursor-pointer ${completedSteps.includes(i)
+                                                            ? "bg-primary/5 border-primary/20 opacity-60"
+                                                            : "bg-card border-border/50 hover:border-primary/50 hover:shadow-md"
+                                                            }`}
+                                                    >
+                                                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-bold text-sm ring-4 ring-background transition-colors ${completedSteps.includes(i)
+                                                            ? "bg-primary text-primary-foreground"
+                                                            : "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground"
+                                                            }`}>
                                                             {i + 1}
                                                         </div>
-                                                        <p className="text-base text-card-foreground leading-relaxed pt-1">
+                                                        <p className={`text-base leading-relaxed pt-1 transition-all ${completedSteps.includes(i) ? "text-muted-foreground line-through" : "text-card-foreground"
+                                                            }`}>
                                                             {step}
                                                         </p>
                                                     </div>

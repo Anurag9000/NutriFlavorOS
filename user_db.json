@@ -5,8 +5,12 @@
     "weight_kg": 70.0,
     "height_cm": 170.0,
     "gender": "male",
-    "activity_level": 1.4,
-    "goal": "maintenance",
+    "activity_level": 1.9,
+    "goal": "muscle_gain",
+    "liked_ingredients": [],
+    "disliked_ingredients": [
+      "Potato"
+    ],
     "dietary_restrictions": [],
     "health_conditions": [],
     "medications": []
