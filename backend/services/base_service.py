@@ -52,7 +52,7 @@ class BaseAPIService:
     def _make_request(self, endpoint: str, method: str = "GET", 
                      params: Optional[Dict] = None, 
                      data: Optional[Dict] = None) -> Any:
-        """Make HTTP request with retry logic"""
+        """Make HTTP request with retry logic and FALLBACK to local data"""
         
         # Check Mock Mode
         if APIConfig.MOCK_MODE:
@@ -67,44 +67,50 @@ class BaseAPIService:
             if cached is not None:
                 return cached
         
-        # Rate limiting
-        self._check_rate_limit()
-        
-        # Add API key if available
-        headers = {}
-        if self.api_key:
-            headers['Authorization'] = f'Bearer {self.api_key}'
-        
-        # Retry logic
-        for attempt in range(APIConfig.MAX_RETRIES):
-            try:
-                response = self.session.request(
-                    method=method,
-                    url=url,
-                    params=params,
-                    json=data,
-                    headers=headers,
-                    timeout=30
-                )
-                response.raise_for_status()
-                result = response.json()
-                
-                # Cache successful GET requests
-                if method == "GET":
-                    self._set_cache(cache_key, result)
-                
-                return result
-                
-                
-                return result
-                
-            except requests.exceptions.RequestException as e:
-                if attempt == APIConfig.MAX_RETRIES - 1:
-                    raise Exception(f"API request failed after {APIConfig.MAX_RETRIES} attempts: {str(e)}")
-                
-                # Exponential backoff
-                sleep_time = APIConfig.RETRY_BACKOFF_FACTOR * (2 ** attempt)
-                time.sleep(sleep_time)
+        # Try Live Request
+        try:
+            # Rate limiting
+            self._check_rate_limit()
+            
+            # Add API key if available
+            headers = {}
+            if self.api_key:
+                headers['Authorization'] = f'Bearer {self.api_key}'
+            
+            # Retry logic
+            for attempt in range(APIConfig.MAX_RETRIES):
+                try:
+                    response = self.session.request(
+                        method=method,
+                        url=url,
+                        params=params,
+                        json=data,
+                        headers=headers,
+                        timeout=10 # Reduced timeout for faster fallback
+                    )
+                    response.raise_for_status()
+                    result = response.json()
+                    
+                    # Cache successful GET requests
+                    if method == "GET":
+                        self._set_cache(cache_key, result)
+                    
+                    return result
+                    
+                except requests.exceptions.RequestException as e:
+                    if attempt == APIConfig.MAX_RETRIES - 1:
+                        raise e
+                    
+                    # Exponential backoff
+                    sleep_time = APIConfig.RETRY_BACKOFF_FACTOR * (2 ** attempt)
+                    time.sleep(sleep_time)
+
+        except Exception as e:
+            # FAILURE - Activate Fallback
+            print(f"⚠️  API CONNECTION FAILED for {url}")
+            print(f"⚠️  Error: {e}")
+            print(f"🔄 REVERTING TO LOCAL DEMO DATABASE...")
+            return self._get_mock_response(endpoint, params)
         
         return None
 

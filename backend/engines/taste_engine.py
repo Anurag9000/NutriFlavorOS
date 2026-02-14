@@ -30,7 +30,14 @@ class TasteEngine:
         for ingredient in user.liked_ingredients:
             try:
                 # Get real flavor profile from FlavorDB
+                # Note: This works for Molecules (e.g. Vanillin) but returns empty for complex Entities (e.g. Garlic)
                 profile = self.flavor_service.get_flavor_profile(ingredient)
+                
+                if not profile:
+                    # Graceful skip for Entities or items without direct molecular mapping
+                    # print(f"Info: No molecular profile for '{ingredient}'. Skipping flavor analysis for this item.")
+                    continue
+
                 flavor_vector = profile.get("flavor_vector", {})
                 
                 # Get functional groups (chemical fingerprint)

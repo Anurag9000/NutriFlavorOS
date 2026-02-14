@@ -1,0 +1,32 @@
+--- Sust: Header 'ApiKey' ---
+URL: http://cosylab.iiitd.edu.in:6969/sustainablefooddb/search
+Headers: dict_keys(['ApiKey'])
+Params: {'q': 'apple'}
+Status: 400
+Response: {"url":"/sustainablefooddb/search?q=apple","method":"GET","error":"ApiKey is not provided"}
+
+--- Sust: Query 'ApiKey' ---
+URL: http://cosylab.iiitd.edu.in:6969/sustainablefooddb/search
+Params: {'q': 'apple', 'ApiKey': 'TLNUWswde-lnhjdXH-ljLuiN3ll8Y-fYrncXcTatqSnM1ibf'}
+Status: 400
+Response: {"url":"/sustainablefooddb/search?q=apple&ApiKey=TLNUWswde-lnhjdXH-ljLuiN3ll8Y-fYrncXcTatqSnM1ibf","
+
+--- Sust: Auth 'ApiKey' ---
+URL: http://cosylab.iiitd.edu.in:6969/sustainablefooddb/search
+Headers: dict_keys(['Authorization'])
+Params: {'q': 'apple'}
+Status: 400
+Response: {"url":"/sustainablefooddb/search?q=apple","method":"GET","error":"Only bearer token is allowed"}
+
+--- DietRx: Header 'ApiKey' ---
+URL: http://cosylab.iiitd.edu.in:6969/dietrxdb/all-details
+Headers: dict_keys(['ApiKey'])
+Status: 400
+Response: {"url":"/dietrxdb/all-details","method":"GET","error":"ApiKey is not provided"}
+
+--- DietRx: Query 'ApiKey' ---
+URL: http://cosylab.iiitd.edu.in:6969/dietrxdb/all-details
+Params: {'ApiKey': 'TLNUWswde-lnhjdXH-ljLuiN3ll8Y-fYrncXcTatqSnM1ibf'}
+Status: 400
+Response: {"url":"/dietrxdb/all-details?ApiKey=TLNUWswde-lnhjdXH-ljLuiN3ll8Y-fYrncXcTatqSnM1ibf","method":"GET
+
