@@ -136,6 +136,11 @@ export interface HealthInsightPoint {
 // ─── Meal API ─────────────────────────────────────────────────────────────────
 
 export const mealApi = {
+    getMealPlan: (userId: string) =>
+        request<PlanResponse>(`/meals/plan/${userId}`, {
+            method: "GET",
+        }),
+
     generatePlan: (profile: UserProfile) =>
         request<PlanResponse>("/meals/generate", {
             method: "POST",
@@ -171,6 +176,11 @@ export const analyticsApi = {
         request<HealthPrediction>("/analytics/predict_health", {
             method: "POST",
             body: JSON.stringify(payload),
+        }),
+
+    getInsights: (userId: string) =>
+        request<{ insight: string; category: string; priority: string }>(`/analytics/insights/${userId}`, {
+            method: "GET",
         }),
 };
 
@@ -289,7 +299,7 @@ export const sustainabilityApi = {
         request<SustainabilityData>(`/sustainability/${userId}?period=${period}`),
 
     getCarbonFootprint: (userId: string) =>
-        request<CarbonBreakdown>(`/sustainability/carbon/${userId}`),
+        request<CarbonBreakdown>(`/sustainability/carbon-footprint/${userId}`),
 };
 
 // ─── Feedback / Online Learning API ───────────────────────────────────────────

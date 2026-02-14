@@ -1,0 +1,17 @@
+Sys Path: ['D:\\Finished Projects\\Resume\\FoodScope\\scripts', 'C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python310\\python310.zip', 'C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python310\\DLLs', 'C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python310\\lib', 'C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python310', 'C:\\Users\\DELL\\AppData\\Roaming\\Python\\Python310\\site-packages', 'C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages', 'D:\\Finished Projects\\Resume\\Document_validator_backend\\src', 'D:\\Finished Projects\\Resume\\FoodScope']
+Traceback (most recent call last):
+  File "D:\Finished Projects\Resume\FoodScope\scripts\verify_meal_persistence.py", line 91, in <module>
+    success = test_persistence()
+  File "D:\Finished Projects\Resume\FoodScope\scripts\verify_meal_persistence.py", line 41, in test_persistence
+    plan = create_dummy_plan()
+  File "D:\Finished Projects\Resume\FoodScope\scripts\verify_meal_persistence.py", line 30, in create_dummy_plan
+    return PlanResponse(
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python310\lib\site-packages\pydantic\main.py", line 164, in __init__
+    __pydantic_self__.__pydantic_validator__.validate_python(data, self_instance=__pydantic_self__)
+pydantic_core._pydantic_core.ValidationError: 2 validation errors for PlanResponse
+user_id
+  Field required [type=missing, input_value={'days': [DailyPlan(day=1...[], 'prep_timeline': {}}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.5/v/missing
+shopping_list
+  Input should be a valid dictionary [type=dict_type, input_value=[], input_type=list]
+    For further information visit https://errors.pydantic.dev/2.5/v/dict_type

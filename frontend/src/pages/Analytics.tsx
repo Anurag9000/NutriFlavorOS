@@ -6,7 +6,7 @@ import {
   PolarRadiusAxis, Radar, LineChart, Line,
 } from "recharts";
 import { useAuth } from "@/contexts/AuthContext";
-import { useHealthInsights, useTasteInsights, useVarietyInsights, useCarbonFootprint, useHealthPrediction } from "@/hooks/useApi";
+import { useHealthInsights, useTasteInsights, useVarietyInsights, useCarbonFootprint, useHealthPrediction, useGetMealPlan } from "@/hooks/useApi";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, Leaf } from "lucide-react";
@@ -26,6 +26,7 @@ export default function Analytics() {
   const tasteQ = useTasteInsights(userId);
   const varietyQ = useVarietyInsights(userId);
   const carbonQ = useCarbonFootprint(userId);
+  const mealPlanQ = useGetMealPlan(userId);
 
   const predictionMutation = useHealthPrediction();
   const [showPrediction, setShowPrediction] = useState(false);
@@ -35,21 +36,91 @@ export default function Analytics() {
   const tasteData = tasteQ.data ?? [];
   const varietyData = varietyQ.data ?? [];
   const carbonBreakdown = carbonQ.data;
+  const mealPlan = mealPlanQ.data;
+
+  // Calculate summary metrics from meal plan
+  const calculateSummaryMetrics = () => {
+    if (!mealPlan?.days || mealPlan.days.length === 0) {
+      return { avgCalories: 0, avgProtein: 0, totalMeals: 0 };
+    }
+
+    let totalCalories = 0;
+    let totalProtein = 0;
+    let mealCount = 0;
+
+    mealPlan.days.forEach(day => {
+      if (day.meals) {
+        Object.values(day.meals).forEach((meal: any) => {
+          totalCalories += meal.calories || 0;
+          totalProtein += meal.macros?.protein || 0;
+          mealCount++;
+        });
+      }
+    });
+
+    return {
+      avgCalories: mealCount > 0 ? Math.round(totalCalories / mealPlan.days.length) : 0,
+      avgProtein: mealCount > 0 ? Math.round(totalProtein / mealPlan.days.length) : 0,
+      totalMeals: mealCount,
+    };
+  };
+
+  const summaryMetrics = calculateSummaryMetrics();
+
+  // Calculate overall score from pillar scores
+  const healthAvg = healthData.length > 0
+    ? Math.round(healthData.reduce((s, d) => s + d.score, 0) / healthData.length)
+    : 0;
+  const tasteScore = tasteData.length > 0
+    ? Math.round(tasteData.reduce((s, d) => s + (d.A || 0), 0) / tasteData.length / 1.5)
+    : 0;
+  const varietyScore = varietyData.length > 0
+    ? Math.round(varietyData.reduce((s, d) => s + d.value, 0))
+    : 0;
+  const sustainScore = carbonBreakdown
+    ? Math.min(100 - carbonBreakdown.average_meal_footprint * 10, 100)
+    : 0;
+
+  const overallScore = Math.round((healthAvg + tasteScore + varietyScore + sustainScore) / 4);
+  const consistency = mealPlan?.days?.length === 7 ? 100 : Math.round((mealPlan?.days?.length || 0) / 7 * 100);
 
   // Calculate pillar data from API if available
   const pillarData = healthData.length > 0 ? [
-    { name: "Health", value: Math.round(healthData.reduce((s, d) => s + d.score, 0) / healthData.length), color: "hsl(152, 60%, 48%)" },
-    { name: "Taste", value: tasteData.length > 0 ? Math.round(tasteData.reduce((s, d) => s + (d.A || 0), 0) / tasteData.length / 1.5) : 0, color: "hsl(38, 92%, 55%)" },
-    { name: "Variety", value: varietyData.length > 0 ? Math.round(varietyData.reduce((s, d) => s + d.value, 0)) : 0, color: "hsl(265, 60%, 58%)" },
-    { name: "Sustain.", value: carbonBreakdown ? Math.min(100 - carbonBreakdown.average_meal_footprint * 10, 100) : 0, color: "hsl(174, 62%, 47%)" },
+    { name: "Health", value: healthAvg, color: "hsl(152, 60%, 48%)" },
+    { name: "Taste", value: tasteScore, color: "hsl(38, 92%, 55%)" },
+    { name: "Variety", value: varietyScore, color: "hsl(265, 60%, 58%)" },
+    { name: "Sustain.", value: sustainScore, color: "hsl(174, 62%, 47%)" },
   ] : [];
 
-  // Calculate macro distribution from health data if available
-  const macroDistribution = healthData.length > 0 ? [
-    { name: "Protein", value: 30, color: "hsl(152, 60%, 48%)" },
-    { name: "Carbs", value: 45, color: "hsl(38, 92%, 55%)" },
-    { name: "Fat", value: 25, color: "hsl(265, 60%, 58%)" },
-  ] : [];
+  // Calculate macro distribution from meal plan
+  const calculateMacroDistribution = () => {
+    if (!mealPlan?.days || mealPlan.days.length === 0) return [];
+
+    let totalProtein = 0;
+    let totalCarbs = 0;
+    let totalFat = 0;
+
+    mealPlan.days.forEach(day => {
+      if (day.meals) {
+        Object.values(day.meals).forEach((meal: any) => {
+          totalProtein += meal.macros?.protein || 0;
+          totalCarbs += meal.macros?.carbs || 0;
+          totalFat += meal.macros?.fat || 0;
+        });
+      }
+    });
+
+    const total = totalProtein + totalCarbs + totalFat;
+    if (total === 0) return [];
+
+    return [
+      { name: "Protein", value: Math.round((totalProtein / total) * 100), color: "hsl(152, 60%, 48%)" },
+      { name: "Carbs", value: Math.round((totalCarbs / total) * 100), color: "hsl(38, 92%, 55%)" },
+      { name: "Fat", value: Math.round((totalFat / total) * 100), color: "hsl(265, 60%, 58%)" },
+    ];
+  };
+
+  const macroDistribution = calculateMacroDistribution();
 
   const handlePredict = async () => {
     await predictionMutation.mutateAsync({ user_id: userId });
@@ -70,10 +141,10 @@ export default function Analytics() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card><CardContent className="p-5"><p className="text-sm text-muted-foreground">Avg Calories</p><p className="text-2xl font-bold">1,841</p><p className="text-xs text-health">↑ 3% from last week</p></CardContent></Card>
-          <Card><CardContent className="p-5"><p className="text-sm text-muted-foreground">Avg Protein</p><p className="text-2xl font-bold">106g</p><p className="text-xs text-health">On target</p></CardContent></Card>
-          <Card><CardContent className="p-5"><p className="text-sm text-muted-foreground">Overall Score</p><p className="text-2xl font-bold">81%</p><p className="text-xs text-taste">↑ 2% improvement</p></CardContent></Card>
-          <Card><CardContent className="p-5"><p className="text-sm text-muted-foreground">Consistency</p><p className="text-2xl font-bold">96%</p><p className="text-xs text-variety">Excellent</p></CardContent></Card>
+          <Card><CardContent className="p-5"><p className="text-sm text-muted-foreground">Avg Calories</p><p className="text-2xl font-bold">{summaryMetrics.avgCalories.toLocaleString()}</p><p className="text-xs text-muted-foreground">Per day</p></CardContent></Card>
+          <Card><CardContent className="p-5"><p className="text-sm text-muted-foreground">Avg Protein</p><p className="text-2xl font-bold">{summaryMetrics.avgProtein}g</p><p className="text-xs text-muted-foreground">Per day</p></CardContent></Card>
+          <Card><CardContent className="p-5"><p className="text-sm text-muted-foreground">Overall Score</p><p className="text-2xl font-bold">{overallScore}%</p><p className="text-xs text-muted-foreground">Avg of pillars</p></CardContent></Card>
+          <Card><CardContent className="p-5"><p className="text-sm text-muted-foreground">Consistency</p><p className="text-2xl font-bold">{consistency}%</p><p className="text-xs text-muted-foreground">{consistency === 100 ? 'Excellent' : 'Good'}</p></CardContent></Card>
         </div>
 
         {/* Weekly Health Score Trend */}

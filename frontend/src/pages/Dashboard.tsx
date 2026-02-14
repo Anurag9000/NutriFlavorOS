@@ -5,7 +5,7 @@ import { Heart, Palette, Sparkles, Leaf, Flame, Zap, TrendingUp, Brain, TreePine
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { useHealthInsights, useSustainabilityData, useGamificationAchievements, useImpactSummary, useGenerateMealPlan } from "@/hooks/useApi";
+import { useHealthInsights, useSustainabilityData, useGamificationAchievements, useImpactSummary, useGetMealPlan, useTasteInsights, useVarietyInsights, useAIInsights } from "@/hooks/useApi";
 
 const pillarConfig = [
   { key: "health" as const, label: "Health", icon: Heart, color: "text-health", bg: "bg-health/10" },
@@ -20,11 +20,14 @@ export default function Dashboard() {
   const { user } = useAuth();
   const userId = user?.id ?? "usr_1";
 
-  // API calls — fall back to mock data on failure
+  // API calls — NO FALLBACKS, 100% backend data
   const healthQ = useHealthInsights(userId);
   const sustainQ = useSustainabilityData(userId);
   const achieveQ = useGamificationAchievements(userId);
   const impactQ = useImpactSummary(userId);
+  const tasteQ = useTasteInsights(userId);
+  const varietyQ = useVarietyInsights(userId);
+  const insightsQ = useAIInsights(userId);
 
   // Sustainability impact - declare early
   const sustain = sustainQ.data;
@@ -35,15 +38,25 @@ export default function Dashboard() {
     ? Math.round(healthQ.data.reduce((s, d) => s + d.score, 0) / healthQ.data.length)
     : 0;
 
+  // Calculate taste score from API data (average of taste profile values)
+  const tasteScore = tasteQ.data && tasteQ.data.length > 0
+    ? Math.round(tasteQ.data.reduce((sum, d) => sum + d.A, 0) / (tasteQ.data.length * 1.5))
+    : 0;
+
+  // Calculate variety score from API data (sum of variety percentages)
+  const varietyScore = varietyQ.data && varietyQ.data.length > 0
+    ? Math.round(varietyQ.data.reduce((sum, d) => sum + d.value, 0))
+    : 0;
+
   const pillarScores = {
     health: healthAvg,
-    taste: 0, // TODO: Get from taste insights API when available
-    variety: 0, // TODO: Get from variety insights API when available
-    sustainability: sustain ? Math.round((sustain.carbon_saved_kg / 100) * 100) : 0, // Calculate from carbon saved
+    taste: tasteScore,
+    variety: varietyScore,
+    sustainability: sustain ? Math.round((sustain.carbon_saved_kg / 100) * 100) : 0,
   };
 
-  // Get today's meals from meal plan API - NO MOCK FALLBACK
-  const mealPlanQ = useGenerateMealPlan();
+  // Get today's meals from existing meal plan - NO GENERATION
+  const mealPlanQ = useGetMealPlan(userId);
   const todayMeals = mealPlanQ.data?.days?.[0]?.meals
     ? Object.entries(mealPlanQ.data.days[0].meals).map(([type, meal]: [string, any]) => ({
       id: meal.id,
@@ -182,7 +195,11 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">Your protein intake has been consistently strong this week. Consider adding more leafy greens to boost your micronutrient variety score.</p>
+                <p className="text-sm text-muted-foreground">
+                  {insightsQ.isLoading
+                    ? "Generating insights..."
+                    : insightsQ.data?.insight || "No insights available yet."}
+                </p>
               </CardContent>
             </Card>
 
