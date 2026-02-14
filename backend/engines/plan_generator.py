@@ -94,20 +94,53 @@ class PlanGenerator:
         )
     
     def _filter_valid_recipes(self, user: UserProfile) -> List[Recipe]:
-        """Filter recipes based on user preferences and health conditions"""
+        """Filter recipes based on user preferences, allergies, and diet"""
         valid_recipes = []
         
+        # Dietary Constraints Logic
+        # Keywords to exclude for each diet
+        restrictions = [r.lower() for r in user.dietary_restrictions]
+        
+        forbidden_keywords = set()
+        
+        if "vegetarian" in restrictions:
+            forbidden_keywords.update(["chicken", "beef", "pork", "meat", "lamb", "turkey", "fish", "salmon", "tuna", "shrimp", "seafood", "bacon", "ham"])
+        elif "vegan" in restrictions:
+            forbidden_keywords.update(["chicken", "beef", "pork", "meat", "lamb", "turkey", "fish", "salmon", "tuna", "shrimp", "seafood", "bacon", "ham",
+                                     "milk", "cheese", "yogurt", "butter", "cream", "egg", "honey", "mayonnaise", "whey", "casein"])
+        elif "pescetarian" in restrictions:
+             forbidden_keywords.update(["chicken", "beef", "pork", "meat", "lamb", "turkey", "bacon", "ham"])
+        
+        if "gluten-free" in restrictions:
+             forbidden_keywords.update(["wheat", "barley", "rye", "bread", "pasta", "flour", "couscous", "seitan", "soy sauce"]) # Soy sauce usually has wheat unless Tamari
+        
+        # User Dislikes & Allergies
+        dislikes = [d.replace("Allergy: ", "").lower() for d in user.disliked_ingredients]
+        
         for recipe in self.recipes:
-            # Check dislikes
-            has_disliked = any(
-                dislike.lower() in ing.lower() 
-                for dislike in user.disliked_ingredients 
-                for ing in recipe.ingredients
-            )
+            ingredients_lower = [ing.lower() for ing in recipe.ingredients]
+            
+            # 1. Check Restrictions (Vegetarian/Vegan/etc)
+            is_compliant = True
+            for forbidden in forbidden_keywords:
+                if any(forbidden in ing for ing in ingredients_lower):
+                    is_compliant = False
+                    break
+            
+            if not is_compliant:
+                continue
+
+            # 2. Check Specific Dislikes / Allergies
+            has_disliked = False
+            for dislike in dislikes:
+                if any(dislike in ing for ing in ingredients_lower):
+                    has_disliked = True
+                    break
+            
             if has_disliked:
                 continue
             
-            # Check health conditions (if using DietRxDB)
+            # 3. Check health conditions (if using DietRxDB)
             if hasattr(user, 'health_conditions') and user.health_conditions:
                 # This would use DietRxDB to check safety
                 # For now, we'll add it to valid list
@@ -115,7 +148,12 @@ class PlanGenerator:
             
             valid_recipes.append(recipe)
         
-        return valid_recipes if valid_recipes else self.recipes
+        # Fallback if too strict
+        if not valid_recipes:
+             print("Warning: Constraints too strict, returning all recipes to prevent crash.")
+             return self.recipes
+             
+        return valid_recipes
     
     def _generate_day_plan(self, day_num: int, user: UserProfile, 
                           targets: NutrientTarget, genome: Dict,

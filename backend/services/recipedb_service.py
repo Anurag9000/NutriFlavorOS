@@ -188,15 +188,11 @@ class RecipeDBService(BaseAPIService):
             return []
 
     def search_by_title(self, title: str) -> List[Dict]:
-        """Search recipes by name from local JSON data"""
-        all_recipes = self.get_all_recipes()
-        
-        if not title:  # Empty title = return all
-            return all_recipes
-        
-        # Filter by title (case-insensitive)
-        title_lower = title.lower()
-        return [r for r in all_recipes if title_lower in r.get("name", "").lower()]
+        """Search recipes by name (API First)"""
+        # Search via API
+        # Note: API filtering parameter guessed as 'title' or 'q'. 
+        return self._make_request("recipe2-api/recipe/recipesinfo", 
+                                 params={"limit": 10, "title": title})
     
     def get_recipes_by_day(self, day: str) -> List[Dict]:
         """Get recipes suitable for specific meal time (breakfast/lunch/dinner)"""
