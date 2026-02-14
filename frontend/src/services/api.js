@@ -64,12 +64,12 @@ export const logMeal = async (userId, mealData) => {
 // ============================================================================
 
 export const getAchievements = async (userId) => {
-    const response = await api.get(`/gamification/achievements/${userId}`);
+    const response = await api.get(`/learning/gamification/achievements/${userId}`);
     return response.data;
 };
 
 export const getLeaderboard = async (type = 'carbon_saved', period = 'monthly') => {
-    const response = await api.get('/gamification/leaderboard', {
+    const response = await api.get('/learning/gamification/leaderboard', {
         params: { leaderboard_type: type, period }, // Backend expects leaderboard_type
     });
     return response.data;
@@ -78,12 +78,12 @@ export const getLeaderboard = async (type = 'carbon_saved', period = 'monthly') 
 export const getStreak = async (userId) => {
     // Mocking streak endpoint if not yet in backend
     // Or we can add it to gamification routes
-    const response = await api.get(`/gamification/impact_summary/${userId}`);
+    const response = await api.get(`/learning/gamification/impact_summary/${userId}`);
     return response.data; // Impact summary might contain streak or we create specific endpoint
 };
 
 export const getImpactMetrics = async (userId) => {
-    const response = await api.get(`/gamification/impact_summary/${userId}`);
+    const response = await api.get(`/learning/gamification/impact_summary/${userId}`);
     return response.data;
 };
 
@@ -92,7 +92,7 @@ export const getImpactMetrics = async (userId) => {
 // ============================================================================
 
 export const getGroceryList = async (userId) => {
-    const response = await api.get(`/grocery/shopping_list/${userId}`);
+    const response = await api.get(`/learning/grocery/shopping_list/${userId}`);
     return response.data;
 };
 
@@ -102,12 +102,12 @@ export const getGroceryPredictions = async (userId) => {
     // We might need a new endpoint in backend or iterate.
     // For now, let's assume we want general predictions, maybe via shopping list or a new endpoint.
     // Let's use shopping list as a proxy or create a specific endpoint in backend later.
-    const response = await api.get(`/grocery/shopping_list/${userId}`);
+    const response = await api.get(`/learning/grocery/shopping_list/${userId}`);
     return response.data;
 };
 
 export const updateInventory = async (userId, itemId, quantity) => {
-    const response = await api.post('/grocery/consume', {
+    const response = await api.post('/learning/grocery/consume', {
         user_id: userId,
         item: itemId,
         quantity,
@@ -116,7 +116,7 @@ export const updateInventory = async (userId, itemId, quantity) => {
 };
 
 export const logPurchase = async (userId, items) => {
-    const response = await api.post('/grocery/purchase', {
+    const response = await api.post('/learning/grocery/purchase', {
         user_id: userId,
         items,
     });

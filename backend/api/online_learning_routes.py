@@ -112,8 +112,24 @@ async def predict_next_purchase(user_id: str, item: str):
 
 @router.get("/grocery/shopping_list/{user_id}")
 async def generate_shopping_list(user_id: str, days_ahead: int = 7):
+    """
+    Generate ML-optimized shopping list (Demo Mode)
+    """
     data = load_demo_data("grocery")
-    shopping_list = data.get("shopping_list", [])
+    
+    # Simple logic for Demo: 
+    # If days_ahead > 7, assume "Next Week" tab is clicked or requested
+    # The frontend likely toggles between current week (e.g. 7 days) and next week (e.g. 14 days or offset)
+    # Let's assume > 7 means "Next Week" for this demo context.
+    
+    if days_ahead > 7:
+        shopping_list = data.get("shopping_list_next_week", [])
+        # If next week list is missing, fallback to standard but maybe shuffle or modify?
+        if not shopping_list:
+             shopping_list = data.get("shopping_list", [])
+    else:
+        shopping_list = data.get("shopping_list", [])
+        
     total_cost = sum(item["estimated_cost"] for item in shopping_list)
     
     return {
@@ -140,8 +156,16 @@ async def log_meal_impact(impact: MealImpact):
 @router.get("/gamification/leaderboard")
 async def get_leaderboard(leaderboard_type: str = "carbon_saved", period: str = "month", limit: int = 100):
     data = load_demo_data("gamification")
+    
+    # Map frontend types to JSON keys
+    # specific keys: leaderboard_carbon_saved, leaderboard_health_score, leaderboard_variety_score
+    # frontend sends: "carbon_saved", "health_score", "variety_score"
+    
+    key = f"leaderboard_{leaderboard_type}"
+    leaderboard = data.get(key, data.get("leaderboard", []))
+    
     return {
-        "leaderboard": data.get("leaderboard", []),
+        "leaderboard": leaderboard,
         "type": leaderboard_type,
         "period": period
     }

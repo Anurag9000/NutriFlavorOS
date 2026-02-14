@@ -176,6 +176,36 @@
                 "category": "Produce"
             }
         ],
+        "shopping_list_next_week": [
+            {
+                "item": "Olive Oil",
+                "predicted_quantity": 1,
+                "estimated_cost": 15.00,
+                "urgency": 0.40,
+                "category": "Pantry"
+            },
+            {
+                "item": "Brown Rice",
+                "predicted_quantity": 2,
+                "estimated_cost": 4.00,
+                "urgency": 0.35,
+                "category": "Grains"
+            },
+            {
+                "item": "Salmon Fillet",
+                "predicted_quantity": 2,
+                "estimated_cost": 18.00,
+                "urgency": 0.30,
+                "category": "Seafood"
+            },
+            {
+                "item": "Kale",
+                "predicted_quantity": 1,
+                "estimated_cost": 2.50,
+                "urgency": 0.25,
+                "category": "Produce"
+            }
+        ],
         "predictions": {
             "Olive Oil": {
                 "days_until_purchase": 2,
@@ -211,13 +241,7 @@
                 "unlocked_at": "2023-10-22"
             }
         ],
-        "leaderboard": [
-            {
-                "user_id": "usr_1",
-                "username": "You",
-                "score": 1250,
-                "rank": 4
-            },
+        "leaderboard_carbon_saved": [
             {
                 "user_id": "usr_2",
                 "username": "EcoChef99",
@@ -237,15 +261,100 @@
                 "rank": 3
             },
             {
+                "user_id": "usr_1",
+                "username": "You",
+                "score": 1250,
+                "rank": 4
+            },
+            {
                 "user_id": "usr_5",
                 "username": "HealthyLife",
                 "score": 1100,
                 "rank": 5
             }
         ],
+        "leaderboard_health_score": [
+            {
+                "user_id": "usr_5",
+                "username": "HealthyLife",
+                "score": 98,
+                "rank": 1
+            },
+            {
+                "user_id": "usr_1",
+                "username": "You",
+                "score": 95,
+                "rank": 2
+            },
+            {
+                "user_id": "usr_2",
+                "username": "EcoChef99",
+                "score": 92,
+                "rank": 3
+            },
+            {
+                "user_id": "usr_3",
+                "username": "GreenEater",
+                "score": 89,
+                "rank": 4
+            }
+        ],
+        "leaderboard_variety_score": [
+            {
+                "user_id": "usr_3",
+                "username": "GreenEater",
+                "score": 50,
+                "rank": 1
+            },
+            {
+                "user_id": "usr_4",
+                "username": "SustainBros",
+                "score": 45,
+                "rank": 2
+            },
+            {
+                "user_id": "usr_1",
+                "username": "You",
+                "score": 42,
+                "rank": 3
+            },
+            {
+                "user_id": "usr_2",
+                "username": "EcoChef99",
+                "score": 38,
+                "rank": 4
+            }
+        ],
+        "leaderboard_streak": [
+            {
+                "user_id": "usr_4",
+                "username": "SustainBros",
+                "score": 45,
+                "rank": 1
+            },
+            {
+                "user_id": "usr_2",
+                "username": "EcoChef99",
+                "score": 30,
+                "rank": 2
+            },
+            {
+                "user_id": "usr_1",
+                "username": "You",
+                "score": 14,
+                "rank": 3
+            },
+            {
+                "user_id": "usr_5",
+                "username": "HealthyLife",
+                "score": 10,
+                "rank": 4
+            }
+        ],
         "impact_summary": {
             "total_carbon_saved": 45.5,
             "total_meals_logged": 124,
+            "total_points": 1250,
             "average_health_score": 88,
             "visual_impact": {
                 "trees": 2,
@@ -253,5 +362,459 @@
                 "water_bottles": 500
             }
         }
+    },
+    "meal_plan": {
+        "days": [
+            {
+                "day": 1,
+                "meals": {
+                    "breakfast": {
+                        "id": "rec_01",
+                        "name": "Oatmeal with Berries",
+                        "description": "Classic hearty breakfast",
+                        "calories": 350,
+                        "macros": {
+                            "protein": 12,
+                            "carbs": 60,
+                            "fat": 6
+                        },
+                        "ingredients": [
+                            "Oats",
+                            "Blueberries",
+                            "Milk"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1517093734098-81e02a632aa1?auto=format&fit=crop&w=300&q=80"
+                    },
+                    "lunch": {
+                        "id": "rec_02",
+                        "name": "Grilled Chicken Salad",
+                        "description": "Lean protein with greens",
+                        "calories": 450,
+                        "macros": {
+                            "protein": 40,
+                            "carbs": 15,
+                            "fat": 20
+                        },
+                        "ingredients": [
+                            "Chicken",
+                            "Lettuce",
+                            "Tomatoes"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80"
+                    },
+                    "dinner": {
+                        "id": "rec_03",
+                        "name": "Baked Salmon & Quinoa",
+                        "description": "Omega-3 rich dinner",
+                        "calories": 600,
+                        "macros": {
+                            "protein": 35,
+                            "carbs": 50,
+                            "fat": 25
+                        },
+                        "ingredients": [
+                            "Salmon",
+                            "Quinoa"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1467003909585-2f8a7270028d?auto=format&fit=crop&w=300&q=80"
+                    }
+                },
+                "total_stats": {
+                    "calories": 1400,
+                    "protein": 87,
+                    "carbs": 125,
+                    "fat": 51
+                },
+                "scores": {
+                    "health": 0.9,
+                    "taste": 0.85,
+                    "variety": 0.8
+                }
+            },
+            {
+                "day": 2,
+                "meals": {
+                    "breakfast": {
+                        "id": "rec_04",
+                        "name": "Greek Yogurt Parfait",
+                        "description": "Probiotic rich start",
+                        "calories": 300,
+                        "macros": {
+                            "protein": 15,
+                            "carbs": 30,
+                            "fat": 10
+                        },
+                        "ingredients": [
+                            "Yogurt",
+                            "Granola"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1488477181946-6428a029177b?auto=format&fit=crop&w=300&q=80"
+                    },
+                    "lunch": {
+                        "id": "rec_05",
+                        "name": "Turkey Wrap",
+                        "description": "Portable lean lunch",
+                        "calories": 400,
+                        "macros": {
+                            "protein": 30,
+                            "carbs": 35,
+                            "fat": 12
+                        },
+                        "ingredients": [
+                            "Turkey",
+                            "Tortilla"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=300&q=80"
+                    },
+                    "dinner": {
+                        "id": "rec_06",
+                        "name": "Vegetable Stir Fry",
+                        "description": "High fiber veggie mix",
+                        "calories": 450,
+                        "macros": {
+                            "protein": 15,
+                            "carbs": 60,
+                            "fat": 15
+                        },
+                        "ingredients": [
+                            "Broccoli",
+                            "Rice"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=300&q=80"
+                    }
+                },
+                "total_stats": {
+                    "calories": 1150,
+                    "protein": 60,
+                    "carbs": 125,
+                    "fat": 37
+                },
+                "scores": {
+                    "health": 0.85,
+                    "taste": 0.8,
+                    "variety": 0.9
+                }
+            },
+            {
+                "day": 3,
+                "meals": {
+                    "breakfast": {
+                        "id": "rec_07",
+                        "name": "Avocado Toast",
+                        "description": "Healthy fats and egg",
+                        "calories": 400,
+                        "macros": {
+                            "protein": 10,
+                            "carbs": 40,
+                            "fat": 20
+                        },
+                        "ingredients": [
+                            "Bread",
+                            "Avocado"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1541519227354-08fa5d50c44d?auto=format&fit=crop&w=300&q=80"
+                    },
+                    "lunch": {
+                        "id": "rec_08",
+                        "name": "Lentil Soup",
+                        "description": "Plant-based protein",
+                        "calories": 350,
+                        "macros": {
+                            "protein": 18,
+                            "carbs": 45,
+                            "fat": 8
+                        },
+                        "ingredients": [
+                            "Lentils",
+                            "Carrots"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1547592166-23acbe3222a8?auto=format&fit=crop&w=300&q=80"
+                    },
+                    "dinner": {
+                        "id": "rec_09",
+                        "name": "Steak & Potatoes",
+                        "description": "Classic high protein",
+                        "calories": 700,
+                        "macros": {
+                            "protein": 50,
+                            "carbs": 40,
+                            "fat": 30
+                        },
+                        "ingredients": [
+                            "Steak",
+                            "Potatoes"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1600891964092-4316c288032e?auto=format&fit=crop&w=300&q=80"
+                    }
+                },
+                "total_stats": {
+                    "calories": 1450,
+                    "protein": 78,
+                    "carbs": 125,
+                    "fat": 58
+                },
+                "scores": {
+                    "health": 0.8,
+                    "taste": 0.95,
+                    "variety": 0.7
+                }
+            },
+            {
+                "day": 4,
+                "meals": {
+                    "breakfast": {
+                        "id": "rec_10",
+                        "name": "Smoothie Bowl",
+                        "description": "Antioxidant blast",
+                        "calories": 350,
+                        "macros": {
+                            "protein": 8,
+                            "carbs": 50,
+                            "fat": 10
+                        },
+                        "ingredients": [
+                            "Banana",
+                            "Berries"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1494597564530-871f2b93ac55?auto=format&fit=crop&w=300&q=80"
+                    },
+                    "lunch": {
+                        "id": "rec_11",
+                        "name": "Chicken Sandwich",
+                        "description": "Protein packed bread",
+                        "calories": 450,
+                        "macros": {
+                            "protein": 35,
+                            "carbs": 40,
+                            "fat": 15
+                        },
+                        "ingredients": [
+                            "Chicken",
+                            "Bread"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1521390188846-e2a3a97453a0?auto=format&fit=crop&w=300&q=80"
+                    },
+                    "dinner": {
+                        "id": "rec_12",
+                        "name": "Pasta Primavera",
+                        "description": "Light carb dinner",
+                        "calories": 550,
+                        "macros": {
+                            "protein": 15,
+                            "carbs": 70,
+                            "fat": 20
+                        },
+                        "ingredients": [
+                            "Pasta",
+                            "Zucchini"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=300&q=80"
+                    }
+                },
+                "total_stats": {
+                    "calories": 1350,
+                    "protein": 58,
+                    "carbs": 160,
+                    "fat": 45
+                },
+                "scores": {
+                    "health": 0.75,
+                    "taste": 0.85,
+                    "variety": 0.85
+                }
+            },
+            {
+                "day": 5,
+                "meals": {
+                    "breakfast": {
+                        "id": "rec_13",
+                        "name": "Scrambled Eggs",
+                        "description": "Keto friendly eggs",
+                        "calories": 300,
+                        "macros": {
+                            "protein": 20,
+                            "carbs": 5,
+                            "fat": 22
+                        },
+                        "ingredients": [
+                            "Eggs",
+                            "Spinach"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1510629954389-c1e0da47d414?auto=format&fit=crop&w=300&q=80"
+                    },
+                    "lunch": {
+                        "id": "rec_14",
+                        "name": "Tuna Salad",
+                        "description": "Quick omega-3 lunch",
+                        "calories": 350,
+                        "macros": {
+                            "protein": 30,
+                            "carbs": 10,
+                            "fat": 15
+                        },
+                        "ingredients": [
+                            "Tuna",
+                            "Mayo"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&w=300&q=80"
+                    },
+                    "dinner": {
+                        "id": "rec_15",
+                        "name": "Tacos",
+                        "description": "Flavorful beef tacos",
+                        "calories": 600,
+                        "macros": {
+                            "protein": 25,
+                            "carbs": 45,
+                            "fat": 25
+                        },
+                        "ingredients": [
+                            "Tortilla",
+                            "Ground Beef"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?auto=format&fit=crop&w=300&q=80"
+                    }
+                },
+                "total_stats": {
+                    "calories": 1250,
+                    "protein": 75,
+                    "carbs": 60,
+                    "fat": 62
+                },
+                "scores": {
+                    "health": 0.88,
+                    "taste": 0.9,
+                    "variety": 0.75
+                }
+            },
+            {
+                "day": 6,
+                "meals": {
+                    "breakfast": {
+                        "id": "rec_16",
+                        "name": "Pancakes",
+                        "description": "Weekend treat",
+                        "calories": 500,
+                        "macros": {
+                            "protein": 10,
+                            "carbs": 80,
+                            "fat": 15
+                        },
+                        "ingredients": [
+                            "Flour",
+                            "Syrup"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1506084868230-bb9d95c24759?auto=format&fit=crop&w=300&q=80"
+                    },
+                    "lunch": {
+                        "id": "rec_17",
+                        "name": "Burger",
+                        "description": "Juicy beef burger",
+                        "calories": 650,
+                        "macros": {
+                            "protein": 35,
+                            "carbs": 40,
+                            "fat": 35
+                        },
+                        "ingredients": [
+                            "Beef Patty",
+                            "Bun"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=300&q=80"
+                    },
+                    "dinner": {
+                        "id": "rec_18",
+                        "name": "Pivot Pizza",
+                        "description": "Healthy dough pizza",
+                        "calories": 700,
+                        "macros": {
+                            "protein": 25,
+                            "carbs": 80,
+                            "fat": 30
+                        },
+                        "ingredients": [
+                            "Dough",
+                            "Cheese"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=300&q=80"
+                    }
+                },
+                "total_stats": {
+                    "calories": 1850,
+                    "protein": 70,
+                    "carbs": 200,
+                    "fat": 80
+                },
+                "scores": {
+                    "health": 0.65,
+                    "taste": 0.98,
+                    "variety": 0.8
+                }
+            },
+            {
+                "day": 7,
+                "meals": {
+                    "breakfast": {
+                        "id": "rec_19",
+                        "name": "Waffles",
+                        "description": "Crispy Belgian waffles",
+                        "calories": 450,
+                        "macros": {
+                            "protein": 8,
+                            "carbs": 60,
+                            "fat": 18
+                        },
+                        "ingredients": [
+                            "Waffle Mix",
+                            "Syrup"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1562376552-0d160a2f238d?auto=format&fit=crop&w=300&q=80"
+                    },
+                    "lunch": {
+                        "id": "rec_20",
+                        "name": "Caesar Salad",
+                        "description": "Parmesan crunchy salad",
+                        "calories": 400,
+                        "macros": {
+                            "protein": 15,
+                            "carbs": 20,
+                            "fat": 25
+                        },
+                        "ingredients": [
+                            "Romaine",
+                            "Chicken"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1551248429-40975aa4de74?auto=format&fit=crop&w=300&q=80"
+                    },
+                    "dinner": {
+                        "id": "rec_21",
+                        "name": "Roast Chicken",
+                        "description": "Classic roast dinner",
+                        "calories": 550,
+                        "macros": {
+                            "protein": 45,
+                            "carbs": 10,
+                            "fat": 25
+                        },
+                        "ingredients": [
+                            "Chicken",
+                            "Herbs"
+                        ],
+                        "image_url": "https://images.unsplash.com/photo-1532550907401-a500c9a57435?auto=format&fit=crop&w=300&q=80"
+                    }
+                },
+                "total_stats": {
+                    "calories": 1400,
+                    "protein": 68,
+                    "carbs": 90,
+                    "fat": 68
+                },
+                "scores": {
+                    "health": 0.8,
+                    "taste": 0.88,
+                    "variety": 0.82
+                }
+            }
+        ]
     }
 }

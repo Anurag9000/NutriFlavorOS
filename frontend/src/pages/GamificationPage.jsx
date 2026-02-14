@@ -47,8 +47,8 @@ const AchievementsView = ({ achievements }) => {
                             key={cat.id}
                             onClick={() => setSelectedCategory(cat.id)}
                             className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${selectedCategory === cat.id
-                                    ? 'bg-primary text-white'
-                                    : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                                ? 'bg-primary text-white'
+                                : 'bg-white/5 text-gray-400 hover:bg-white/10'
                                 }`}
                         >
                             <cat.icon size={16} />
@@ -112,7 +112,8 @@ const AchievementsView = ({ achievements }) => {
     );
 };
 
-const LeaderboardView = ({ leaderboards, currentUserId }) => {
+const LeaderboardView = ({ leaderboards }) => {
+    const { fetchLeaderboard } = useGamification();
     const [leaderboardType, setLeaderboardType] = useState('carbon_saved');
 
     const leaderboardTypes = [
@@ -121,13 +122,11 @@ const LeaderboardView = ({ leaderboards, currentUserId }) => {
         { id: 'health_score', label: 'Health Score', icon: '💪' },
     ];
 
-    const leaderboardData = [
-        { rank: 1, name: 'Alex Chen', value: 95.2, level: 12, avatar: '👨‍🍳', isCurrentUser: false },
-        { rank: 2, name: 'Sarah Kim', value: 88.7, level: 10, avatar: '👩‍🍳', isCurrentUser: false },
-        { rank: 3, name: 'You', value: 85.0, level: 8, avatar: '🧙‍♂️', isCurrentUser: true },
-        { rank: 4, name: 'Mike Ross', value: 82.1, level: 9, avatar: '🤠', isCurrentUser: false },
-        { rank: 5, name: 'Emma Wilson', value: 78.4, level: 7, avatar: '👩‍🌾', isCurrentUser: false },
-    ];
+    useEffect(() => {
+        fetchLeaderboard(leaderboardType);
+    }, [leaderboardType]);
+
+    const currentLeaderboard = leaderboards[leaderboardType] || [];
 
     return (
         <div className="card p-6">
@@ -143,8 +142,8 @@ const LeaderboardView = ({ leaderboards, currentUserId }) => {
                             key={type.id}
                             onClick={() => setLeaderboardType(type.id)}
                             className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${leaderboardType === type.id
-                                    ? 'bg-primary text-white'
-                                    : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                                ? 'bg-primary text-white'
+                                : 'bg-white/5 text-gray-400 hover:bg-white/10'
                                 }`}
                         >
                             <span>{type.icon}</span>
@@ -155,52 +154,59 @@ const LeaderboardView = ({ leaderboards, currentUserId }) => {
             </div>
 
             <div className="space-y-3">
-                {leaderboardData.map((user, index) => (
-                    <motion.div
-                        key={index}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                        className={`flex items-center justify-between p-4 rounded-lg border transition-all ${user.isCurrentUser
+                {currentLeaderboard.length > 0 ? (
+                    currentLeaderboard.map((user, index) => (
+                        <motion.div
+                            key={index}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className={`flex items-center justify-between p-4 rounded-lg border transition-all ${user.user_id === 'usr_1' // Simple check for current user in demo
                                 ? 'bg-primary/20 border-primary/50 scale-105'
                                 : 'bg-white/5 border-white/10 hover:bg-white/10'
-                            }`}
-                    >
-                        <div className="flex items-center gap-4">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${user.rank === 1 ? 'bg-yellow-500/20 text-yellow-500' :
+                                }`}
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${user.rank === 1 ? 'bg-yellow-500/20 text-yellow-500' :
                                     user.rank === 2 ? 'bg-gray-400/20 text-gray-400' :
                                         user.rank === 3 ? 'bg-orange-500/20 text-orange-500' :
                                             'bg-white/10 text-gray-400'
-                                }`}>
-                                {user.rank}
+                                    }`}>
+                                    {user.rank}
+                                </div>
+                                <div className="text-3xl">{'👤'}</div>
+                                <div>
+                                    <p className={`font-medium ${user.user_id === 'usr_1' ? 'text-primary' : 'text-white'}`}>
+                                        {user.username}
+                                    </p>
+                                    <p className="text-sm text-gray-400">Rank {user.rank}</p>
+                                </div>
                             </div>
-                            <div className="text-3xl">{user.avatar}</div>
-                            <div>
-                                <p className={`font-medium ${user.isCurrentUser ? 'text-primary' : 'text-white'}`}>
-                                    {user.name}
-                                </p>
-                                <p className="text-sm text-gray-400">Level {user.level}</p>
+                            <div className="text-right">
+                                <p className="font-semibold text-lg">{user.score} {leaderboardType === 'carbon_saved' ? 'kg' : leaderboardType === 'streak' ? 'days' : 'pts'}</p>
+                                {user.user_id === 'usr_1' && <p className="text-xs text-primary">You're here!</p>}
                             </div>
-                        </div>
-                        <div className="text-right">
-                            <p className="font-semibold text-lg">{user.value} {leaderboardType === 'carbon_saved' ? 'kg' : leaderboardType === 'streak' ? 'days' : '%'}</p>
-                            {user.isCurrentUser && <p className="text-xs text-primary">You're here!</p>}
-                        </div>
-                    </motion.div>
-                ))}
+                        </motion.div>
+                    ))
+                ) : (
+                    <div className="text-center py-8 text-gray-400">Loading leaderboard...</div>
+                )}
             </div>
         </div>
     );
 };
 
 export default function GamificationPage() {
-    const { streak, impactMetrics, achievements, leaderboards, fetchAllGamificationData } = useGamification();
+    const { streak, impactMetrics, achievements, leaderboards, fetchAchievements, fetchStreak, fetchImpactMetrics, fetchLeaderboard } = useGamification();
     const { profile } = useUser();
     const [activeTab, setActiveTab] = useState('achievements');
 
     useEffect(() => {
         if (profile?.id) {
-            fetchAllGamificationData(profile.id);
+            fetchAchievements(profile.id);
+            fetchStreak(profile.id);
+            fetchImpactMetrics(profile.id);
+            fetchLeaderboard('carbon_saved');
         }
     }, [profile]);
 
@@ -222,12 +228,12 @@ export default function GamificationPage() {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="card p-4 flex flex-col items-center justify-center bg-white/5">
                         <Award className="text-yellow-500 mb-2" size={32} />
-                        <span className="text-2xl font-bold">{achievements.length || 5}</span>
+                        <span className="text-2xl font-bold">{achievements?.length || 0}</span>
                         <span className="text-xs text-gray-400 uppercase tracking-widest">Badges</span>
                     </div>
                     <div className="card p-4 flex flex-col items-center justify-center bg-white/5">
                         <Star className="text-purple-500 mb-2" size={32} />
-                        <span className="text-2xl font-bold">1,250</span>
+                        <span className="text-2xl font-bold">{impactMetrics?.total_points || 0}</span>
                         <span className="text-xs text-gray-400 uppercase tracking-widest">XP Points</span>
                     </div>
                 </div>
@@ -238,8 +244,8 @@ export default function GamificationPage() {
                     <button
                         onClick={() => setActiveTab('achievements')}
                         className={`flex-1 py-3 font-medium border-b-2 transition-colors flex justify-center items-center gap-2 ${activeTab === 'achievements'
-                                ? 'border-primary text-primary'
-                                : 'border-transparent text-gray-400 hover:text-white'
+                            ? 'border-primary text-primary'
+                            : 'border-transparent text-gray-400 hover:text-white'
                             }`}
                     >
                         <Trophy size={18} /> Achievements
@@ -247,8 +253,8 @@ export default function GamificationPage() {
                     <button
                         onClick={() => setActiveTab('leaderboard')}
                         className={`flex-1 py-3 font-medium border-b-2 transition-colors flex justify-center items-center gap-2 ${activeTab === 'leaderboard'
-                                ? 'border-primary text-primary'
-                                : 'border-transparent text-gray-400 hover:text-white'
+                            ? 'border-primary text-primary'
+                            : 'border-transparent text-gray-400 hover:text-white'
                             }`}
                     >
                         <Medal size={18} /> Leaderboards
@@ -256,8 +262,8 @@ export default function GamificationPage() {
                     <button
                         onClick={() => setActiveTab('social')}
                         className={`flex-1 py-3 font-medium border-b-2 transition-colors flex justify-center items-center gap-2 ${activeTab === 'social'
-                                ? 'border-primary text-primary'
-                                : 'border-transparent text-gray-400 hover:text-white'
+                            ? 'border-primary text-primary'
+                            : 'border-transparent text-gray-400 hover:text-white'
                             }`}
                     >
                         <Users size={18} /> Social
