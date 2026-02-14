@@ -32,18 +32,58 @@ def generate_sql():
         sql.append("CREATE TABLE IF NOT EXISTS recipes (id TEXT PRIMARY KEY, title TEXT, image TEXT, readyInMinutes INTEGER, servings INTEGER, sourceUrl TEXT, nutrition TEXT, cuisines TEXT, diets TEXT, instructions TEXT);")
         
         for r in recipes:
+            # Handle RecipeDB V2 keys vs Old Mock keys
+            r_id = r.get("Recipe_id") or r.get("id")
+            title = r.get("Recipe_title") or r.get("title")
+            image = r.get("image") # Likely missing in harvest, could construct URL if needed
+            
+            # Time
+            ready_time = r.get("total_time") or r.get("readyInMinutes")
+            
+            # Nutrition Construction
+            nutrition = r.get("nutrition")
+            if not nutrition and "Calories" in r:
+                nutrition = {
+                    "calories": r.get("Calories"),
+                    "protein": r.get("Protein (g)"),
+                    "fat": r.get("Total lipid (fat) (g)"),
+                    "carbs": r.get("Carbohydrate, by difference (g)")
+                }
+            
+            # Cuisines
+            cuisines = r.get("cuisines")
+            if not cuisines and "Region" in r:
+                cuisines = [x for x in [r.get("Region"), r.get("Sub_region")] if x]
+                
+            # Diets
+            diets = r.get("diets", [])
+            # If diets is list (old mock), fine. If missing, infer.
+            if not diets or not isinstance(diets, list):
+                diets = []
+                if r.get("vegan") == "1.0": diets.append("vegan")
+                if r.get("pescetarian") == "1.0": diets.append("pescetarian")
+                if r.get("lacto_vegetarian") == "1.0": diets.append("lacto-vegetarian")
+                if r.get("ovo_vegetarian") == "1.0": diets.append("ovo-vegetarian")
+            
+            # Instructions: "process1||process2" -> list
+            instructions = r.get("instructions")
+            if not instructions and "Processes" in r:
+                instructions = r["Processes"].split("||") if r["Processes"] else []
+            elif isinstance(instructions, str):
+                instructions = [instructions]
+                
             cols = ["id", "title", "image", "readyInMinutes", "servings", "sourceUrl", "nutrition", "cuisines", "diets", "instructions"]
             vals = [
-                escape_sql(r.get("id")),
-                escape_sql(r.get("title")),
-                escape_sql(r.get("image")),
-                escape_sql(r.get("readyInMinutes")),
+                escape_sql(r_id),
+                escape_sql(title),
+                escape_sql(image),
+                escape_sql(ready_time),
                 escape_sql(r.get("servings")),
-                escape_sql(r.get("sourceUrl")),
-                escape_sql(json.dumps(r.get("nutrition", {}))),
-                escape_sql(json.dumps(r.get("cuisines", []))),
-                escape_sql(json.dumps(r.get("diets", []))),
-                escape_sql(json.dumps(r.get("instructions", [])))
+                escape_sql(r.get("Source") or r.get("sourceUrl")),
+                escape_sql(json.dumps(nutrition or {})),
+                escape_sql(json.dumps(cuisines or [])),
+                escape_sql(json.dumps(diets or [])),
+                escape_sql(json.dumps(instructions or []))
             ]
             sql.append(f"INSERT OR REPLACE INTO recipes ({', '.join(cols)}) VALUES ({', '.join(vals)});")
 
