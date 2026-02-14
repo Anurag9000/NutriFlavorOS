@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Sparkles, Clock, ChefHat, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useGenerateMealPlan, useRegenerateDay, useSwapMeal } from "@/hooks/useApi";
+import { useGetMealPlan, useGenerateMealPlan, useRegenerateDay, useSwapMeal } from "@/hooks/useApi";
 import type { PlanResponse } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { RecipeDetailModal } from "@/components/RecipeDetailModal";
@@ -52,6 +52,8 @@ export default function MealPlanner() {
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // API hooks
+  const getMealPlanQ = useGetMealPlan(userId);
   const generateMutation = useGenerateMealPlan();
   const regenerateMutation = useRegenerateDay();
   const swapMutation = useSwapMeal();
@@ -80,16 +82,57 @@ export default function MealPlanner() {
     }
   }, [generateMutation, toast]);
 
-  // Auto-generate plan on mount (try to get real data)
+  // Load from localStorage on mount (offline persistence)
+  useEffect(() => {
+    const cached = localStorage.getItem(`mealPlan_${userId}`);
+    if (cached) {
+      try {
+        const { plan, prepTimeline, timestamp } = JSON.parse(cached);
+        // Only use if less than 24 hours old
+        if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
+          setDisplayPlan(plan);
+          setPrepTimeline(prepTimeline || {});
+          setIsApiPlan(true);
+          console.log("Loaded meal plan from localStorage");
+        }
+      } catch (e) {
+        console.error("Failed to load cached plan:", e);
+      }
+    }
+  }, [userId]);
+
+  // Save to localStorage when plan changes
+  useEffect(() => {
+    if (displayPlan.length > 0 && isApiPlan) {
+      localStorage.setItem(`mealPlan_${userId}`, JSON.stringify({
+        plan: displayPlan,
+        prepTimeline,
+        timestamp: Date.now(),
+      }));
+    }
+  }, [displayPlan, prepTimeline, isApiPlan, userId]);
+
+  // Fetch existing plan first, only generate if none exists
   useEffect(() => {
     if (isInitialLoad) {
       setIsInitialLoad(false);
-      handleGenerate().catch(() => {
-        // If auto-generation fails, just show empty state with generate button
-        console.log("Auto-generation skipped - user can manually generate");
-      });
+
+      // Try to load existing plan from API first
+      if (getMealPlanQ.data) {
+        const converted = apiPlanToDisplay(getMealPlanQ.data);
+        setDisplayPlan(converted as any);
+        setPrepTimeline(getMealPlanQ.data.prep_timeline ?? {});
+        setIsApiPlan(true);
+        console.log("Loaded existing meal plan from backend");
+      } else if (!getMealPlanQ.isLoading && !getMealPlanQ.data && displayPlan.length === 0) {
+        // No existing plan and no cached plan, generate new one
+        console.log("No existing plan found, generating new one...");
+        handleGenerate().catch(() => {
+          console.log("Auto-generation skipped - user can manually generate");
+        });
+      }
     }
-  }, [isInitialLoad, handleGenerate]);
+  }, [isInitialLoad, getMealPlanQ.data, getMealPlanQ.isLoading, handleGenerate, displayPlan.length]);
 
   // Regenerate a specific day
   const handleRegenerateDay = useCallback(async () => {
@@ -274,27 +317,67 @@ export default function MealPlanner() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <Card>
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <ChefHat className="h-4 w-4 text-primary" />
-                  <CardTitle className="text-sm">Prep Timeline</CardTitle>
+            <Card className="border-primary/20 bg-gradient-to-br from-card via-card to-primary/5">
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <ChefHat className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Weekly Prep Timeline</CardTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">Plan ahead for efficient cooking</p>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {Object.entries(prepTimeline).map(([day, tasks]) => (
-                    <div key={day}>
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                        <Clock className="h-3 w-3 inline mr-1" />
-                        Day {day}
-                      </p>
-                      <ul className="space-y-1">
-                        {(tasks as string[]).map((task, i) => (
-                          <li key={i} className="text-sm text-muted-foreground pl-4">• {task}</li>
-                        ))}
-                      </ul>
-                    </div>
+                <div className="grid gap-4">
+                  {Object.entries(prepTimeline).map(([day, tasks], dayIndex) => (
+                    <motion.div
+                      key={day}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: dayIndex * 0.05 }}
+                      className="group relative overflow-hidden rounded-lg border bg-gradient-to-r from-muted/30 to-muted/10 p-4 hover:shadow-md transition-all"
+                    >
+                      {/* Day Header */}
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
+                          {day}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm">Day {day}</p>
+                          <p className="text-xs text-muted-foreground">{(tasks as string[]).length} tasks</p>
+                        </div>
+                      </div>
+
+                      {/* Tasks List */}
+                      <div className="space-y-2 pl-10">
+                        {(tasks as string[]).map((task, i) => {
+                          // Parse time and task from string like "8:00 AM - Prepare B'stilla"
+                          const match = task.match(/^(\d{1,2}:\d{2}\s*(?:AM|PM)?)\s*-\s*(.+)$/i);
+                          const time = match ? match[1] : "";
+                          const taskText = match ? match[2] : task;
+
+                          return (
+                            <div
+                              key={i}
+                              className="flex items-start gap-3 p-2 rounded-md bg-background/50 hover:bg-background transition-colors"
+                            >
+                              <Clock className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                {time && (
+                                  <p className="text-xs font-medium text-primary mb-0.5">{time}</p>
+                                )}
+                                <p className="text-sm text-foreground leading-relaxed">{taskText}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Decorative gradient */}
+                      <div className="absolute top-0 right-0 h-full w-1 bg-gradient-to-b from-primary/50 via-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </motion.div>
                   ))}
                 </div>
               </CardContent>

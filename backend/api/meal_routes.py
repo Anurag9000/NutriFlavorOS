@@ -1,12 +1,26 @@
 from fastapi import APIRouter, HTTPException, Body
 from backend.models import UserProfile, PlanResponse, DailyPlan, Recipe
 from backend.engines.plan_generator import PlanGenerator
-from typing import Dict
+from typing import Dict, Optional
+from backend.utils.meal_persistence import cache_plan, get_cached_plan, update_cached_day
 
 router = APIRouter(prefix="/api/v1/meals", tags=["meals"])
 
 # Initialize generator
 generator = PlanGenerator()
+
+@router.get("/plan/{user_id}", response_model=PlanResponse)
+async def get_meal_plan(user_id: str):
+    """
+    Get existing meal plan for a user
+    """
+    plan = get_cached_plan(user_id)
+    if not plan:
+        raise HTTPException(
+            status_code=404, 
+            detail="No meal plan found. Please generate a new plan."
+        )
+    return plan
 
 @router.post("/generate", response_model=PlanResponse)
 async def generate_meal_plan(user: UserProfile):
@@ -15,6 +29,12 @@ async def generate_meal_plan(user: UserProfile):
     """
     try:
         plan = generator.create_plan(user, days=7)
+        
+        # Cache the generated plan
+        # Use user.name as user_id if available, otherwise use a default
+        user_id = user.name or "default_user"
+        cache_plan(user_id, plan)
+        
         return plan
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -40,6 +60,10 @@ async def regenerate_day(payload: Dict = Body(...)):
         full_plan = generator.create_plan(dummy_user, days=1)
         new_day = full_plan.days[0]
         new_day.day = day_index + 1 # Adjust day number
+        
+        # Update the cached plan if it exists
+        update_cached_day(user_id, day_index, new_day)
+        
         return new_day
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

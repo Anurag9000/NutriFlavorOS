@@ -60,6 +60,17 @@ export function useAddMedication() {
 
 // ─── Meals ────────────────────────────────────────────────────────────────────
 
+export function useGetMealPlan(userId: string) {
+    return useQuery({
+        queryKey: ["mealPlan", userId],
+        queryFn: () => mealApi.getMealPlan(userId),
+        enabled: !!userId,
+        staleTime: 30 * 60_000, // 30 minutes - plans don't change often
+        gcTime: 60 * 60_000, // 1 hour (formerly cacheTime)
+        retry: false, // Don't retry if no plan exists (404 is expected)
+    });
+}
+
 export function useGenerateMealPlan() {
     return useMutation({
         mutationFn: (profile: UserProfile) => mealApi.generatePlan(profile),
@@ -116,6 +127,16 @@ export function useHealthPrediction() {
     return useMutation({
         mutationFn: (payload: Record<string, unknown>) =>
             analyticsApi.predictHealth(payload),
+    });
+}
+
+export function useAIInsights(userId: string) {
+    return useQuery({
+        queryKey: ["aiInsights", userId],
+        queryFn: () => analyticsApi.getInsights(userId),
+        enabled: !!userId,
+        staleTime: 10 * 60_000, // 10 minutes
+        retry: 1,
     });
 }
 

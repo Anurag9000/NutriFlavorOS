@@ -11,18 +11,43 @@ flavor_service = FlavorDBService()
 @router.get("/health/{user_id}")
 async def get_health_insights(user_id: str, period: str = "30d"):
     """
-    Get health insights based on DietRxDB data (Future integration)
+    Get health insights based on meal plan data
     """
-    # Placeholder: In phase 13, this would aggregate data from DietRxDB
-    return [
-        {"date": "Mon", "score": 82},
-        {"date": "Tue", "score": 85},
-        {"date": "Wed", "score": 78},
-        {"date": "Thu", "score": 90},
-        {"date": "Fri", "score": 88},
-        {"date": "Sat", "score": 92},
-        {"date": "Sun", "score": 95},
-    ]
+    from backend.api.meal_routes import get_cached_plan
+    from backend.utils.analytics_helpers import calculate_daily_health_score
+    
+    # Get user's meal plan from cache
+    meal_plan = get_cached_plan(user_id)
+    if not meal_plan or not meal_plan.days:
+        return []
+    
+    # Calculate health score for each day
+    health_data = []
+    day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    
+    for idx, day in enumerate(meal_plan.days):
+        # Convert day meals to dict format
+        day_meals = {}
+        if hasattr(day, 'meals'):
+            for meal_type, meal in day.meals.items():
+                day_meals[meal_type] = {
+                    "calories": meal.calories,
+                    "macros": {
+                        "protein": meal.macros.protein if hasattr(meal.macros, 'protein') else 0,
+                        "carbs": meal.macros.carbs if hasattr(meal.macros, 'carbs') else 0,
+                        "fat": meal.macros.fat if hasattr(meal.macros, 'fat') else 0,
+                    }
+                }
+        
+        # Calculate score for this day
+        score = calculate_daily_health_score(day_meals, user_target_calories=2000)
+        
+        health_data.append({
+            "date": day_names[idx] if idx < len(day_names) else f"Day{idx+1}",
+            "score": score
+        })
+    
+    return health_data
 
 @router.get("/taste/{user_id}")
 async def get_taste_insights(user_id: str):
@@ -67,28 +92,35 @@ async def get_taste_insights(user_id: str):
         
     except Exception as e:
         print(f"Error generating taste insights: {e}")
-        # Fallback
-        return [
-                {"subject": "Spicy", "A": 80, "fullMark": 150},
-                {"subject": "Sweet", "A": 110, "fullMark": 150},
-                {"subject": "Salty", "A": 90, "fullMark": 150},
-                {"subject": "Bitter", "A": 50, "fullMark": 150},
-                {"subject": "Sour", "A": 60, "fullMark": 150},
-                {"subject": "Umami", "A": 100, "fullMark": 150},
-            ]
+        # Return empty if FlavorDB unavailable
+        return []
 
 @router.get("/variety/{user_id}")
 async def get_variety_insights(user_id: str):
     """
-    Get variety metrics
+    Get variety metrics from meal plan
     """
-    return [
-        {"name": "Vegetables", "value": 35},
-        {"name": "Fruits", "value": 25},
-        {"name": "Grains", "value": 20},
-        {"name": "Proteins", "value": 15},
-        {"name": "Dairy", "value": 5},
-    ]
+    from backend.api.meal_routes import get_cached_plan
+    from backend.utils.analytics_helpers import calculate_variety_distribution
+    
+    # Get user's meal plan from cache
+    meal_plan = get_cached_plan(user_id)
+    if not meal_plan or not meal_plan.days:
+        return []
+    
+    # Convert meal plan to dict format for helper function
+    days_data = []
+    for day in meal_plan.days:
+        day_dict = {"meals": {}}
+        if hasattr(day, 'meals'):
+            for meal_type, meal in day.meals.items():
+                day_dict["meals"][meal_type] = {
+                    "ingredients": meal.ingredients if hasattr(meal, 'ingredients') else []
+                }
+        days_data.append(day_dict)
+    
+    # Calculate variety distribution
+    return calculate_variety_distribution(days_data)
 
 @router.post("/predict_health")
 async def predict_health(payload: Dict = Body(...)):
@@ -103,4 +135,17 @@ async def predict_health(payload: Dict = Body(...)):
              {"day": 15, "score": 88},
              {"day": 30, "score": 92},
         ]
+    }
+
+@router.get("/insights/{user_id}")
+async def get_ai_insights(user_id: str):
+    """
+    Generate AI-powered nutritional insights based on user's meal history
+    """
+    # TODO: Implement real insight generation based on meal history
+    # For now, return a simple insight
+    return {
+        "insight": "Start logging meals to receive personalized AI insights about your nutrition patterns and recommendations.",
+        "category": "general",
+        "priority": "low"
     }
