@@ -1,0 +1,5 @@
+{
+  "url": "/recipe2-api/recipe/recipesinfo?page=1&limit=5",
+  "method": "GET",
+  "error": "ApiKey is not provided"
+}
