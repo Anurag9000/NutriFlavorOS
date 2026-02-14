@@ -1,0 +1,1367 @@
+{
+  "default_user": {
+    "plan": {
+      "user_id": "user",
+      "days": [
+        {
+          "day": 1,
+          "meals": {
+            "Breakfast": {
+              "id": "114590",
+              "name": " Berry Good\"\" French Toast Bake",
+              "description": "A French dish.",
+              "image_url": "https://geniuskitchen.sndimg.com/gk/img/gk-shareGraphic.png",
+              "ingredients": [],
+              "calories": 682,
+              "macros": {
+                "protein": 28,
+                "carbs": 117,
+                "fat": 10
+              },
+              "flavor_profile": {},
+              "tags": [
+                "French",
+                "French",
+                "European"
+              ],
+              "cuisine": "French",
+              "instructions": [
+                "grease",
+                "beat",
+                "smooth",
+                "stir",
+                "top",
+                "cover",
+                "refrigerate",
+                "heat",
+                "uncover",
+                "bake",
+                "sprinkle"
+              ]
+            },
+            "Morning Snack": {
+              "id": "143939",
+              "name": " Almost Grilled\"\" Cheese Sandwich",
+              "description": "A Canadian dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/10/05/40/picF1k5Oy.jpg",
+              "ingredients": [],
+              "calories": 195,
+              "macros": {
+                "protein": 8,
+                "carbs": 36,
+                "fat": 1
+              },
+              "flavor_profile": {},
+              "tags": [
+                "Canadian",
+                "Canadian",
+                "North American"
+              ],
+              "cuisine": "Canadian",
+              "instructions": [
+                "toast",
+                "spread",
+                "put",
+                "heat",
+                "melt"
+              ]
+            },
+            "Lunch": {
+              "id": "48781",
+              "name": " Big Easy \"\" Gumbo",
+              "description": "A Rest Africa dish.",
+              "image_url": "https://geniuskitchen.sndimg.com/gk/img/gk-shareGraphic.png",
+              "ingredients": [],
+              "calories": 484,
+              "macros": {
+                "protein": 38,
+                "carbs": 12,
+                "fat": 31
+              },
+              "flavor_profile": {},
+              "tags": [
+                "Rest Africa",
+                "Nigerian",
+                "African"
+              ],
+              "cuisine": "Rest Africa",
+              "instructions": [
+                "heat",
+                "heat",
+                "whisk",
+                "cook",
+                "reduce",
+                "heat",
+                "stir",
+                "cook",
+                "stirring",
+                "stir",
+                "add",
+                "heat",
+                "boil",
+                "reduce",
+                "heat",
+                "simmer",
+                "stirring",
+                "add",
+                "cook",
+                "serve"
+              ]
+            },
+            "Afternoon Snack": {
+              "id": "114026",
+              "name": " Add Anything\"\" French Rolls or Baguettes",
+              "description": "A French dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/31/94/03/pic07NH3w.jpg",
+              "ingredients": [],
+              "calories": 307,
+              "macros": {
+                "protein": 5,
+                "carbs": 52,
+                "fat": 8
+              },
+              "flavor_profile": {},
+              "tags": [
+                "French",
+                "French",
+                "European"
+              ],
+              "cuisine": "French",
+              "instructions": [
+                "place",
+                "add",
+                "add",
+                "seasoning",
+                "add",
+                "mix",
+                "knead",
+                "place",
+                "cover",
+                "rise",
+                "place",
+                "rise",
+                "punch",
+                "press",
+                "place",
+                "cover",
+                "brush",
+                "sprinkle",
+                "seasoning",
+                "bake"
+              ]
+            },
+            "Dinner": {
+              "id": "115378",
+              "name": " Butter Me Bananas\"\" French Toast",
+              "description": "A French dish.",
+              "image_url": "https://geniuskitchen.sndimg.com/gk/img/gk-shareGraphic.png",
+              "ingredients": [],
+              "calories": 511,
+              "macros": {
+                "protein": 14,
+                "carbs": 47,
+                "fat": 31
+              },
+              "flavor_profile": {},
+              "tags": [
+                "French",
+                "French",
+                "European"
+              ],
+              "cuisine": "French",
+              "instructions": [
+                "whisk",
+                "mix",
+                "add",
+                "stir",
+                "put",
+                "stir",
+                "pour",
+                "push",
+                "sprinkle",
+                "place",
+                "spread",
+                "cut",
+                "put",
+                "drizzle",
+                "split",
+                "place",
+                "serve"
+              ]
+            }
+          },
+          "total_stats": {
+            "calories": 2179.0,
+            "target_calories": 2473.0,
+            "carbon_footprint_kg": 0.0
+          },
+          "scores": {
+            "health_match": 0.8811160533764658,
+            "taste_match": 0.5,
+            "variety": 1.0
+          }
+        },
+        {
+          "day": 2,
+          "meals": {
+            "Breakfast": {
+              "id": "138886",
+              "name": " Cheater\"\" German Potato Salad",
+              "description": "A Deutschland  dish.",
+              "image_url": "https://geniuskitchen.sndimg.com/gk/img/gk-shareGraphic.png",
+              "ingredients": [],
+              "calories": 328,
+              "macros": {
+                "protein": 7,
+                "carbs": 39,
+                "fat": 15
+              },
+              "flavor_profile": {},
+              "tags": [
+                "Deutschland ",
+                "German",
+                "European"
+              ],
+              "cuisine": "Deutschland ",
+              "instructions": [
+                "place",
+                "fry",
+                "remove",
+                "drain",
+                "crumble",
+                "add",
+                "stir",
+                "add",
+                "heat",
+                "season",
+                "serve"
+              ]
+            },
+            "Morning Snack": {
+              "id": "112163",
+              "name": " Berry French Toast\"\" Oatmeal",
+              "description": "A French dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/32/55/09/picFKChS4.jpg",
+              "ingredients": [],
+              "calories": 190,
+              "macros": {
+                "protein": 10,
+                "carbs": 46,
+                "fat": 2
+              },
+              "flavor_profile": {},
+              "tags": [
+                "French",
+                "French",
+                "European"
+              ],
+              "cuisine": "French",
+              "instructions": [
+                "add",
+                "cook",
+                "place",
+                "defrost",
+                "add",
+                "stir"
+              ]
+            },
+            "Lunch": {
+              "id": "114590",
+              "name": " Berry Good\"\" French Toast Bake",
+              "description": "A French dish.",
+              "image_url": "https://geniuskitchen.sndimg.com/gk/img/gk-shareGraphic.png",
+              "ingredients": [],
+              "calories": 682,
+              "macros": {
+                "protein": 28,
+                "carbs": 117,
+                "fat": 10
+              },
+              "flavor_profile": {},
+              "tags": [
+                "French",
+                "French",
+                "European"
+              ],
+              "cuisine": "French",
+              "instructions": [
+                "grease",
+                "beat",
+                "smooth",
+                "stir",
+                "top",
+                "cover",
+                "refrigerate",
+                "heat",
+                "uncover",
+                "bake",
+                "sprinkle"
+              ]
+            },
+            "Afternoon Snack": {
+              "id": "104108",
+              "name": " All In\"\" Meatless Mincemeat",
+              "description": "A UK dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/46/57/89/picPbc9TP.jpg",
+              "ingredients": [],
+              "calories": 167,
+              "macros": {
+                "protein": 1,
+                "carbs": 41,
+                "fat": 1
+              },
+              "flavor_profile": {},
+              "tags": [
+                "UK",
+                "English",
+                "European"
+              ],
+              "cuisine": "UK",
+              "instructions": [
+                "combine",
+                "cover",
+                "cook",
+                "heat",
+                "stir",
+                "cook",
+                "heat",
+                "ladle",
+                "process"
+              ]
+            },
+            "Dinner": {
+              "id": "143939",
+              "name": " Almost Grilled\"\" Cheese Sandwich",
+              "description": "A Canadian dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/10/05/40/picF1k5Oy.jpg",
+              "ingredients": [],
+              "calories": 195,
+              "macros": {
+                "protein": 8,
+                "carbs": 36,
+                "fat": 1
+              },
+              "flavor_profile": {},
+              "tags": [
+                "Canadian",
+                "Canadian",
+                "North American"
+              ],
+              "cuisine": "Canadian",
+              "instructions": [
+                "toast",
+                "spread",
+                "put",
+                "heat",
+                "melt"
+              ]
+            }
+          },
+          "total_stats": {
+            "calories": 1562.0,
+            "target_calories": 2473.0,
+            "carbon_footprint_kg": 0.0
+          },
+          "scores": {
+            "health_match": 0.6316215123331985,
+            "taste_match": 0.5,
+            "variety": 1.0
+          }
+        },
+        {
+          "day": 3,
+          "meals": {
+            "Breakfast": {
+              "id": "48781",
+              "name": " Big Easy \"\" Gumbo",
+              "description": "A Rest Africa dish.",
+              "image_url": "https://geniuskitchen.sndimg.com/gk/img/gk-shareGraphic.png",
+              "ingredients": [],
+              "calories": 484,
+              "macros": {
+                "protein": 38,
+                "carbs": 12,
+                "fat": 31
+              },
+              "flavor_profile": {},
+              "tags": [
+                "Rest Africa",
+                "Nigerian",
+                "African"
+              ],
+              "cuisine": "Rest Africa",
+              "instructions": [
+                "heat",
+                "heat",
+                "whisk",
+                "cook",
+                "reduce",
+                "heat",
+                "stir",
+                "cook",
+                "stirring",
+                "stir",
+                "add",
+                "heat",
+                "boil",
+                "reduce",
+                "heat",
+                "simmer",
+                "stirring",
+                "add",
+                "cook",
+                "serve"
+              ]
+            },
+            "Morning Snack": {
+              "id": "114026",
+              "name": " Add Anything\"\" French Rolls or Baguettes",
+              "description": "A French dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/31/94/03/pic07NH3w.jpg",
+              "ingredients": [],
+              "calories": 307,
+              "macros": {
+                "protein": 5,
+                "carbs": 52,
+                "fat": 8
+              },
+              "flavor_profile": {},
+              "tags": [
+                "French",
+                "French",
+                "European"
+              ],
+              "cuisine": "French",
+              "instructions": [
+                "place",
+                "add",
+                "add",
+                "seasoning",
+                "add",
+                "mix",
+                "knead",
+                "place",
+                "cover",
+                "rise",
+                "place",
+                "rise",
+                "punch",
+                "press",
+                "place",
+                "cover",
+                "brush",
+                "sprinkle",
+                "seasoning",
+                "bake"
+              ]
+            },
+            "Lunch": {
+              "id": "115378",
+              "name": " Butter Me Bananas\"\" French Toast",
+              "description": "A French dish.",
+              "image_url": "https://geniuskitchen.sndimg.com/gk/img/gk-shareGraphic.png",
+              "ingredients": [],
+              "calories": 511,
+              "macros": {
+                "protein": 14,
+                "carbs": 47,
+                "fat": 31
+              },
+              "flavor_profile": {},
+              "tags": [
+                "French",
+                "French",
+                "European"
+              ],
+              "cuisine": "French",
+              "instructions": [
+                "whisk",
+                "mix",
+                "add",
+                "stir",
+                "put",
+                "stir",
+                "pour",
+                "push",
+                "sprinkle",
+                "place",
+                "spread",
+                "cut",
+                "put",
+                "drizzle",
+                "split",
+                "place",
+                "serve"
+              ]
+            },
+            "Afternoon Snack": {
+              "id": "78230",
+              "name": "! Arriba ! Baked Winter Squash Mexican-Style",
+              "description": "A Mexican dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/13/77/39/picWfGTtA.jpg",
+              "ingredients": [],
+              "calories": 51,
+              "macros": {
+                "protein": 1,
+                "carbs": 13,
+                "fat": 0
+              },
+              "flavor_profile": {},
+              "tags": [
+                "Mexican",
+                "Mexican",
+                "Latin American"
+              ],
+              "cuisine": "Mexican",
+              "instructions": [
+                "seasoning",
+                "remove",
+                "squash",
+                "drizzle",
+                "season",
+                "mix",
+                "squash",
+                "drizzle",
+                "season",
+                "mix",
+                "bake",
+                "cover",
+                "take",
+                "note"
+              ]
+            },
+            "Dinner": {
+              "id": "143939",
+              "name": " Almost Grilled\"\" Cheese Sandwich",
+              "description": "A Canadian dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/10/05/40/picF1k5Oy.jpg",
+              "ingredients": [],
+              "calories": 195,
+              "macros": {
+                "protein": 8,
+                "carbs": 36,
+                "fat": 1
+              },
+              "flavor_profile": {},
+              "tags": [
+                "Canadian",
+                "Canadian",
+                "North American"
+              ],
+              "cuisine": "Canadian",
+              "instructions": [
+                "toast",
+                "spread",
+                "put",
+                "heat",
+                "melt"
+              ]
+            }
+          },
+          "total_stats": {
+            "calories": 1548.0,
+            "target_calories": 2473.0,
+            "carbon_footprint_kg": 0.0
+          },
+          "scores": {
+            "health_match": 0.6259603720177922,
+            "taste_match": 0.5,
+            "variety": 1.0
+          }
+        },
+        {
+          "day": 4,
+          "meals": {
+            "Breakfast": {
+              "id": "114590",
+              "name": " Berry Good\"\" French Toast Bake",
+              "description": "A French dish.",
+              "image_url": "https://geniuskitchen.sndimg.com/gk/img/gk-shareGraphic.png",
+              "ingredients": [],
+              "calories": 682,
+              "macros": {
+                "protein": 28,
+                "carbs": 117,
+                "fat": 10
+              },
+              "flavor_profile": {},
+              "tags": [
+                "French",
+                "French",
+                "European"
+              ],
+              "cuisine": "French",
+              "instructions": [
+                "grease",
+                "beat",
+                "smooth",
+                "stir",
+                "top",
+                "cover",
+                "refrigerate",
+                "heat",
+                "uncover",
+                "bake",
+                "sprinkle"
+              ]
+            },
+            "Morning Snack": {
+              "id": "112163",
+              "name": " Berry French Toast\"\" Oatmeal",
+              "description": "A French dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/32/55/09/picFKChS4.jpg",
+              "ingredients": [],
+              "calories": 190,
+              "macros": {
+                "protein": 10,
+                "carbs": 46,
+                "fat": 2
+              },
+              "flavor_profile": {},
+              "tags": [
+                "French",
+                "French",
+                "European"
+              ],
+              "cuisine": "French",
+              "instructions": [
+                "add",
+                "cook",
+                "place",
+                "defrost",
+                "add",
+                "stir"
+              ]
+            },
+            "Lunch": {
+              "id": "138886",
+              "name": " Cheater\"\" German Potato Salad",
+              "description": "A Deutschland  dish.",
+              "image_url": "https://geniuskitchen.sndimg.com/gk/img/gk-shareGraphic.png",
+              "ingredients": [],
+              "calories": 328,
+              "macros": {
+                "protein": 7,
+                "carbs": 39,
+                "fat": 15
+              },
+              "flavor_profile": {},
+              "tags": [
+                "Deutschland ",
+                "German",
+                "European"
+              ],
+              "cuisine": "Deutschland ",
+              "instructions": [
+                "place",
+                "fry",
+                "remove",
+                "drain",
+                "crumble",
+                "add",
+                "stir",
+                "add",
+                "heat",
+                "season",
+                "serve"
+              ]
+            },
+            "Afternoon Snack": {
+              "id": "104108",
+              "name": " All In\"\" Meatless Mincemeat",
+              "description": "A UK dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/46/57/89/picPbc9TP.jpg",
+              "ingredients": [],
+              "calories": 167,
+              "macros": {
+                "protein": 1,
+                "carbs": 41,
+                "fat": 1
+              },
+              "flavor_profile": {},
+              "tags": [
+                "UK",
+                "English",
+                "European"
+              ],
+              "cuisine": "UK",
+              "instructions": [
+                "combine",
+                "cover",
+                "cook",
+                "heat",
+                "stir",
+                "cook",
+                "heat",
+                "ladle",
+                "process"
+              ]
+            },
+            "Dinner": {
+              "id": "48781",
+              "name": " Big Easy \"\" Gumbo",
+              "description": "A Rest Africa dish.",
+              "image_url": "https://geniuskitchen.sndimg.com/gk/img/gk-shareGraphic.png",
+              "ingredients": [],
+              "calories": 484,
+              "macros": {
+                "protein": 38,
+                "carbs": 12,
+                "fat": 31
+              },
+              "flavor_profile": {},
+              "tags": [
+                "Rest Africa",
+                "Nigerian",
+                "African"
+              ],
+              "cuisine": "Rest Africa",
+              "instructions": [
+                "heat",
+                "heat",
+                "whisk",
+                "cook",
+                "reduce",
+                "heat",
+                "stir",
+                "cook",
+                "stirring",
+                "stir",
+                "add",
+                "heat",
+                "boil",
+                "reduce",
+                "heat",
+                "simmer",
+                "stirring",
+                "add",
+                "cook",
+                "serve"
+              ]
+            }
+          },
+          "total_stats": {
+            "calories": 1851.0,
+            "target_calories": 2473.0,
+            "carbon_footprint_kg": 0.0
+          },
+          "scores": {
+            "health_match": 0.7484836231298019,
+            "taste_match": 0.5,
+            "variety": 1.0
+          }
+        },
+        {
+          "day": 5,
+          "meals": {
+            "Breakfast": {
+              "id": "115378",
+              "name": " Butter Me Bananas\"\" French Toast",
+              "description": "A French dish.",
+              "image_url": "https://geniuskitchen.sndimg.com/gk/img/gk-shareGraphic.png",
+              "ingredients": [],
+              "calories": 511,
+              "macros": {
+                "protein": 14,
+                "carbs": 47,
+                "fat": 31
+              },
+              "flavor_profile": {},
+              "tags": [
+                "French",
+                "French",
+                "European"
+              ],
+              "cuisine": "French",
+              "instructions": [
+                "whisk",
+                "mix",
+                "add",
+                "stir",
+                "put",
+                "stir",
+                "pour",
+                "push",
+                "sprinkle",
+                "place",
+                "spread",
+                "cut",
+                "put",
+                "drizzle",
+                "split",
+                "place",
+                "serve"
+              ]
+            },
+            "Morning Snack": {
+              "id": "143939",
+              "name": " Almost Grilled\"\" Cheese Sandwich",
+              "description": "A Canadian dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/10/05/40/picF1k5Oy.jpg",
+              "ingredients": [],
+              "calories": 195,
+              "macros": {
+                "protein": 8,
+                "carbs": 36,
+                "fat": 1
+              },
+              "flavor_profile": {},
+              "tags": [
+                "Canadian",
+                "Canadian",
+                "North American"
+              ],
+              "cuisine": "Canadian",
+              "instructions": [
+                "toast",
+                "spread",
+                "put",
+                "heat",
+                "melt"
+              ]
+            },
+            "Lunch": {
+              "id": "114026",
+              "name": " Add Anything\"\" French Rolls or Baguettes",
+              "description": "A French dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/31/94/03/pic07NH3w.jpg",
+              "ingredients": [],
+              "calories": 307,
+              "macros": {
+                "protein": 5,
+                "carbs": 52,
+                "fat": 8
+              },
+              "flavor_profile": {},
+              "tags": [
+                "French",
+                "French",
+                "European"
+              ],
+              "cuisine": "French",
+              "instructions": [
+                "place",
+                "add",
+                "add",
+                "seasoning",
+                "add",
+                "mix",
+                "knead",
+                "place",
+                "cover",
+                "rise",
+                "place",
+                "rise",
+                "punch",
+                "press",
+                "place",
+                "cover",
+                "brush",
+                "sprinkle",
+                "seasoning",
+                "bake"
+              ]
+            },
+            "Afternoon Snack": {
+              "id": "78230",
+              "name": "! Arriba ! Baked Winter Squash Mexican-Style",
+              "description": "A Mexican dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/13/77/39/picWfGTtA.jpg",
+              "ingredients": [],
+              "calories": 51,
+              "macros": {
+                "protein": 1,
+                "carbs": 13,
+                "fat": 0
+              },
+              "flavor_profile": {},
+              "tags": [
+                "Mexican",
+                "Mexican",
+                "Latin American"
+              ],
+              "cuisine": "Mexican",
+              "instructions": [
+                "seasoning",
+                "remove",
+                "squash",
+                "drizzle",
+                "season",
+                "mix",
+                "squash",
+                "drizzle",
+                "season",
+                "mix",
+                "bake",
+                "cover",
+                "take",
+                "note"
+              ]
+            },
+            "Dinner": {
+              "id": "114590",
+              "name": " Berry Good\"\" French Toast Bake",
+              "description": "A French dish.",
+              "image_url": "https://geniuskitchen.sndimg.com/gk/img/gk-shareGraphic.png",
+              "ingredients": [],
+              "calories": 682,
+              "macros": {
+                "protein": 28,
+                "carbs": 117,
+                "fat": 10
+              },
+              "flavor_profile": {},
+              "tags": [
+                "French",
+                "French",
+                "European"
+              ],
+              "cuisine": "French",
+              "instructions": [
+                "grease",
+                "beat",
+                "smooth",
+                "stir",
+                "top",
+                "cover",
+                "refrigerate",
+                "heat",
+                "uncover",
+                "bake",
+                "sprinkle"
+              ]
+            }
+          },
+          "total_stats": {
+            "calories": 1746.0,
+            "target_calories": 2473.0,
+            "carbon_footprint_kg": 0.0
+          },
+          "scores": {
+            "health_match": 0.7060250707642539,
+            "taste_match": 0.5,
+            "variety": 1.0
+          }
+        },
+        {
+          "day": 6,
+          "meals": {
+            "Breakfast": {
+              "id": "48781",
+              "name": " Big Easy \"\" Gumbo",
+              "description": "A Rest Africa dish.",
+              "image_url": "https://geniuskitchen.sndimg.com/gk/img/gk-shareGraphic.png",
+              "ingredients": [],
+              "calories": 484,
+              "macros": {
+                "protein": 38,
+                "carbs": 12,
+                "fat": 31
+              },
+              "flavor_profile": {},
+              "tags": [
+                "Rest Africa",
+                "Nigerian",
+                "African"
+              ],
+              "cuisine": "Rest Africa",
+              "instructions": [
+                "heat",
+                "heat",
+                "whisk",
+                "cook",
+                "reduce",
+                "heat",
+                "stir",
+                "cook",
+                "stirring",
+                "stir",
+                "add",
+                "heat",
+                "boil",
+                "reduce",
+                "heat",
+                "simmer",
+                "stirring",
+                "add",
+                "cook",
+                "serve"
+              ]
+            },
+            "Morning Snack": {
+              "id": "112163",
+              "name": " Berry French Toast\"\" Oatmeal",
+              "description": "A French dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/32/55/09/picFKChS4.jpg",
+              "ingredients": [],
+              "calories": 190,
+              "macros": {
+                "protein": 10,
+                "carbs": 46,
+                "fat": 2
+              },
+              "flavor_profile": {},
+              "tags": [
+                "French",
+                "French",
+                "European"
+              ],
+              "cuisine": "French",
+              "instructions": [
+                "add",
+                "cook",
+                "place",
+                "defrost",
+                "add",
+                "stir"
+              ]
+            },
+            "Lunch": {
+              "id": "138886",
+              "name": " Cheater\"\" German Potato Salad",
+              "description": "A Deutschland  dish.",
+              "image_url": "https://geniuskitchen.sndimg.com/gk/img/gk-shareGraphic.png",
+              "ingredients": [],
+              "calories": 328,
+              "macros": {
+                "protein": 7,
+                "carbs": 39,
+                "fat": 15
+              },
+              "flavor_profile": {},
+              "tags": [
+                "Deutschland ",
+                "German",
+                "European"
+              ],
+              "cuisine": "Deutschland ",
+              "instructions": [
+                "place",
+                "fry",
+                "remove",
+                "drain",
+                "crumble",
+                "add",
+                "stir",
+                "add",
+                "heat",
+                "season",
+                "serve"
+              ]
+            },
+            "Afternoon Snack": {
+              "id": "104108",
+              "name": " All In\"\" Meatless Mincemeat",
+              "description": "A UK dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/46/57/89/picPbc9TP.jpg",
+              "ingredients": [],
+              "calories": 167,
+              "macros": {
+                "protein": 1,
+                "carbs": 41,
+                "fat": 1
+              },
+              "flavor_profile": {},
+              "tags": [
+                "UK",
+                "English",
+                "European"
+              ],
+              "cuisine": "UK",
+              "instructions": [
+                "combine",
+                "cover",
+                "cook",
+                "heat",
+                "stir",
+                "cook",
+                "heat",
+                "ladle",
+                "process"
+              ]
+            },
+            "Dinner": {
+              "id": "115378",
+              "name": " Butter Me Bananas\"\" French Toast",
+              "description": "A French dish.",
+              "image_url": "https://geniuskitchen.sndimg.com/gk/img/gk-shareGraphic.png",
+              "ingredients": [],
+              "calories": 511,
+              "macros": {
+                "protein": 14,
+                "carbs": 47,
+                "fat": 31
+              },
+              "flavor_profile": {},
+              "tags": [
+                "French",
+                "French",
+                "European"
+              ],
+              "cuisine": "French",
+              "instructions": [
+                "whisk",
+                "mix",
+                "add",
+                "stir",
+                "put",
+                "stir",
+                "pour",
+                "push",
+                "sprinkle",
+                "place",
+                "spread",
+                "cut",
+                "put",
+                "drizzle",
+                "split",
+                "place",
+                "serve"
+              ]
+            }
+          },
+          "total_stats": {
+            "calories": 1680.0,
+            "target_calories": 2473.0,
+            "carbon_footprint_kg": 0.0
+          },
+          "scores": {
+            "health_match": 0.6793368378487666,
+            "taste_match": 0.5,
+            "variety": 1.0
+          }
+        },
+        {
+          "day": 7,
+          "meals": {
+            "Breakfast": {
+              "id": "114590",
+              "name": " Berry Good\"\" French Toast Bake",
+              "description": "A French dish.",
+              "image_url": "https://geniuskitchen.sndimg.com/gk/img/gk-shareGraphic.png",
+              "ingredients": [],
+              "calories": 682,
+              "macros": {
+                "protein": 28,
+                "carbs": 117,
+                "fat": 10
+              },
+              "flavor_profile": {},
+              "tags": [
+                "French",
+                "French",
+                "European"
+              ],
+              "cuisine": "French",
+              "instructions": [
+                "grease",
+                "beat",
+                "smooth",
+                "stir",
+                "top",
+                "cover",
+                "refrigerate",
+                "heat",
+                "uncover",
+                "bake",
+                "sprinkle"
+              ]
+            },
+            "Morning Snack": {
+              "id": "143939",
+              "name": " Almost Grilled\"\" Cheese Sandwich",
+              "description": "A Canadian dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/10/05/40/picF1k5Oy.jpg",
+              "ingredients": [],
+              "calories": 195,
+              "macros": {
+                "protein": 8,
+                "carbs": 36,
+                "fat": 1
+              },
+              "flavor_profile": {},
+              "tags": [
+                "Canadian",
+                "Canadian",
+                "North American"
+              ],
+              "cuisine": "Canadian",
+              "instructions": [
+                "toast",
+                "spread",
+                "put",
+                "heat",
+                "melt"
+              ]
+            },
+            "Lunch": {
+              "id": "114026",
+              "name": " Add Anything\"\" French Rolls or Baguettes",
+              "description": "A French dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/31/94/03/pic07NH3w.jpg",
+              "ingredients": [],
+              "calories": 307,
+              "macros": {
+                "protein": 5,
+                "carbs": 52,
+                "fat": 8
+              },
+              "flavor_profile": {},
+              "tags": [
+                "French",
+                "French",
+                "European"
+              ],
+              "cuisine": "French",
+              "instructions": [
+                "place",
+                "add",
+                "add",
+                "seasoning",
+                "add",
+                "mix",
+                "knead",
+                "place",
+                "cover",
+                "rise",
+                "place",
+                "rise",
+                "punch",
+                "press",
+                "place",
+                "cover",
+                "brush",
+                "sprinkle",
+                "seasoning",
+                "bake"
+              ]
+            },
+            "Afternoon Snack": {
+              "id": "78230",
+              "name": "! Arriba ! Baked Winter Squash Mexican-Style",
+              "description": "A Mexican dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/13/77/39/picWfGTtA.jpg",
+              "ingredients": [],
+              "calories": 51,
+              "macros": {
+                "protein": 1,
+                "carbs": 13,
+                "fat": 0
+              },
+              "flavor_profile": {},
+              "tags": [
+                "Mexican",
+                "Mexican",
+                "Latin American"
+              ],
+              "cuisine": "Mexican",
+              "instructions": [
+                "seasoning",
+                "remove",
+                "squash",
+                "drizzle",
+                "season",
+                "mix",
+                "squash",
+                "drizzle",
+                "season",
+                "mix",
+                "bake",
+                "cover",
+                "take",
+                "note"
+              ]
+            },
+            "Dinner": {
+              "id": "104180",
+              "name": " Born Again Crayons \"\" - Kids Fun Crafts",
+              "description": "A UK dish.",
+              "image_url": "https://img.sndimg.com/food/image/upload/w_555,h_416,c_fit,fl_progressive,q_95/v1/img/recipes/32/98/89/pictPaDJ9.jpg",
+              "ingredients": [],
+              "calories": 0,
+              "macros": {
+                "protein": 0,
+                "carbs": 0,
+                "fat": 0
+              },
+              "flavor_profile": {},
+              "tags": [
+                "UK",
+                "English",
+                "European"
+              ],
+              "cuisine": "UK",
+              "instructions": [
+                "place",
+                "remove",
+                "mix",
+                "cool",
+                "cut",
+                "remove",
+                "press",
+                "remove"
+              ]
+            }
+          },
+          "total_stats": {
+            "calories": 1235.0,
+            "target_calories": 2473.0,
+            "carbon_footprint_kg": 0.0
+          },
+          "scores": {
+            "health_match": 0.49939344925192075,
+            "taste_match": 0.5,
+            "variety": 1.0
+          }
+        }
+      ],
+      "shopping_list": {},
+      "prep_timeline": {
+        "1": [
+          "8:00 AM - Prepare  Berry Good\"\" French Toast Bake",
+          "12:00 PM - Prepare  Big Easy \"\" Gumbo",
+          "6:00 PM - Prepare  Butter Me Bananas\"\" French Toast"
+        ],
+        "2": [
+          "8:00 AM - Prepare  Cheater\"\" German Potato Salad",
+          "12:00 PM - Prepare  Berry Good\"\" French Toast Bake",
+          "6:00 PM - Prepare  Almost Grilled\"\" Cheese Sandwich"
+        ],
+        "3": [
+          "8:00 AM - Prepare  Big Easy \"\" Gumbo",
+          "12:00 PM - Prepare  Butter Me Bananas\"\" French Toast",
+          "6:00 PM - Prepare  Almost Grilled\"\" Cheese Sandwich"
+        ],
+        "4": [
+          "8:00 AM - Prepare  Berry Good\"\" French Toast Bake",
+          "12:00 PM - Prepare  Cheater\"\" German Potato Salad",
+          "6:00 PM - Prepare  Big Easy \"\" Gumbo"
+        ],
+        "5": [
+          "8:00 AM - Prepare  Butter Me Bananas\"\" French Toast",
+          "12:00 PM - Prepare  Add Anything\"\" French Rolls or Baguettes",
+          "6:00 PM - Prepare  Berry Good\"\" French Toast Bake"
+        ],
+        "6": [
+          "8:00 AM - Prepare  Big Easy \"\" Gumbo",
+          "12:00 PM - Prepare  Cheater\"\" German Potato Salad",
+          "6:00 PM - Prepare  Butter Me Bananas\"\" French Toast"
+        ],
+        "7": [
+          "8:00 AM - Prepare  Berry Good\"\" French Toast Bake",
+          "12:00 PM - Prepare  Add Anything\"\" French Rolls or Baguettes",
+          "6:00 PM - Prepare  Born Again Crayons \"\" - Kids Fun Crafts"
+        ]
+      },
+      "overall_stats": {
+        "average_health_match": 0.68,
+        "average_taste_match": 0.5,
+        "average_variety": 1.0,
+        "total_carbon_footprint_kg": 0.0,
+        "sustainability_rating": "Excellent"
+      }
+    },
+    "created_at": "2026-02-15T01:59:33.959540",
+    "expires_at": "2026-02-22T01:59:33.959540"
+  }
+}

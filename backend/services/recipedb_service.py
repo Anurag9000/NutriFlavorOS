@@ -39,54 +39,74 @@ class RecipeDBService(BaseAPIService):
         # Postman: recipe2-api/recipe/recipeofday
         return self._make_request("recipe2-api/recipe/recipeofday")
 
-    def get_recipe_info(self, recipe_id: str) -> Dict[str, Any]:
+    def get_recipe_info(self, recipe_id: str) -> Optional[Dict[str, Any]]:
         """Get basic recipe information"""
-        # Note: 'recipesinfo' in V2 seems to be a list endpoint. 
-        # Using it as search/list for now, or maybe there's an ID filter?
-        # Postman doesn't show ID param for recipesinfo. 
-        # However, for maintaining signature, we might need to change how this works or assume param 'id' works.
-        # Let's use the endpoint from Postman.
-        return self._make_request("recipe2-api/recipe/recipesinfo", params={"page": 1, "limit": 10}) # Modified for now, ID filtering might not be supported directly here
+        # Search by recipe_id
+        result = self._make_request("recipe2-api/recipe/recipesinfo", params={"recipe_id": recipe_id})
+        
+        if isinstance(result, list) and len(result) > 0:
+            return self._map_to_domain_recipe(result[0])
+        return None
 
-    def get_recipes_list(self, page: int = 1, limit: int = 10) -> Dict[str, Any]:
+    def get_recipes_list(self, page: int = 1, limit: int = 10) -> List[Dict]:
         """Get list of recipes"""
-        return self._make_request("recipe2-api/recipe/recipesinfo", params={"page": page, "limit": limit})
+        result = self._make_request("recipe2-api/recipe/recipesinfo", params={"page": page, "limit": limit})
+        return [self._map_to_domain_recipe(r) for r in result] if isinstance(result, list) else []
     
     def get_nutrition_info(self, recipe_id: str) -> Dict[str, Any]:
         """Get macro nutrition information"""
         # Postman: recipe2-api/recipe-nutri/nutritioninfo
-        return self._make_request("recipe2-api/recipe-nutri/nutritioninfo", params={"page": 1, "limit": 10}) 
+        # Assuming this also supports recipe_id filtering
+        result = self._make_request("recipe2-api/recipe-nutri/nutritioninfo", params={"recipe_id": recipe_id})
+        if isinstance(result, list) and len(result) > 0:
+            return result[0]
+        return {}
     
     def get_micronutrition_info(self, recipe_id: str) -> Dict[str, Any]:
         """Get micronutrient details (vitamins, minerals)"""
         # Postman: recipe2-api/recipe-micronutri/micronutritioninfo
-        return self._make_request("recipe2-api/recipe-micronutri/micronutritioninfo", params={"page": 1, "limit": 10})
+        result = self._make_request("recipe2-api/recipe-micronutri/micronutritioninfo", params={"recipe_id": recipe_id})
+        if isinstance(result, list) and len(result) > 0:
+            return result[0]
+        return {}
     
     def get_recipe_instructions(self, recipe_id: str) -> List[str]:
         """Get step-by-step cooking instructions"""
-        result = self._make_request(f"instructions/{recipe_id}")
-        return result.get("instructions", [])
+        # Try both endpoints or fallback to info if needed
+        # But commonly instructions are in the main info object now
+        # We'll try the dedicated endpoint first
+        try:
+            result = self._make_request(f"instructions/{recipe_id}")
+            if result and "instructions" in result:
+                return result["instructions"]
+        except:
+            pass
+        return []
     
     def search_by_cuisine(self, cuisine: str, limit: int = 50) -> List[Dict]:
         """Search recipes by cuisine type"""
         # V2: Likely part of advanced search or recipesInfo filters. Using recipesInfo for connectivity.
-        return self._make_request(f"recipe2-api/recipe/recipesinfo", 
+        result = self._make_request(f"recipe2-api/recipe/recipesinfo", 
                                  params={"limit": limit, "region": cuisine}) # Guessing 'region' param based on 'Region' field in response
+        return [self._map_to_domain_recipe(r) for r in result] if isinstance(result, list) else []
     
     def search_by_calories(self, min_cal: int, max_cal: int, limit: int = 50) -> List[Dict]:
         """Filter recipes by calorie range"""
-        return self._make_request("recipe2-api/recipe/recipesinfo", # Updated base
+        result = self._make_request("recipe2-api/recipe/recipesinfo", # Updated base
                                  params={"min": min_cal, "max": max_cal, "limit": limit})
+        return [self._map_to_domain_recipe(r) for r in result] if isinstance(result, list) else []
     
     def search_by_protein(self, min_protein: int, max_protein: int, limit: int = 50) -> List[Dict]:
         """Filter recipes by protein range"""
-        return self._make_request("recipe2-api/recipe/recipesinfo", 
+        result = self._make_request("recipe2-api/recipe/recipesinfo", 
                                  params={"min": min_protein, "max": max_protein, "limit": limit})
+        return [self._map_to_domain_recipe(r) for r in result] if isinstance(result, list) else []
     
     def search_by_carbs(self, min_carbs: int, max_carbs: int, limit: int = 50) -> List[Dict]:
         """Filter recipes by carb range"""
-        return self._make_request("recipe2-api/recipe/recipesinfo", 
+        result = self._make_request("recipe2-api/recipe/recipesinfo", 
                                  params={"min": min_carbs, "max": max_carbs, "limit": limit})
+        return [self._map_to_domain_recipe(r) for r in result] if isinstance(result, list) else []
     
     def _map_to_domain_recipe(self, raw: Dict) -> Dict:
         """Map RecipeDB raw data to domain Recipe model"""
@@ -96,59 +116,86 @@ class RecipeDBService(BaseAPIService):
             
         # Map fields
         try:
-            r_id = raw.get("Recipe_id", str(raw.get("id", "")))
-            title = raw.get("Recipe_title", raw.get("title", "Unknown Recipe"))
+            # ID: try 'recipe_id' (new), 'Recipe_id' (old), 'id'
+            r_id = str(raw.get("recipe_id") or raw.get("Recipe_id") or raw.get("id") or "")
+            
+            # Title: 'recipe_title' (new), 'Recipe_title' (old), 'title'
+            title = raw.get("recipe_title") or raw.get("Recipe_title") or raw.get("title") or "Unknown Recipe"
+            title = title.strip('"') # Remove extra quotes artifact
             
             # Nutrition
-            # 'Calories' field often represents per-serving calories
-            # 'Energy (kcal)', 'Protein', 'Fat', 'Carbs' often represent TOTAL recipe values
-            # We must scale the macros to match the per-serving Calorie count
+            # Try lowercase keys first (new API), then old capitalized keys
             try:
-                per_serving_cals = float(raw.get("Calories", 0))
+                # Calories
+                per_serving_cals = float(raw.get("calories") or raw.get("Calories") or 0)
                 
-                total_energy = float(raw.get("Energy (kcal)", 0))
-                total_protein = float(raw.get("Protein (g)", 0))
-                total_fat = float(raw.get("Total lipid (fat) (g)", 0))
-                total_carbs = float(raw.get("Carbohydrate, by difference (g)", 0))
+                # Macros (try various keys)
+                # Protein
+                total_protein = float(raw.get("protein") or raw.get("Protein (g)") or 0)
+                # Fat
+                total_fat = float(raw.get("fat") or raw.get("Total lipid (fat) (g)") or 0)
+                # Carbs
+                total_carbs = float(raw.get("carbohydrate") or raw.get("Carbohydrate, by difference (g)") or 0)
                 
-                # Calculate scaling factor
-                if total_energy > 0 and per_serving_cals > 0:
-                    ratio = per_serving_cals / total_energy
-                    protein = total_protein * ratio
-                    fat = total_fat * ratio
-                    carbs = total_carbs * ratio
+                # Check for Total Energy vs Per Serving scaling
+                # New API might return per-serving directly. Old API had 'Energy (kcal)' -> total.
+                total_energy = float(raw.get("Energy (kcal)") or 0)
+                
+                # If we have 'calories' directly (new API), use that and assume macros are aligned
+                if raw.get("calories") is not None:
                     cals = per_serving_cals
+                    protein = total_protein
+                    fat = total_fat
+                    carbs = total_carbs
                 else:
-                    # Fallback: divide by servings if available
-                    try:
-                        servings = float(raw.get("servings", 1))
-                        if servings <= 0: servings = 1
-                    except (ValueError, TypeError):
-                        servings = 1
-                        
-                    protein = total_protein / servings
-                    fat = total_fat / servings
-                    carbs = total_carbs / servings
-                    cals = per_serving_cals if per_serving_cals > 0 else (total_energy / servings)
+                    # Old logic for scaling
+                    if total_energy > 0 and per_serving_cals > 0:
+                        ratio = per_serving_cals / total_energy
+                        protein = total_protein * ratio
+                        fat = total_fat * ratio
+                        carbs = total_carbs * ratio
+                        cals = per_serving_cals
+                    else:
+                        # Fallback: divide by servings if available
+                        try:
+                            servings = float(raw.get("servings", 1))
+                            if servings <= 0: servings = 1
+                        except (ValueError, TypeError):
+                            servings = 1
+                            
+                        protein = total_protein / servings
+                        fat = total_fat / servings
+                        carbs = total_carbs / servings
+                        cals = per_serving_cals if per_serving_cals > 0 else (total_energy / servings)
                     
             except (ValueError, TypeError):
                 cals, protein, fat, carbs = 0, 0, 0, 0
             
-            # Instructions from piped string
-            instr_str = raw.get("Processes", "")
-            instructions = instr_str.split("||") if instr_str else []
+            # Instructions from piped string or list
+            instr_raw = raw.get("instructions") or raw.get("Processes", "")
+            if isinstance(instr_raw, list):
+                instructions = instr_raw
+            else:
+                instructions = instr_raw.split("||") if instr_raw else []
             
             # Ingredients 
-            # Harvested data might not have clean ingredient list in top level. 
-            # We'll default to empty list if missing, preventing validation error.
-            ingredients = raw.get("ingredients", [])
-            if isinstance(ingredients, str): ingredients = [ingredients]
+            ing_raw = raw.get("ingredients", [])
+            if isinstance(ing_raw, str):
+                # Check for pipe or comma
+                if "||" in ing_raw:
+                     ingredients = ing_raw.split("||")
+                else:
+                     ingredients = [ing_raw] # or split by ','? Safer to keep as one if unsure
+            elif isinstance(ing_raw, list):
+                ingredients = ing_raw
+            else:
+                ingredients = []
             
             return {
                 "id": r_id,
                 "name": title,
-                "description": f"A {raw.get('Region', 'delicious')} dish.",
-                "image_url": raw.get("image", None),
+                "description": f"A {raw.get('region') or raw.get('Region') or 'delicious'} dish.",
+                "image_url": raw.get("image") or raw.get("img_url", None),
                 "ingredients": ingredients,
                 "calories": int(cals),
                 "macros": {
@@ -157,8 +204,8 @@ class RecipeDBService(BaseAPIService):
                     "fat": int(fat)
                 },
                 "flavor_profile": {}, # Populated by TasteEngine later
-                "tags": [x for x in [raw.get("Region"), raw.get("Sub_region"), raw.get("Continent")] if x],
-                "cuisine": raw.get("Region"),
+                "tags": [x for x in [raw.get("region") or raw.get("Region"), raw.get("sub_region") or raw.get("Sub_region"), raw.get("continent") or raw.get("Continent")] if x],
+                "cuisine": raw.get("region") or raw.get("Region"),
                 "instructions": instructions
             }
         except Exception as e:
@@ -191,21 +238,25 @@ class RecipeDBService(BaseAPIService):
         """Search recipes by name (API First)"""
         # Search via API
         # Note: API filtering parameter guessed as 'title' or 'q'. 
-        return self._make_request("recipe2-api/recipe/recipesinfo", 
+        result = self._make_request("recipe2-api/recipe/recipesinfo", 
                                  params={"limit": 10, "title": title})
+        return [self._map_to_domain_recipe(r) for r in result] if isinstance(result, list) else []
     
     def get_recipes_by_day(self, day: str) -> List[Dict]:
         """Get recipes suitable for specific meal time (breakfast/lunch/dinner)"""
-        return self._make_request("recipesDay", params={"day": day})
+        result = self._make_request("recipesDay", params={"day": day})
+        return [self._map_to_domain_recipe(r) for r in result] if isinstance(result, list) else []
     
     def get_recipes_by_method(self, method: str, limit: int = 50) -> List[Dict]:
         """Get recipes by cooking method (bake, fry, grill, steam, etc.)"""
-        return self._make_request(f"recipes-method/{method}", params={"limit": limit})
+        result = self._make_request(f"recipes-method/{method}", params={"limit": limit})
+        return [self._map_to_domain_recipe(r) for r in result] if isinstance(result, list) else []
     
     def get_recipes_by_utensils(self, utensils: List[str], limit: int = 50) -> List[Dict]:
         """Filter recipes by available kitchen equipment"""
-        return self._make_request("bydetails/utensils", 
+        result = self._make_request("bydetails/utensils", 
                                  params={"utensils": ",".join(utensils), "limit": limit})
+        return [self._map_to_domain_recipe(r) for r in result] if isinstance(result, list) else []
     
     def get_regional_diet(self, region: str) -> Dict[str, Any]:
         """Get traditional dietary patterns for a region"""
@@ -213,7 +264,8 @@ class RecipeDBService(BaseAPIService):
     
     def get_diet_specific_recipes(self, diet_type: str, limit: int = 50) -> List[Dict]:
         """Get recipes for specific diets (keto, vegan, paleo, etc.)"""
-        return self._make_request("recipe-diet", params={"diet": diet_type, "limit": limit})
+        result = self._make_request("recipe-diet", params={"diet": diet_type, "limit": limit})
+        return [self._map_to_domain_recipe(r) for r in result] if isinstance(result, list) else []
     
     def get_meal_plan_template(self, plan_type: str) -> Dict[str, Any]:
         """Get pre-made meal plan templates"""
@@ -221,7 +273,8 @@ class RecipeDBService(BaseAPIService):
     
     def search_by_flavor(self, flavor: str, limit: int = 50) -> List[Dict]:
         """Search recipes by flavor profile"""
-        return self._make_request(f"ingredients/flavor/{flavor}", params={"limit": limit})
+        result = self._make_request(f"ingredients/flavor/{flavor}", params={"limit": limit})
+        return [self._map_to_domain_recipe(r) for r in result] if isinstance(result, list) else []
     
     def advanced_search(self, 
                        cuisine: Optional[str] = None,
@@ -246,4 +299,5 @@ class RecipeDBService(BaseAPIService):
         if cooking_method:
             params["method"] = cooking_method
             
-        return self._make_request("recipe2-api/recipe/recipe-day/with-ingredients-categories", params=params)
+        result = self._make_request("recipe2-api/recipe/recipe-day/with-ingredients-categories", params=params)
+        return [self._map_to_domain_recipe(r) for r in result] if isinstance(result, list) else []

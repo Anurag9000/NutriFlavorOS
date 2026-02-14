@@ -72,14 +72,7 @@ async def get_taste_insights(user_id: str):
         # 3. Normalize data for Radar Chart
         # If DB returns empty (mock mode), use default data
         if not flavor_profiles:
-             return [
-                {"subject": "Spicy", "A": 120, "fullMark": 150},
-                {"subject": "Sweet", "A": 98, "fullMark": 150},
-                {"subject": "Salty", "A": 86, "fullMark": 150},
-                {"subject": "Bitter", "A": 99, "fullMark": 150},
-                {"subject": "Sour", "A": 85, "fullMark": 150},
-                {"subject": "Umami", "A": 65, "fullMark": 150},
-            ]
+             return []
             
         # Convert to chart format
         chart_data = []

@@ -58,15 +58,20 @@ export default function Dashboard() {
   // Get today's meals from existing meal plan - NO GENERATION
   const mealPlanQ = useGetMealPlan(userId);
   const todayMeals = mealPlanQ.data?.days?.[0]?.meals
-    ? Object.entries(mealPlanQ.data.days[0].meals).map(([type, meal]: [string, any]) => ({
-      id: meal.id,
-      type: type.toLowerCase(),
-      name: meal.name,
-      calories: meal.calories,
-      protein: meal.macros?.protein || 0,
-      carbs: meal.macros?.carbs || 0,
-      fat: meal.macros?.fat || 0,
-    }))
+    ? Object.entries(mealPlanQ.data.days[0].meals).map(([type, meal]: [string, any]) => {
+      let normalizedType = type.toLowerCase();
+      if (normalizedType.includes("snack")) normalizedType = "snack";
+
+      return {
+        id: meal.id,
+        type: normalizedType,
+        name: meal.name,
+        calories: meal.calories,
+        protein: meal.macros?.protein || 0,
+        carbs: meal.macros?.carbs || 0,
+        fat: meal.macros?.fat || 0,
+      };
+    })
     : [];
 
   // Calculate dashboard metrics from today's meals - NO HARDCODED VALUES
