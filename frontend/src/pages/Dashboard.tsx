@@ -1,12 +1,11 @@
 import AppLayout from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { pillarScores as mockPillarScores, dashboardMetrics as mockMetrics, todayMeals as mockMeals, achievements as mockAchievements } from "@/data/mockData";
 import { Heart, Palette, Sparkles, Leaf, Flame, Zap, TrendingUp, Brain, TreePine, Droplets, Award } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { useHealthInsights, useSustainabilityData, useGamificationAchievements, useImpactSummary } from "@/hooks/useApi";
+import { useHealthInsights, useSustainabilityData, useGamificationAchievements, useImpactSummary, useGenerateMealPlan } from "@/hooks/useApi";
 
 const pillarConfig = [
   { key: "health" as const, label: "Health", icon: Heart, color: "text-health", bg: "bg-health/10" },
@@ -27,22 +26,51 @@ export default function Dashboard() {
   const achieveQ = useGamificationAchievements(userId);
   const impactQ = useImpactSummary(userId);
 
-  // Derive pillar scores — use API average health score if available, else mock
-  const healthAvg = healthQ.data
+  // Sustainability impact - declare early
+  const sustain = sustainQ.data;
+  const impact = impactQ.data;
+
+  // Derive pillar scores from API data only - NO FALLBACKS
+  const healthAvg = healthQ.data && healthQ.data.length > 0
     ? Math.round(healthQ.data.reduce((s, d) => s + d.score, 0) / healthQ.data.length)
-    : mockPillarScores.health;
+    : 0;
 
   const pillarScores = {
     health: healthAvg,
-    taste: mockPillarScores.taste, // taste comes from taste insights; keep mock for dashboard summary
-    variety: mockPillarScores.variety,
-    sustainability: mockPillarScores.sustainability,
+    taste: 0, // TODO: Get from taste insights API when available
+    variety: 0, // TODO: Get from variety insights API when available
+    sustainability: sustain ? Math.round((sustain.carbon_saved_kg / 100) * 100) : 0, // Calculate from carbon saved
   };
 
-  const dashboardMetrics = mockMetrics; // calorie/protein targets stay from settings later
-  const todayMeals = mockMeals;
+  // Get today's meals from meal plan API - NO MOCK FALLBACK
+  const mealPlanQ = useGenerateMealPlan();
+  const todayMeals = mealPlanQ.data?.days?.[0]?.meals
+    ? Object.entries(mealPlanQ.data.days[0].meals).map(([type, meal]: [string, any]) => ({
+      id: meal.id,
+      type: type.toLowerCase(),
+      name: meal.name,
+      calories: meal.calories,
+      protein: meal.macros?.protein || 0,
+      carbs: meal.macros?.carbs || 0,
+      fat: meal.macros?.fat || 0,
+    }))
+    : [];
 
-  // Achievements — use API data if available
+  // Calculate dashboard metrics from today's meals - NO HARDCODED VALUES
+  const dashboardMetrics = {
+    calories: {
+      current: todayMeals.reduce((sum, m) => sum + m.calories, 0),
+      target: 2000,
+    },
+    protein: {
+      current: todayMeals.reduce((sum, m) => sum + m.protein, 0),
+      target: 130,
+    },
+    streak: impact?.total_meals_logged ? Math.min(impact.total_meals_logged, 30) : 0,
+    weeklyScore: healthAvg,
+  };
+
+  // Achievements — use API data only
   const displayAchievements = achieveQ.data?.achievements
     ? achieveQ.data.achievements.filter((a: any) => a.unlocked !== false).slice(0, 3).map((a: any, i: number) => ({
       id: a.id ?? `ach_${i}`,
@@ -50,11 +78,7 @@ export default function Dashboard() {
       icon: a.icon ?? "🏆",
       xp: a.xp ?? a.points ?? 100,
     }))
-    : mockAchievements.filter((a) => a.unlocked).slice(0, 3);
-
-  // Sustainability impact
-  const sustain = sustainQ.data;
-  const impact = impactQ.data;
+    : [];
 
   const caloriePercent = Math.round((dashboardMetrics.calories.current / dashboardMetrics.calories.target) * 100);
 

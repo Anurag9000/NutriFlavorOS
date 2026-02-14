@@ -1,10 +1,9 @@
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import AppLayout from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { weeklyPlan as mockWeeklyPlan } from "@/data/mockData";
-import { RefreshCw, Sparkles, Clock, ChefHat } from "lucide-react";
+import { RefreshCw, Sparkles, Clock, ChefHat, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGenerateMealPlan, useRegenerateDay, useSwapMeal } from "@/hooks/useApi";
 import type { PlanResponse } from "@/lib/api";
@@ -43,10 +42,11 @@ export default function MealPlanner() {
   const { toast } = useToast();
 
   const [selectedDay, setSelectedDay] = useState(0);
-  const [displayPlan, setDisplayPlan] = useState(mockWeeklyPlan);
+  const [displayPlan, setDisplayPlan] = useState<any[]>([]);
   const [prepTimeline, setPrepTimeline] = useState<Record<number, string[]>>({});
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [isApiPlan, setIsApiPlan] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Modal state
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
@@ -73,11 +73,23 @@ export default function MealPlanner() {
       setDisplayPlan(converted as any);
       setPrepTimeline(result.prep_timeline ?? {});
       setIsApiPlan(true);
-      toast({ title: "✨ AI Plan Generated", description: "Your personalized 7-day meal plan is ready!" });
-    } catch {
-      toast({ title: "Using demo plan", description: "Backend unavailable — showing sample data", variant: "destructive" });
+      toast({ title: "✨ AI Plan Generated", description: "Real recipes from your backend!" });
+    } catch (error) {
+      toast({ title: "Backend Error", description: "Failed to generate meal plan. Please ensure backend is running.", variant: "destructive" });
+      console.error("Meal plan generation failed:", error);
     }
   }, [generateMutation, toast]);
+
+  // Auto-generate plan on mount (try to get real data)
+  useEffect(() => {
+    if (isInitialLoad) {
+      setIsInitialLoad(false);
+      handleGenerate().catch(() => {
+        // If auto-generation fails, just show empty state with generate button
+        console.log("Auto-generation skipped - user can manually generate");
+      });
+    }
+  }, [isInitialLoad, handleGenerate]);
 
   // Regenerate a specific day
   const handleRegenerateDay = useCallback(async () => {
@@ -159,21 +171,23 @@ export default function MealPlanner() {
         </div>
 
         {/* Day selector */}
-        <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">
-          {displayPlan.map((d, i) => (
-            <motion.button
-              key={d.day}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setSelectedDay(i)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all shadow-sm ${i === selectedDay
-                ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/20"
-                : "bg-card hover:bg-accent border border-border"
-                }`}
-            >
-              {d.day}
-            </motion.button>
-          ))}
-        </div>
+        {displayPlan.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">
+            {displayPlan.map((d, i) => (
+              <motion.button
+                key={d.day}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setSelectedDay(i)}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all shadow-sm ${i === selectedDay
+                  ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/20"
+                  : "bg-card hover:bg-accent border border-border"
+                  }`}
+              >
+                {d.day}
+              </motion.button>
+            ))}
+          </div>
+        )}
 
         {/* Meals by type */}
         <div className="space-y-4 min-h-[400px]">
@@ -195,6 +209,32 @@ export default function MealPlanner() {
                     </div>
                   </div>
                 ))}
+              </motion.div>
+            ) : displayPlan.length === 0 ? (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="flex items-center justify-center min-h-[400px]"
+              >
+                <Card className="max-w-md w-full border-dashed">
+                  <CardContent className="p-8 text-center">
+                    <ChefHat className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <h3 className="text-lg font-semibold mb-2">No Meal Plan Yet</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Click "Generate AI Plan" above to create your personalized weekly meal plan using real recipes from the backend.
+                    </p>
+                    <Button
+                      onClick={handleGenerate}
+                      disabled={generateMutation.isPending}
+                      className="bg-gradient-to-r from-primary to-purple-600"
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Generate Your First Plan
+                    </Button>
+                  </CardContent>
+                </Card>
               </motion.div>
             ) : (
               <motion.div
@@ -263,40 +303,42 @@ export default function MealPlanner() {
         )}
 
         {/* Day summary */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.3 }}
-        >
-          <Card className="bg-gradient-to-br from-card to-secondary/20 border-border/60">
-            <CardContent className="p-5">
-              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-purple-500" />
-                Daily Nutrition Summary
-              </h3>
-              <div className="grid grid-cols-4 gap-4 text-center divide-x divide-border/40">
-                <div>
-                  <p className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-orange-400 to-red-600">
-                    {plan.meals.reduce((s, m) => s + m.calories, 0)}
-                  </p>
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Calories</p>
+        {plan && displayPlan.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <Card className="bg-gradient-to-br from-card to-secondary/20 border-border/60">
+              <CardContent className="p-5">
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-purple-500" />
+                  Daily Nutrition Summary
+                </h3>
+                <div className="grid grid-cols-4 gap-4 text-center divide-x divide-border/40">
+                  <div>
+                    <p className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-orange-400 to-red-600">
+                      {plan.meals.reduce((s, m) => s + m.calories, 0)}
+                    </p>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Calories</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-blue-500">{plan.meals.reduce((s, m) => s + m.protein, 0)}g</p>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Protein</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-amber-500">{plan.meals.reduce((s, m) => s + m.carbs, 0)}g</p>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Carbs</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-rose-500">{plan.meals.reduce((s, m) => s + m.fat, 0)}g</p>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Fat</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-blue-500">{plan.meals.reduce((s, m) => s + m.protein, 0)}g</p>
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Protein</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-amber-500">{plan.meals.reduce((s, m) => s + m.carbs, 0)}g</p>
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Carbs</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-rose-500">{plan.meals.reduce((s, m) => s + m.fat, 0)}g</p>
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Fat</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
 
         <RecipeDetailModal
           recipeId={selectedRecipeId}

@@ -3,11 +3,11 @@ import AppLayout from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { groceryItems as mockGroceryItems } from "@/data/mockData";
 import { ShoppingCart, Check, Plus, Package, DollarSign, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useShoppingList, useLogPurchase, useLogConsumption } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
+
 
 export default function GroceryPredictions() {
   const { user } = useAuth();
@@ -62,7 +62,7 @@ export default function GroceryPredictions() {
       estimatedCost: item.estimated_cost,
     }));
   } else {
-    displayItems = mockGroceryItems;
+    displayItems = []; // No API data available
   }
 
   const categories = [...new Set(displayItems.map((g) => g.category))];

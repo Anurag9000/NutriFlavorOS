@@ -79,8 +79,20 @@ def verify_ml_models():
     print(f"\n{Colors.BLUE}Trained Models: {trained_count}/{len(models)}{Colors.END}")
     
     if trained_count < len(models):
-        print_warning("Some models missing. Run: python scripts/train_all_models.py")
-        return False
+        print_warning(f"Missing {len(models) - trained_count} models. Training now...")
+        try:
+            print("\nRunning: python scripts/train_all_models.py")
+            subprocess.run(
+                ["python", "scripts/train_all_models.py"],
+                cwd=os.getcwd(),
+                check=True
+            )
+            print_success("All models trained successfully!")
+            return True
+        except Exception as e:
+            print_error(f"Model training failed: {e}")
+            print_warning("System will continue with available models")
+            return False
     return True
 
 def start_backend():
