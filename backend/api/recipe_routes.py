@@ -60,23 +60,37 @@ async def get_recipe_details(recipe_id: str):
     try:
         # Fetch data in parallel conceptually (or sequential for now)
         info = recipe_service.get_recipe_info(recipe_id)
-        nutrition = recipe_service.get_nutrition_info(recipe_id)
-        instructions = recipe_service.get_recipe_instructions(recipe_id)
         
         if not info:
              raise HTTPException(status_code=404, detail="Recipe not found")
 
+        nutrition = recipe_service.get_nutrition_info(recipe_id)
+        micronutrition = recipe_service.get_micronutrition_info(recipe_id)
+        
+        # Merge nutrition and micronutrition
+        full_nutrition = {**nutrition, **micronutrition}
+
+        instructions_list = recipe_service.get_recipe_instructions(recipe_id)
+        
+        # Logic to pick best instructions
+        final_instructions = []
+        if instructions_list:
+            final_instructions = instructions_list
+        elif info.get("instructions"):
+             final_instructions = info.get("instructions")
+        
         # Merge data into a unified response format expected by frontend
-        # Note: We might need to map fields to match frontend 'Recipe' model exactly
-        # forcing loose dict return for now to be flexible
         full_details = {
             **info,
-            "nutrition": nutrition,
-            "instructions": "\n".join(instructions) if isinstance(instructions, list) else instructions,
+            "nutrition": full_nutrition,
+            "instructions": final_instructions, 
             # Ensure ID is present
             "id": recipe_id
         }
         return full_details
         
     except Exception as e:
+        print(f"Error fetching recipe details: {e}")
+        # Return partial info if available, or raise
+        # Better to fail gracefully if we can't get anything, but 404 already handled
         raise HTTPException(status_code=500, detail=str(e))

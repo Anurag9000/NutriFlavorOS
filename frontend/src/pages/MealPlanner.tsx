@@ -21,16 +21,22 @@ const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satur
 function apiPlanToDisplay(plan: PlanResponse) {
   return plan.days.map((d, i) => ({
     day: dayNames[i] ?? `Day ${d.day}`,
-    meals: Object.entries(d.meals).map(([type, recipe]) => ({
-      id: recipe.id,
-      name: recipe.name,
-      type: type as "breakfast" | "lunch" | "dinner" | "snack",
-      calories: recipe.calories,
-      protein: recipe.macros?.protein ?? 0,
-      carbs: recipe.macros?.carbs ?? 0,
-      fat: recipe.macros?.fat ?? 0,
-      sustainabilityScore: 7,
-    })),
+    meals: Object.entries(d.meals).map(([type, recipe]) => {
+      // Normalize backend key to frontend expected key
+      let normalizedType = type.toLowerCase();
+      if (normalizedType.includes("snack")) normalizedType = "snack";
+
+      return {
+        id: recipe.id,
+        name: recipe.name,
+        type: normalizedType as "breakfast" | "lunch" | "dinner" | "snack",
+        calories: recipe.calories,
+        protein: recipe.macros?.protein ?? 0,
+        carbs: recipe.macros?.carbs ?? 0,
+        fat: recipe.macros?.fat ?? 0,
+        sustainabilityScore: 7, // Placeholder until backend provides this in recipe object
+      };
+    }),
     scores: d.scores,
     prepTimeline: plan.prep_timeline?.[d.day] ?? [],
   }));
