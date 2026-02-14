@@ -1,3 +1,5 @@
+import json
+import os
 from fastapi import APIRouter, HTTPException, Body
 from backend.models import UserProfile, PlanResponse, DailyPlan, Recipe
 from backend.engines.plan_generator import PlanGenerator
@@ -9,13 +11,33 @@ router = APIRouter(prefix="/api/v1/meals", tags=["meals"])
 # Initialize generator
 generator = PlanGenerator()
 
+def load_demo_data(section: str):
+    try:
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "demo_data.json")
+        with open(path, 'r') as f:
+            data = json.load(f)
+        return data.get(section, {})
+    except Exception as e:
+        print(f"Error loading demo data: {e}")
+        return {}
+
 @router.get("/plan/{user_id}", response_model=PlanResponse)
 async def get_meal_plan(user_id: str):
     """
     Get existing meal plan for a user
     """
+    # 1. Try to get from cache (Live Mode)
     plan = get_cached_plan(user_id)
+    
+    # 2. If not in cache, fallback to Demo Data (Demo Mode)
     if not plan:
+        print(f"Plan not found in cache for {user_id}. Attempting to load Demo Data...")
+        demo_plan_data = load_demo_data("meal_plan")
+        if demo_plan_data:
+            # Inject user_id to satisfy PlanResponse model
+            demo_plan_data["user_id"] = user_id
+            return demo_plan_data
+            
         raise HTTPException(
             status_code=404, 
             detail="No meal plan found. Please generate a new plan."
