@@ -1,0 +1,309 @@
+
+import { useState, useCallback } from "react";
+import AppLayout from "@/components/AppLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { weeklyPlan as mockWeeklyPlan } from "@/data/mockData";
+import { RefreshCw, Sparkles, Clock, ChefHat } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useGenerateMealPlan, useRegenerateDay, useSwapMeal } from "@/hooks/useApi";
+import type { PlanResponse } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+import { RecipeDetailModal } from "@/components/RecipeDetailModal";
+import { MealCard } from "@/components/MealCard";
+import { AnimatePresence, motion } from "framer-motion";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const mealTypeLabels: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack" };
+const mealTypes = ["breakfast", "lunch", "dinner", "snack"] as const;
+const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+// Convert API plan to the display format
+function apiPlanToDisplay(plan: PlanResponse) {
+  return plan.days.map((d, i) => ({
+    day: dayNames[i] ?? `Day ${d.day}`,
+    meals: Object.entries(d.meals).map(([type, recipe]) => ({
+      id: recipe.id,
+      name: recipe.name,
+      type: type as "breakfast" | "lunch" | "dinner" | "snack",
+      calories: recipe.calories,
+      protein: recipe.macros?.protein ?? 0,
+      carbs: recipe.macros?.carbs ?? 0,
+      fat: recipe.macros?.fat ?? 0,
+      sustainabilityScore: 7,
+    })),
+    scores: d.scores,
+    prepTimeline: plan.prep_timeline?.[d.day] ?? [],
+  }));
+}
+
+export default function MealPlanner() {
+  const { user } = useAuth();
+  const userId = user?.id ?? "usr_1";
+  const { toast } = useToast();
+
+  const [selectedDay, setSelectedDay] = useState(0);
+  const [displayPlan, setDisplayPlan] = useState(mockWeeklyPlan);
+  const [prepTimeline, setPrepTimeline] = useState<Record<number, string[]>>({});
+  const [ratings, setRatings] = useState<Record<string, number>>({});
+  const [isApiPlan, setIsApiPlan] = useState(false);
+
+  // Modal state
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const generateMutation = useGenerateMealPlan();
+  const regenerateMutation = useRegenerateDay();
+  const swapMutation = useSwapMeal();
+
+  const plan = displayPlan[selectedDay];
+
+  // Generate AI plan
+  const handleGenerate = useCallback(async () => {
+    try {
+      const result = await generateMutation.mutateAsync({
+        age: 30,
+        weight_kg: 70,
+        height_cm: 175,
+        gender: "male",
+        activity_level: 1.5,
+        goal: "maintenance",
+      });
+      const converted = apiPlanToDisplay(result);
+      setDisplayPlan(converted as any);
+      setPrepTimeline(result.prep_timeline ?? {});
+      setIsApiPlan(true);
+      toast({ title: "✨ AI Plan Generated", description: "Your personalized 7-day meal plan is ready!" });
+    } catch {
+      toast({ title: "Using demo plan", description: "Backend unavailable — showing sample data", variant: "destructive" });
+    }
+  }, [generateMutation, toast]);
+
+  // Regenerate a specific day
+  const handleRegenerateDay = useCallback(async () => {
+    try {
+      await regenerateMutation.mutateAsync({ userId, dayIndex: selectedDay });
+      toast({ title: "Day regenerated", description: `${displayPlan[selectedDay].day} meals refreshed` });
+    } catch {
+      toast({ title: "Regeneration unavailable", description: "Backend not connected", variant: "destructive" });
+    }
+  }, [regenerateMutation, userId, selectedDay, displayPlan, toast]);
+
+  // Swap a specific meal
+  const handleSwap = useCallback(async (mealSlot: string) => {
+    try {
+      const newRecipe = await swapMutation.mutateAsync({ userId, mealSlot });
+      // Update local state with swapped meal
+      setDisplayPlan((prev) => {
+        const updated = [...prev];
+        const dayMeals = [...updated[selectedDay].meals];
+        const idx = dayMeals.findIndex((m) => m.type === mealSlot);
+        if (idx >= 0) {
+          dayMeals[idx] = {
+            ...dayMeals[idx],
+            id: newRecipe.id,
+            name: newRecipe.name,
+            calories: newRecipe.calories,
+            protein: newRecipe.macros?.protein ?? dayMeals[idx].protein,
+            carbs: newRecipe.macros?.carbs ?? dayMeals[idx].carbs,
+            fat: newRecipe.macros?.fat ?? dayMeals[idx].fat,
+          };
+        }
+        updated[selectedDay] = { ...updated[selectedDay], meals: dayMeals };
+        return updated;
+      });
+      toast({ title: "Meal swapped", description: `Replaced with ${newRecipe.name}` });
+    } catch {
+      toast({ title: "Swap unavailable", description: "Backend not connected", variant: "destructive" });
+    }
+  }, [swapMutation, userId, selectedDay, toast]);
+
+  // Rate a meal
+  const handleRate = (mealId: string, rating: number) => {
+    setRatings((prev) => ({ ...prev, [mealId]: rating }));
+    toast({ title: "Rating saved", description: `Rated ${rating}/5 — helps AI learn your preferences` });
+  };
+
+  const openRecipeDetails = (id: string) => {
+    setSelectedRecipeId(id);
+    setIsModalOpen(true);
+  };
+
+  return (
+    <AppLayout>
+      <div className="space-y-6 max-w-5xl mx-auto">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">Meal Planner</h1>
+            <p className="text-muted-foreground text-sm">Your personalized AI usage plan</p>
+          </motion.div>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleGenerate}
+              disabled={generateMutation.isPending}
+              size="sm"
+              className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white shadow-md transition-all hover:scale-105"
+            >
+              {generateMutation.isPending ? (
+                <Sparkles className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4 mr-2" />
+              )}
+              {generateMutation.isPending ? "Generating..." : "Generate AI Plan"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleRegenerateDay} disabled={regenerateMutation.isPending}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${regenerateMutation.isPending ? "animate-spin" : ""}`} />
+              Regenerate Day
+            </Button>
+          </div>
+        </div>
+
+        {/* Day selector */}
+        <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">
+          {displayPlan.map((d, i) => (
+            <motion.button
+              key={d.day}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setSelectedDay(i)}
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all shadow-sm ${i === selectedDay
+                ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/20"
+                : "bg-card hover:bg-accent border border-border"
+                }`}
+            >
+              {d.day}
+            </motion.button>
+          ))}
+        </div>
+
+        {/* Meals by type */}
+        <div className="space-y-4 min-h-[400px]">
+          <AnimatePresence mode="wait">
+            {generateMutation.isPending ? (
+              <motion.div
+                key="loading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="space-y-4"
+              >
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center space-x-4 p-4 border rounded-lg bg-card/50">
+                    <Skeleton className="h-12 w-12 rounded-full" />
+                    <div className="space-y-2 flex-1">
+                      <Skeleton className="h-4 w-[250px]" />
+                      <Skeleton className="h-4 w-[200px]" />
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
+            ) : (
+              <motion.div
+                key={selectedDay}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-4"
+              >
+                {mealTypes.map((type) => {
+                  const meal = plan.meals.find((m) => m.type === type);
+                  if (!meal) return null;
+                  const currentRating = ratings[meal.id] ?? 0;
+                  return (
+                    <MealCard
+                      key={`${selectedDay}-${type}`}
+                      meal={meal}
+                      label={mealTypeLabels[type]}
+                      currentRating={currentRating}
+                      onRate={handleRate}
+                      onSwap={handleSwap}
+                      onClick={openRecipeDetails}
+                      isSwapping={swapMutation.isPending}
+                    />
+                  );
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Prep Timeline */}
+        {isApiPlan && prepTimeline && Object.keys(prepTimeline).length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <ChefHat className="h-4 w-4 text-primary" />
+                  <CardTitle className="text-sm">Prep Timeline</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {Object.entries(prepTimeline).map(([day, tasks]) => (
+                    <div key={day}>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                        <Clock className="h-3 w-3 inline mr-1" />
+                        Day {day}
+                      </p>
+                      <ul className="space-y-1">
+                        {(tasks as string[]).map((task, i) => (
+                          <li key={i} className="text-sm text-muted-foreground pl-4">• {task}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Day summary */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          <Card className="bg-gradient-to-br from-card to-secondary/20 border-border/60">
+            <CardContent className="p-5">
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-purple-500" />
+                Daily Nutrition Summary
+              </h3>
+              <div className="grid grid-cols-4 gap-4 text-center divide-x divide-border/40">
+                <div>
+                  <p className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-orange-400 to-red-600">
+                    {plan.meals.reduce((s, m) => s + m.calories, 0)}
+                  </p>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Calories</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-blue-500">{plan.meals.reduce((s, m) => s + m.protein, 0)}g</p>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Protein</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-amber-500">{plan.meals.reduce((s, m) => s + m.carbs, 0)}g</p>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Carbs</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-rose-500">{plan.meals.reduce((s, m) => s + m.fat, 0)}g</p>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Fat</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <RecipeDetailModal
+          recipeId={selectedRecipeId}
+          open={isModalOpen}
+          onOpenChange={setIsModalOpen}
+        />
+      </div>
+    </AppLayout>
+  );
+}
