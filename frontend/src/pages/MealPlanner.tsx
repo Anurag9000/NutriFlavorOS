@@ -310,8 +310,8 @@ export default function MealPlanner() {
           </AnimatePresence>
         </div>
 
-        {/* Prep Timeline */}
-        {isApiPlan && prepTimeline && Object.keys(prepTimeline).length > 0 && (
+        {/* Prep Timeline - Daily Only */}
+        {plan && plan.prepTimeline && plan.prepTimeline.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -324,61 +324,37 @@ export default function MealPlanner() {
                     <ChefHat className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg">Weekly Prep Timeline</CardTitle>
-                    <p className="text-xs text-muted-foreground mt-0.5">Plan ahead for efficient cooking</p>
+                    <CardTitle className="text-lg">Daily Prep Tasks</CardTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">Tasks for {plan.day}</p>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-4">
-                  {Object.entries(prepTimeline).map(([day, tasks], dayIndex) => (
-                    <motion.div
-                      key={day}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: dayIndex * 0.05 }}
-                      className="group relative overflow-hidden rounded-lg border bg-gradient-to-r from-muted/30 to-muted/10 p-4 hover:shadow-md transition-all"
-                    >
-                      {/* Day Header */}
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
-                          {day}
+                <div className="space-y-2">
+                  {plan.prepTimeline.map((task: string, i: number) => {
+                    // Parse time and task from string like "8:00 AM - Prepare B'stilla"
+                    const match = task.match(/^(\d{1,2}:\d{2}\s*(?:AM|PM)?)\s*-\s*(.+)$/i);
+                    const time = match ? match[1] : "";
+                    const taskText = match ? match[2] : task;
+
+                    return (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="flex items-start gap-3 p-3 rounded-md bg-background/50 hover:bg-background transition-colors border border-transparent hover:border-border/50"
+                      >
+                        <Clock className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          {time && (
+                            <p className="text-xs font-medium text-primary mb-0.5">{time}</p>
+                          )}
+                          <p className="text-sm text-foreground leading-relaxed">{taskText}</p>
                         </div>
-                        <div>
-                          <p className="font-semibold text-sm">Day {day}</p>
-                          <p className="text-xs text-muted-foreground">{(tasks as string[]).length} tasks</p>
-                        </div>
-                      </div>
-
-                      {/* Tasks List */}
-                      <div className="space-y-2 pl-10">
-                        {(tasks as string[]).map((task, i) => {
-                          // Parse time and task from string like "8:00 AM - Prepare B'stilla"
-                          const match = task.match(/^(\d{1,2}:\d{2}\s*(?:AM|PM)?)\s*-\s*(.+)$/i);
-                          const time = match ? match[1] : "";
-                          const taskText = match ? match[2] : task;
-
-                          return (
-                            <div
-                              key={i}
-                              className="flex items-start gap-3 p-2 rounded-md bg-background/50 hover:bg-background transition-colors"
-                            >
-                              <Clock className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                {time && (
-                                  <p className="text-xs font-medium text-primary mb-0.5">{time}</p>
-                                )}
-                                <p className="text-sm text-foreground leading-relaxed">{taskText}</p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Decorative gradient */}
-                      <div className="absolute top-0 right-0 h-full w-1 bg-gradient-to-b from-primary/50 via-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
