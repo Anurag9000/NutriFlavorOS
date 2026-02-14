@@ -21,12 +21,12 @@ def test_generate_plan_integration():
         "dietary_restrictions": []
     }
     
-    response = client.post("/generate_plan", json=user_payload)
+    response = client.post("/api/v1/meals/generate", json=user_payload)
     assert response.status_code == 200
     
     data = response.json()
     assert "user_id" in data
-    assert len(data["days"]) == 3
+    assert len(data["days"]) == 7
     
     day1 = data["days"][0]
     assert day1["scores"]["health_match"] > 0
@@ -43,5 +43,5 @@ def test_generate_plan_invalid_input():
         "goal": "maintenance"
     }
     
-    response = client.post("/generate_plan", json=user_payload)
+    response = client.post("/api/v1/meals/generate", json=user_payload)
     assert response.status_code == 422 # Validation Error

@@ -1,0 +1,58 @@
+============================= test session starts =============================
+platform win32 -- Python 3.10.11, pytest-7.4.3, pluggy-1.6.0 -- C:\Users\DELL\AppData\Local\Programs\Python\Python310\python.exe
+cachedir: .pytest_cache
+metadata: {'Python': '3.10.11', 'Platform': 'Windows-10-10.0.26100-SP0', 'Packages': {'pytest': '7.4.3', 'pluggy': '1.6.0'}, 'Plugins': {'anyio': '3.7.1', 'asyncio': '0.21.1', 'cov': '7.0.0', 'html': '4.0.2', 'metadata': '3.1.1', 'mock': '3.15.1', 'ordering': '0.6', 'rerunfailures': '16.1', 'xdist': '3.8.0', 'seleniumbase': '4.44.15'}}
+rootdir: D:\Finished Projects\Resume\FoodScope
+plugins: anyio-3.7.1, asyncio-0.21.1, cov-7.0.0, html-4.0.2, metadata-3.1.1, mock-3.15.1, ordering-0.6, rerunfailures-16.1, xdist-3.8.0, seleniumbase-4.44.15
+asyncio: mode=strict
+collecting ... collected 3 items
+
+backend/tests/test_api.py::test_read_root PASSED                         [ 33%]
+backend/tests/test_api.py::test_generate_plan_integration FAILED         [ 66%]
+backend/tests/test_api.py::test_generate_plan_invalid_input FAILED       [100%]
+
+================================== FAILURES ===================================
+_______________________ test_generate_plan_integration ________________________
+
+    def test_generate_plan_integration():
+        user_payload = {
+            "age": 25,
+            "weight_kg": 70,
+            "height_cm": 175,
+            "gender": "male",
+            "activity_level": 1.55,
+            "goal": "maintenance",
+            "liked_ingredients": ["Chicken"],
+            "disliked_ingredients": [],
+            "dietary_restrictions": []
+        }
+    
+        response = client.post("/generate_plan", json=user_payload)
+>       assert response.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+backend\tests\test_api.py:25: AssertionError
+______________________ test_generate_plan_invalid_input _______________________
+
+    def test_generate_plan_invalid_input():
+        # Missing required field 'age'
+        user_payload = {
+            "weight_kg": 70,
+            "height_cm": 175,
+            # age missing
+            "gender": "male",
+            "activity_level": 1.55,
+            "goal": "maintenance"
+        }
+    
+        response = client.post("/generate_plan", json=user_payload)
+>       assert response.status_code == 422 # Validation Error
+E       assert 404 == 422
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+backend\tests\test_api.py:47: AssertionError
+=========================== short test summary info ===========================
+FAILED backend/tests/test_api.py::test_generate_plan_integration - assert 404...
+FAILED backend/tests/test_api.py::test_generate_plan_invalid_input - assert 4...
+========================= 2 failed, 1 passed in 4.87s =========================

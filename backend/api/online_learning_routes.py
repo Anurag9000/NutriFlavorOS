@@ -173,12 +173,23 @@ async def get_leaderboard(leaderboard_type: str = "carbon_saved", period: str = 
 @router.get("/gamification/rank/{user_id}")
 async def get_user_rank(user_id: str, leaderboard_type: str = "carbon_saved"):
     data = load_demo_data("gamification")
-    leaderboard = data.get("leaderboard", [])
-    # Find user in leaderboard, else return default
-    for user in leaderboard:
-        if user["user_id"] == "usr_1": # Assuming usr_1 is current user for demo
-            return {"rank": user["rank"], "total_users": 100, "percentile": 95}
+    
+    # Map leaderboard type to JSON key
+    key = f"leaderboard_{leaderboard_type}"
+    leaderboard = data.get(key, [])
+    
+    # Find user in the specific leaderboard
+    for entry in leaderboard:
+        # Check username or user_id
+        if entry.get("user_id") == "usr_1" or entry.get("username") == "You":
+            return {
+                "rank": entry.get("rank"),
+                "total_users": len(leaderboard) + 20, # Simulated
+                "percentile": 100 - (entry.get("rank", 4) * 5) # Simulated
+            }
+            
     return {"rank": 4, "total_users": 100, "percentile": 96}
+
 
 @router.get("/gamification/achievements/{user_id}")
 async def get_user_achievements(user_id: str):

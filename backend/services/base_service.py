@@ -130,16 +130,76 @@ class BaseAPIService:
                     data = json.load(f)
                     
                 # Handle specific recipe endpoints
-                if endpoint == "recipesInfo" or endpoint == "nutritionInfo" or endpoint == "micronutritionInfo":
-                    recipe_id = params.get("id")
+                # Case-insensitive check and support both camelCase and kebab-case
+                endpoint_lower = endpoint.lower()
+                if any(x in endpoint_lower for x in ["recipesinfo", "nutritioninfo", "micronutritioninfo"]):
+                    # Support both 'id' and 'recipe_id' parameters
+                    recipe_id = params.get("id") or params.get("recipe_id")
                     for r in data:
-                        if str(r["id"]) == str(recipe_id):
-                            if endpoint == "recipesInfo": return r
-                            if endpoint == "nutritionInfo": return r.get("nutrition", {})
-                            if endpoint == "micronutritionInfo": return r.get("micronutrients", {})
+                        # Match by Recipe_id or id
+                        if str(r.get("Recipe_id")) == str(recipe_id) or str(r.get("id")) == str(recipe_id):
+                            matched_recipe = r
+                            break
+                    
+                    # Fallback: check meal_plans.json if not found
+                    if not matched_recipe:
+                        try:
+                            # Search in the root meal_plans.json
+                            plans_path = os.path.join(os.getcwd(), "meal_plans.json")
+                            if os.path.exists(plans_path):
+                                with open(plans_path, 'r') as f:
+                                    plans_data = json.load(f)
+                                    # Recursively search for meals
+                                    def find_recipe(obj, rid):
+                                        if isinstance(obj, dict):
+                                            if obj.get("id") == str(rid):
+                                                return obj
+                                            for k, v in obj.items():
+                                                res = find_recipe(v, rid)
+                                                if res: return res
+                                        elif isinstance(obj, list):
+                                            for item in obj:
+                                                res = find_recipe(item, rid)
+                                                if res: return res
+                                        return None
+                                    
+                                    matched_recipe = find_recipe(plans_data, recipe_id)
+                        except Exception as e:
+                            print(f"Error searching meal_plans.json: {e}")
+
+                    if matched_recipe:
+                        if "recipesinfo" in endpoint_lower: 
+                            # Map back to expected fields if needed
+                            # Handle different key names between recipes.json and meal_plans.json
+                            title = matched_recipe.get("Recipe_title") or matched_recipe.get("name")
+                            
+                            # Extract calories from Energy (kcal) if Calories (per serving) is zero
+                            calories = int(float(matched_recipe.get("Calories", matched_recipe.get("calories", 0))))
+                            if calories == 0:
+                                calories = int(float(matched_recipe.get("Energy (kcal)", 0)) / int(float(matched_recipe.get("servings", 1))))
+
+                            return {
+                                "id": matched_recipe.get("Recipe_id") or matched_recipe.get("id"),
+                                "title": title,
+                                "calories": calories,
+                                "servings": int(float(matched_recipe.get("servings", 1))),
+                                "readyInMinutes": int(float(matched_recipe.get("total_time", matched_recipe.get("readyInMinutes", 30)))),
+                                "healthScore": int(float(matched_recipe.get("health_score", matched_recipe.get("healthScore", 75)))), 
+                                "instructions": matched_recipe.get("instructions") if isinstance(matched_recipe.get("instructions"), list) else matched_recipe.get("Processes", "").split("||"),
+                                "ingredients": matched_recipe.get("ingredients", []),
+                                "image": matched_recipe.get("image") or matched_recipe.get("img_url") or matched_recipe.get("image_url") or "https://images.unsplash.com/photo-1547523199-a223a5cf0003?auto=format&fit=crop&w=800&q=80",
+                                "description": matched_recipe.get("description", matched_recipe.get("Region", "")),
+                                "summary": matched_recipe.get("summary", matched_recipe.get("Region", "")),
+                                "cuisines": [matched_recipe.get("cuisine", matched_recipe.get("Region", "Unknown"))],
+                                "macros": matched_recipe.get("macros", {})
+                            }
+                        if "nutritioninfo" in endpoint_lower: return matched_recipe.get("nutrition", matched_recipe.get("macros", {}))
+                        if "micronutritioninfo" in endpoint_lower: return matched_recipe.get("micronutrients", {})
+                    
                     return {}
                 
                 if endpoint.startswith("instructions/"):
+
                     recipe_id = endpoint.split("/")[-1]
                     for r in data:
                         if str(r["id"]) == str(recipe_id):
@@ -196,6 +256,11 @@ class BaseAPIService:
                 
                 # Default list return with limit
                 limit = int(params.get("limit", 50)) if params else 50
+                # Only return {} if a specific ID was requested but not found
+                # If it's a search (no recipe_id or empty), return the list
+                if any(x in endpoint_lower for x in ["recipesinfo", "nutritioninfo", "micronutritioninfo"]):
+                    if params.get("id") or params.get("recipe_id"):
+                        return {}
                 return filtered[:limit]
 
             elif "flavor" in self.base_url or "flavor" in endpoint.lower():
