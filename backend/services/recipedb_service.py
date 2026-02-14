@@ -86,11 +86,74 @@ class RecipeDBService(BaseAPIService):
         return self._make_request("recipe2-api/recipe/recipesinfo", 
                                  params={"min": min_carbs, "max": max_carbs, "limit": limit})
     
+    def _map_to_domain_recipe(self, raw: Dict) -> Dict:
+        """Map RecipeDB raw data to domain Recipe model"""
+        # Handle already mapped data (if mocked correctly elsewhere)
+        if "id" in raw and "macros" in raw:
+            return raw
+            
+        # Map fields
+        try:
+            r_id = raw.get("Recipe_id", str(raw.get("id", "")))
+            title = raw.get("Recipe_title", raw.get("title", "Unknown Recipe"))
+            
+            # Nutrition
+            try:
+                cals = float(raw.get("Calories", 0))
+                protein = float(raw.get("Protein (g)", 0))
+                fat = float(raw.get("Total lipid (fat) (g)", 0))
+                carbs = float(raw.get("Carbohydrate, by difference (g)", 0))
+            except (ValueError, TypeError):
+                cals, protein, fat, carbs = 0, 0, 0, 0
+            
+            # Instructions from piped string
+            instr_str = raw.get("Processes", "")
+            instructions = instr_str.split("||") if instr_str else []
+            
+            # Ingredients 
+            # Harvested data might not have clean ingredient list in top level. 
+            # We'll default to empty list if missing, preventing validation error.
+            ingredients = raw.get("ingredients", [])
+            if isinstance(ingredients, str): ingredients = [ingredients]
+            
+            return {
+                "id": r_id,
+                "name": title,
+                "description": f"A {raw.get('Region', 'delicious')} dish.",
+                "image_url": raw.get("image", None),
+                "ingredients": ingredients,
+                "calories": int(cals),
+                "macros": {
+                    "protein": int(protein),
+                    "carbs": int(carbs),
+                    "fat": int(fat)
+                },
+                "flavor_profile": {}, # Populated by TasteEngine later
+                "tags": [x for x in [raw.get("Region"), raw.get("Sub_region"), raw.get("Continent")] if x],
+                "cuisine": raw.get("Region"),
+                "instructions": instructions
+            }
+        except Exception as e:
+            print(f"Error mapping recipe {raw.get('Recipe_id')}: {e}")
+            return {
+                "id": "error",
+                "name": "Error Loading Recipe",
+                "description": "",
+                "ingredients": [],
+                "calories": 0,
+                "macros": {"protein": 0, "carbs": 0, "fat": 0},
+                "instructions": []
+            }
+
     def search_by_title(self, title: str) -> List[Dict]:
         """Search recipes by name"""
         # Using advanced search endpoint which likely supports title filtering
-        return self._make_request("recipe2-api/recipe/recipe-day/with-ingredients-categories", 
+        results = self._make_request("recipe2-api/recipe/recipe-day/with-ingredients-categories", 
                                  params={"title": title, "page": 1, "limit": 50})
+        
+        if isinstance(results, list):
+            return [self._map_to_domain_recipe(r) for r in results]
+        return []
     
     def get_recipes_by_day(self, day: str) -> List[Dict]:
         """Get recipes suitable for specific meal time (breakfast/lunch/dinner)"""

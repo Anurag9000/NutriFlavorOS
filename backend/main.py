@@ -15,7 +15,8 @@ from backend.api import (
     recipe_routes,
     vision_routes,
     sustainability_routes,
-    online_learning_routes
+    online_learning_routes,
+    auth_routes
 )
 
 app = FastAPI(title="NutriFlavorOS API", version="0.1.0")
@@ -44,7 +45,8 @@ app.include_router(recipe_routes.router)
 app.include_router(vision_routes.router)
 app.include_router(sustainability_routes.router)
 app.include_router(online_learning_routes.router)
+app.include_router(auth_routes.router)
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
