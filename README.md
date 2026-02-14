@@ -24,15 +24,15 @@ FoodScope is a next-generation food tracking and meal planning application that 
 
 ## 🛠️ Technology Stack
 
-- **Frontend**: React, Vite, Tailwind CSS, Framer Motion, Recharts
-- **Backend**: FastAPI (Python), Pandas, NumPy, Scikit-learn
+- **Frontend**: React 19, Vite, Tailwind CSS, Framer Motion, Recharts
+- **Backend**: FastAPI (Python), PyTorch (ML), Pandas, NumPy
 - **Data Services**: RecipeDB, FlavorDB, DietRxDB, SustainableFoodDB
 
 ## 📦 Installation & Setup
 
 ### Prerequisites
-- Node.js (v16+)
-- Python (v3.9+)
+- Node.js (v18+)
+- Python (v3.10+)
 
 ### 1. Backend Setup
 ```bash
@@ -40,8 +40,7 @@ cd backend
 python -m venv venv
 .\venv\Scripts\activate
 pip install -r requirements.txt
-copy .env.example .env
-# Edit .env with your API keys
+# Environment variables setup in backend/.env
 ```
 
 ### 2. Frontend Setup
@@ -50,18 +49,24 @@ cd frontend
 npm install
 ```
 
-## 🏃‍♂️ Running the App
+## 🏃‍♂️ Running the Platform
 
-### Option A: Quick Start (Windows)
-Double-click the batch files in the root directory:
-1. `start_backend.bat`
-2. `start_frontend.bat`
+### 🚀 Recommended: One-Command Launch
+Run the master launch script from the project root. This handles DB verification, ML model status, and starts the stack:
+```bash
+python scripts/launch_system.py
+```
 
-### Option B: Manual Start
+### 🧠 ML Model Training
+To train the neural networks with Early Stopping (patience=10, max epochs=10k):
+```bash
+python scripts/train_all_models.py
+```
+
+### Manual Start
 **Backend:**
 ```bash
-cd backend
-uvicorn main:app --reload
+python -m backend.main
 ```
 
 **Frontend:**
@@ -70,7 +75,13 @@ cd frontend
 npm run dev
 ```
 
-Visit `http://localhost:5174` to use the app!
+Visit `http://localhost:5173` to use the app!
+
+## 🧪 Integration Verification
+Verify the full API flow (Auth, Meals, Grocery, Analytics):
+```bash
+python scripts/verify_frontend_api.py
+```
 
 ## 🤝 APIs & Credits
 This project leverages the CosyLab suite of databases:

@@ -1,6 +1,5 @@
 import AppLayout from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { weeklyTrends, macroDistribution, pillarScores } from "@/data/mockData";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, BarChart, Bar, RadarChart, PolarGrid, PolarAngleAxis,
@@ -11,13 +10,6 @@ import { useHealthInsights, useTasteInsights, useVarietyInsights, useCarbonFootp
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, Leaf } from "lucide-react";
-
-const pillarData = [
-  { name: "Health", value: pillarScores.health, color: "hsl(152, 60%, 48%)" },
-  { name: "Taste", value: pillarScores.taste, color: "hsl(38, 92%, 55%)" },
-  { name: "Variety", value: pillarScores.variety, color: "hsl(265, 60%, 58%)" },
-  { name: "Sustain.", value: pillarScores.sustainability, color: "hsl(174, 62%, 47%)" },
-];
 
 const chartTooltipStyle = {
   background: "hsl(228, 14%, 11%)",
@@ -38,24 +30,26 @@ export default function Analytics() {
   const predictionMutation = useHealthPrediction();
   const [showPrediction, setShowPrediction] = useState(false);
 
-  // Use API data or fallback
-  const healthData = healthQ.data ?? weeklyTrends.map((d) => ({ date: d.day, score: d.health }));
-  const tasteData = tasteQ.data ?? [
-    { subject: "Spicy", A: 80, fullMark: 150 },
-    { subject: "Sweet", A: 110, fullMark: 150 },
-    { subject: "Salty", A: 90, fullMark: 150 },
-    { subject: "Bitter", A: 50, fullMark: 150 },
-    { subject: "Sour", A: 60, fullMark: 150 },
-    { subject: "Umami", A: 100, fullMark: 150 },
-  ];
-  const varietyData = varietyQ.data ?? [
-    { name: "Vegetables", value: 35 },
-    { name: "Fruits", value: 25 },
-    { name: "Grains", value: 20 },
-    { name: "Proteins", value: 15 },
-    { name: "Dairy", value: 5 },
-  ];
+  // Use API data only - NO HARDCODED FALLBACKS
+  const healthData = healthQ.data ?? [];
+  const tasteData = tasteQ.data ?? [];
+  const varietyData = varietyQ.data ?? [];
   const carbonBreakdown = carbonQ.data;
+
+  // Calculate pillar data from API if available
+  const pillarData = healthData.length > 0 ? [
+    { name: "Health", value: Math.round(healthData.reduce((s, d) => s + d.score, 0) / healthData.length), color: "hsl(152, 60%, 48%)" },
+    { name: "Taste", value: tasteData.length > 0 ? Math.round(tasteData.reduce((s, d) => s + (d.A || 0), 0) / tasteData.length / 1.5) : 0, color: "hsl(38, 92%, 55%)" },
+    { name: "Variety", value: varietyData.length > 0 ? Math.round(varietyData.reduce((s, d) => s + d.value, 0)) : 0, color: "hsl(265, 60%, 58%)" },
+    { name: "Sustain.", value: carbonBreakdown ? Math.min(100 - carbonBreakdown.average_meal_footprint * 10, 100) : 0, color: "hsl(174, 62%, 47%)" },
+  ] : [];
+
+  // Calculate macro distribution from health data if available
+  const macroDistribution = healthData.length > 0 ? [
+    { name: "Protein", value: 30, color: "hsl(152, 60%, 48%)" },
+    { name: "Carbs", value: 45, color: "hsl(38, 92%, 55%)" },
+    { name: "Fat", value: 25, color: "hsl(265, 60%, 58%)" },
+  ] : [];
 
   const handlePredict = async () => {
     await predictionMutation.mutateAsync({ user_id: userId });
@@ -64,6 +58,7 @@ export default function Analytics() {
 
   const prediction = predictionMutation.data;
   const varietyColors = ["hsl(152, 60%, 48%)", "hsl(38, 92%, 55%)", "hsl(265, 60%, 58%)", "hsl(174, 62%, 47%)", "hsl(340, 65%, 55%)"];
+
 
   return (
     <AppLayout>

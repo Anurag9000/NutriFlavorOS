@@ -1,6 +1,8 @@
 """
 RecipeDB API Service - 118,000+ recipes with full nutrition data
 """
+import json
+import os
 from typing import List, Dict, Any, Optional
 from backend.services.base_service import BaseAPIService
 from backend.config import APIConfig
@@ -144,16 +146,31 @@ class RecipeDBService(BaseAPIService):
                 "macros": {"protein": 0, "carbs": 0, "fat": 0},
                 "instructions": []
             }
+    
+    def get_all_recipes(self) -> List[Dict]:
+        """Load all recipes from local JSON file (harvested RecipeDB data)"""
+        json_path = os.path.join("backend", "data", "recipes.json")
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                raw_recipes = json.load(f)
+            return [self._map_to_domain_recipe(r) for r in raw_recipes]
+        except FileNotFoundError:
+            print(f"Warning: {json_path} not found. Returning empty list.")
+            return []
+        except json.JSONDecodeError as e:
+            print(f"Error parsing {json_path}: {e}")
+            return []
 
     def search_by_title(self, title: str) -> List[Dict]:
-        """Search recipes by name"""
-        # Using advanced search endpoint which likely supports title filtering
-        results = self._make_request("recipe2-api/recipe/recipe-day/with-ingredients-categories", 
-                                 params={"title": title, "page": 1, "limit": 50})
+        """Search recipes by name from local JSON data"""
+        all_recipes = self.get_all_recipes()
         
-        if isinstance(results, list):
-            return [self._map_to_domain_recipe(r) for r in results]
-        return []
+        if not title:  # Empty title = return all
+            return all_recipes
+        
+        # Filter by title (case-insensitive)
+        title_lower = title.lower()
+        return [r for r in all_recipes if title_lower in r.get("name", "").lower()]
     
     def get_recipes_by_day(self, day: str) -> List[Dict]:
         """Get recipes suitable for specific meal time (breakfast/lunch/dinner)"""

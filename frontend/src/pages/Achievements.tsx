@@ -1,7 +1,6 @@
 import AppLayout from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { achievements as mockAchievements, userStats } from "@/data/mockData";
 import { Lock, Trophy, Medal, Crown, TrendingUp, Leaf } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGamificationAchievements, useLeaderboard, useUserRank, useImpactSummary } from "@/hooks/useApi";
@@ -32,7 +31,7 @@ export default function Achievements() {
   const rankQ = useUserRank(userId, lbType);
   const impactQ = useImpactSummary(userId);
 
-  // Use API achievements if available, else mock
+  // Use API achievements only - no mock data fallback
   const achievements = achieveQ.data?.achievements
     ? (achieveQ.data.achievements as any[]).map((a: any, i: number) => ({
       id: a.id ?? `ach_${i}`,
@@ -44,9 +43,9 @@ export default function Achievements() {
       icon: a.icon ?? "🏆",
       xp: a.xp ?? a.points ?? 100,
     }))
-    : mockAchievements;
+    : [];
 
-  const totalEarned = achieveQ.data?.total_earned ?? userStats.unlockedAchievements;
+  const totalEarned = achieveQ.data?.total_earned ?? achievements.filter(a => a.unlocked).length;
   const leaderboard = leaderboardQ.data?.leaderboard ?? [];
   const userRank = rankQ.data as any;
   const impact = impactQ.data;
@@ -63,10 +62,10 @@ export default function Achievements() {
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-2">
-              <span className="font-semibold">Level {userStats.level}</span>
-              <span className="text-sm text-muted-foreground">{userStats.currentXP} / {userStats.nextLevelXP} XP</span>
+              <span className="font-semibold">Level {Math.floor(totalEarned / 3) + 1}</span>
+              <span className="text-sm text-muted-foreground">{achievements.reduce((sum, a) => sum + (a.unlocked ? a.xp : 0), 0)} XP</span>
             </div>
-            <Progress value={(userStats.currentXP / userStats.nextLevelXP) * 100} className="h-2" />
+            <Progress value={(totalEarned / Math.max(achievements.length, 1)) * 100} className="h-2" />
             <p className="text-xs text-muted-foreground mt-2">{totalEarned} of {achievements.length} achievements unlocked</p>
           </CardContent>
         </Card>
@@ -139,8 +138,8 @@ export default function Achievements() {
                       key={t.key}
                       onClick={() => setLbType(t.key)}
                       className={`px-2 py-1 rounded text-xs font-medium transition-colors ${lbType === t.key
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-secondary text-secondary-foreground hover:bg-accent"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-secondary-foreground hover:bg-accent"
                         }`}
                     >
                       {t.label}

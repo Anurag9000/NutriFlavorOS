@@ -72,8 +72,9 @@ class PlanGenerator:
             
             # Update variety engine history
             day_recipes = list(day_plan.meals.values())
-            cuisine = day_recipes[0].cuisine if hasattr(day_recipes[0], 'cuisine') else "unknown"
-            self.variety_engine.update_history(day_recipes, cuisine)
+            if day_recipes:  # Safety check to prevent index error
+                cuisine = day_recipes[0].cuisine if hasattr(day_recipes[0], 'cuisine') else "unknown"
+                self.variety_engine.update_history(day_recipes, cuisine)
         
         # 5. Generate shopping list
         shopping_list = self._generate_shopping_list(all_ingredients)
