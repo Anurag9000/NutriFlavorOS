@@ -100,11 +100,37 @@ class RecipeDBService(BaseAPIService):
             title = raw.get("Recipe_title", raw.get("title", "Unknown Recipe"))
             
             # Nutrition
+            # 'Calories' field often represents per-serving calories
+            # 'Energy (kcal)', 'Protein', 'Fat', 'Carbs' often represent TOTAL recipe values
+            # We must scale the macros to match the per-serving Calorie count
             try:
-                cals = float(raw.get("Calories", 0))
-                protein = float(raw.get("Protein (g)", 0))
-                fat = float(raw.get("Total lipid (fat) (g)", 0))
-                carbs = float(raw.get("Carbohydrate, by difference (g)", 0))
+                per_serving_cals = float(raw.get("Calories", 0))
+                
+                total_energy = float(raw.get("Energy (kcal)", 0))
+                total_protein = float(raw.get("Protein (g)", 0))
+                total_fat = float(raw.get("Total lipid (fat) (g)", 0))
+                total_carbs = float(raw.get("Carbohydrate, by difference (g)", 0))
+                
+                # Calculate scaling factor
+                if total_energy > 0 and per_serving_cals > 0:
+                    ratio = per_serving_cals / total_energy
+                    protein = total_protein * ratio
+                    fat = total_fat * ratio
+                    carbs = total_carbs * ratio
+                    cals = per_serving_cals
+                else:
+                    # Fallback: divide by servings if available
+                    try:
+                        servings = float(raw.get("servings", 1))
+                        if servings <= 0: servings = 1
+                    except (ValueError, TypeError):
+                        servings = 1
+                        
+                    protein = total_protein / servings
+                    fat = total_fat / servings
+                    carbs = total_carbs / servings
+                    cals = per_serving_cals if per_serving_cals > 0 else (total_energy / servings)
+                    
             except (ValueError, TypeError):
                 cals, protein, fat, carbs = 0, 0, 0, 0
             
