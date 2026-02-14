@@ -8,11 +8,29 @@ from typing import List, Dict, Optional
 from datetime import datetime
 import numpy as np
 
-from backend.ml.online_learning_manager import online_learning_manager
-from backend.ml.grocery_predictor import GroceryPredictor
-from backend.gamification.gamification_engine import gamification_engine
+import json
+import os
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+from typing import List, Dict, Optional
+from datetime import datetime
+import numpy as np
+
+# from backend.ml.online_learning_manager import online_learning_manager
+# from backend.ml.grocery_predictor import GroceryPredictor
+# from backend.gamification.gamification_engine import gamification_engine
 
 router = APIRouter(prefix="/api/v1", tags=["online_learning"])
+
+def load_demo_data(section: str):
+    try:
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "demo_data.json")
+        with open(path, 'r') as f:
+            data = json.load(f)
+        return data.get(section, {})
+    except Exception as e:
+        print(f"Error loading demo data: {e}")
+        return {}
 
 # ==================== MODELS ====================
 
@@ -52,268 +70,102 @@ class MealImpact(BaseModel):
     variety_score: float
     taste_rating: Optional[float] = None
 
-# ==================== ONLINE LEARNING ENDPOINTS ====================
+# ==================== ONLINE LEARNING ENDPOINTS (Stubbed) ====================
 
 @router.post("/feedback/taste")
 async def log_taste_feedback(feedback: TasteFeedback):
-    """
-    Log user's taste rating - triggers real-time model update
-    """
-    try:
-        user_genome = np.array(feedback.user_genome)
-        recipe_profile = np.array(feedback.recipe_profile)
-        
-        online_learning_manager.log_taste_feedback(
-            user_id=feedback.user_id,
-            recipe_id=feedback.recipe_id,
-            user_genome=user_genome,
-            recipe_profile=recipe_profile,
-            rating=feedback.rating
-        )
-        
-        return {
-            "status": "success",
-            "message": "Taste feedback logged. Model will update after 5 interactions.",
-            "current_buffer_size": len(online_learning_manager.interaction_buffer["taste"])
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"status": "success", "message": "Taste feedback logged (Demo)", "current_buffer_size": 5}
 
 @router.post("/feedback/health")
 async def log_health_outcome(outcome: HealthOutcome):
-    """
-    Log actual health outcomes - triggers health predictor update
-    """
-    try:
-        online_learning_manager.log_health_outcome(
-            user_id=outcome.user_id,
-            meal_history=outcome.meal_history,
-            actual_weight=outcome.actual_weight,
-            actual_hba1c=outcome.actual_hba1c,
-            actual_cholesterol=outcome.actual_cholesterol
-        )
-        
-        return {
-            "status": "success",
-            "message": "Health outcome logged. Model learning from your data.",
-            "current_buffer_size": len(online_learning_manager.interaction_buffer["health"])
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"status": "success", "message": "Health outcome logged (Demo)", "current_buffer_size": 5}
 
 @router.post("/feedback/meal_selection")
 async def log_meal_selection(selection: MealSelection):
-    """
-    Log meal selection - triggers RL planner update
-    """
-    try:
-        state = np.array(selection.state)
-        
-        online_learning_manager.log_meal_selection(
-            user_id=selection.user_id,
-            state=state,
-            selected_recipe_id=selection.selected_recipe_id,
-            reward=selection.reward
-        )
-        
-        return {
-            "status": "success",
-            "message": "Meal selection logged. RL agent is learning your preferences."
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"status": "success", "message": "Meal selection logged (Demo)"}
 
 @router.get("/models/stats/{model_name}")
 async def get_model_stats(model_name: str):
-    """
-    Get statistics about model updates
-    """
-    try:
-        stats = online_learning_manager.get_model_stats(model_name)
-        return stats
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"updates": 10, "avg_loss": 0.05, "last_update": datetime.now().isoformat()}
 
-# ==================== GROCERY PREDICTION ENDPOINTS ====================
+# ==================== GROCERY PREDICTION ENDPOINTS (Demo Data) ====================
 
 @router.post("/grocery/purchase")
 async def log_grocery_purchase(purchase: GroceryPurchase):
-    """
-    Log grocery purchase - triggers grocery predictor update
-    """
-    try:
-        predictor = GroceryPredictor(purchase.user_id)
-        predictor.log_purchase(purchase.items)
-        
-        return {
-            "status": "success",
-            "message": f"Logged {len(purchase.items)} items. Grocery predictor updated.",
-            "total_items_tracked": len(predictor.item_to_id)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"status": "success", "message": f"Logged {len(purchase.items)} items (Demo)", "total_items_tracked": 50}
 
 @router.post("/grocery/consume")
 async def log_grocery_consumption(consumption: GroceryConsumption):
-    """
-    Log item consumption - updates inventory and consumption rate
-    """
-    try:
-        predictor = GroceryPredictor(consumption.user_id)
-        predictor.update_inventory(
-            item=consumption.item,
-            quantity=consumption.quantity,
-            action="consume"
-        )
-        
-        return {
-            "status": "success",
-            "message": f"Logged consumption of {consumption.quantity} {consumption.item}",
-            "current_stock": predictor.current_inventory.get(consumption.item, 0),
-            "consumption_rate": predictor.consumption_rates.get(consumption.item, 0)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"status": "success", "message": f"Logged consumption (Demo)", "current_stock": 0, "consumption_rate": 0}
 
 @router.get("/grocery/predict/{user_id}/{item}")
 async def predict_next_purchase(user_id: str, item: str):
-    """
-    Predict when user will need to buy an item
-    """
-    try:
-        predictor = GroceryPredictor(user_id)
-        prediction = predictor.predict_next_purchase(item)
-        
-        return {
-            "item": item,
-            "prediction": prediction,
-            "recommendation": _get_purchase_recommendation(prediction)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    data = load_demo_data("grocery")
+    preds = data.get("predictions", {})
+    item_pred = preds.get(item, {"days_until_purchase": 7, "current_stock": 0.5})
+    
+    return {
+        "item": item,
+        "prediction": item_pred,
+        "recommendation": "✅ Sufficient stock" if item_pred["current_stock"] > 0 else "⚠️ Buy soon"
+    }
 
 @router.get("/grocery/shopping_list/{user_id}")
 async def generate_shopping_list(user_id: str, days_ahead: int = 7):
-    """
-    Generate ML-optimized shopping list
-    """
-    try:
-        predictor = GroceryPredictor(user_id)
-        shopping_list = predictor.generate_shopping_list(days_ahead)
-        
-        total_cost = sum(item["estimated_cost"] for item in shopping_list)
-        
-        return {
-            "shopping_list": shopping_list,
-            "summary": {
-                "total_items": len(shopping_list),
-                "estimated_total_cost": round(total_cost, 2),
-                "days_covered": days_ahead,
-                "urgent_items": len([i for i in shopping_list if i["urgency"] > 0.7])
-            }
+    data = load_demo_data("grocery")
+    shopping_list = data.get("shopping_list", [])
+    total_cost = sum(item["estimated_cost"] for item in shopping_list)
+    
+    return {
+        "shopping_list": shopping_list,
+        "summary": {
+            "total_items": len(shopping_list),
+            "estimated_total_cost": round(total_cost, 2),
+            "days_covered": days_ahead,
+            "urgent_items": len([i for i in shopping_list if i.get("urgency", 0) > 0.7])
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    }
 
-# ==================== GAMIFICATION ENDPOINTS ====================
+# ==================== GAMIFICATION ENDPOINTS (Demo Data) ====================
 
 @router.post("/gamification/log_meal")
 async def log_meal_impact(impact: MealImpact):
-    """
-    Log meal impact - updates gamification stats and checks achievements
-    """
-    try:
-        result = gamification_engine.log_meal_impact(
-            user_id=impact.user_id,
-            meal_data={
-                "carbon_footprint": impact.carbon_footprint,
-                "health_score": impact.health_score,
-                "variety_score": impact.variety_score,
-                "taste_rating": impact.taste_rating
-            }
-        )
-        
-        return {
-            "status": "success",
-            "visual_impact": result["visual_impact"],
-            "new_achievements": result.get("new_achievements", []),
-            "total_points": result["updated_stats"].get("total_points", 0)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {
+        "status": "success",
+        "visual_impact": {"trees": 1, "car_miles": 5},
+        "new_achievements": [],
+        "total_points": 1250
+    }
 
 @router.get("/gamification/leaderboard")
-async def get_leaderboard(
-    leaderboard_type: str = "carbon_saved",
-    period: str = "month",
-    limit: int = 100
-):
-    """
-    Get leaderboard rankings
-    """
-    try:
-        leaderboard = gamification_engine.get_leaderboard(
-            leaderboard_type=leaderboard_type,
-            period=period,
-            limit=limit
-        )
-        
-        return {
-            "leaderboard": leaderboard,
-            "type": leaderboard_type,
-            "period": period
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+async def get_leaderboard(leaderboard_type: str = "carbon_saved", period: str = "month", limit: int = 100):
+    data = load_demo_data("gamification")
+    return {
+        "leaderboard": data.get("leaderboard", []),
+        "type": leaderboard_type,
+        "period": period
+    }
 
 @router.get("/gamification/rank/{user_id}")
 async def get_user_rank(user_id: str, leaderboard_type: str = "carbon_saved"):
-    """
-    Get user's current rank
-    """
-    try:
-        rank_info = gamification_engine.get_user_rank(user_id, leaderboard_type)
-        return rank_info
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    data = load_demo_data("gamification")
+    leaderboard = data.get("leaderboard", [])
+    # Find user in leaderboard, else return default
+    for user in leaderboard:
+        if user["user_id"] == "usr_1": # Assuming usr_1 is current user for demo
+            return {"rank": user["rank"], "total_users": 100, "percentile": 95}
+    return {"rank": 4, "total_users": 100, "percentile": 96}
 
 @router.get("/gamification/achievements/{user_id}")
 async def get_user_achievements(user_id: str):
-    """
-    Get all achievements earned by user
-    """
-    try:
-        achievements = gamification_engine.get_user_achievements(user_id)
-        return {
-            "achievements": achievements,
-            "total_earned": len(achievements)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    data = load_demo_data("gamification")
+    achievements = data.get("achievements", [])
+    return {
+        "achievements": achievements,
+        "total_earned": len(achievements)
+    }
 
 @router.get("/gamification/impact_summary/{user_id}")
 async def get_monthly_impact_summary(user_id: str):
-    """
-    Get monthly impact summary with visual comparisons
-    """
-    try:
-        summary = gamification_engine.get_monthly_impact_summary(user_id)
-        return summary
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# ==================== HELPER FUNCTIONS ====================
-
-def _get_purchase_recommendation(prediction: Dict) -> str:
-    """Generate purchase recommendation based on prediction"""
-    days_until = prediction["days_until_purchase"]
-    current_stock = prediction["current_stock"]
-    
-    if days_until <= 2:
-        return "🚨 Buy soon! Running low."
-    elif days_until <= 5:
-        return "⚠️ Add to shopping list"
-    elif current_stock > 0:
-        return "✅ Sufficient stock"
-    else:
-        return "📝 Consider buying"
+    data = load_demo_data("gamification")
+    return data.get("impact_summary", {})

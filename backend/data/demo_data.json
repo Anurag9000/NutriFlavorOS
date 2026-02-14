@@ -1,0 +1,257 @@
+{
+    "analytics": {
+        "health_history": [
+            {
+                "date": "Mon",
+                "score": 78
+            },
+            {
+                "date": "Tue",
+                "score": 82
+            },
+            {
+                "date": "Wed",
+                "score": 75
+            },
+            {
+                "date": "Thu",
+                "score": 85
+            },
+            {
+                "date": "Fri",
+                "score": 88
+            },
+            {
+                "date": "Sat",
+                "score": 92
+            },
+            {
+                "date": "Sun",
+                "score": 90
+            }
+        ],
+        "taste_profile": [
+            {
+                "subject": "Spicy",
+                "A": 120,
+                "fullMark": 150
+            },
+            {
+                "subject": "Sweet",
+                "A": 98,
+                "fullMark": 150
+            },
+            {
+                "subject": "Salty",
+                "A": 86,
+                "fullMark": 150
+            },
+            {
+                "subject": "Bitter",
+                "A": 99,
+                "fullMark": 150
+            },
+            {
+                "subject": "Sour",
+                "A": 85,
+                "fullMark": 150
+            },
+            {
+                "subject": "Umami",
+                "A": 65,
+                "fullMark": 150
+            }
+        ],
+        "variety_metrics": {
+            "ingredients_count": 45,
+            "cuisine_diversity": 0.8,
+            "distribution": [
+                {
+                    "name": "Vegetables",
+                    "value": 40
+                },
+                {
+                    "name": "Proteins",
+                    "value": 25
+                },
+                {
+                    "name": "Grains",
+                    "value": 20
+                },
+                {
+                    "name": "Fruits",
+                    "value": 10
+                },
+                {
+                    "name": "Dairy",
+                    "value": 5
+                }
+            ]
+        },
+        "averages": {
+            "calories": 2150,
+            "protein": 145,
+            "consistency": 85
+        }
+    },
+    "sustainability": {
+        "current_period": {
+            "carbon_saved_kg": 12.5,
+            "water_saved_l": 450,
+            "trees_planted_equivalent": 2,
+            "sustainable_meals_count": 18
+        },
+        "footprint": {
+            "total_footprint": 45.2,
+            "average_meal_footprint": 1.2,
+            "breakdown": [
+                {
+                    "category": "Meat",
+                    "value": 25.5
+                },
+                {
+                    "category": "Dairy",
+                    "value": 10.2
+                },
+                {
+                    "category": "Grains",
+                    "value": 5.5
+                },
+                {
+                    "category": "Vegetables",
+                    "value": 4.0
+                }
+            ]
+        }
+    },
+    "grocery": {
+        "shopping_list": [
+            {
+                "item": "Avocados",
+                "predicted_quantity": 3,
+                "estimated_cost": 4.50,
+                "urgency": 0.95,
+                "category": "Produce"
+            },
+            {
+                "item": "Chicken Breast",
+                "predicted_quantity": 2,
+                "estimated_cost": 12.00,
+                "urgency": 0.90,
+                "category": "Meat"
+            },
+            {
+                "item": "Almond Milk",
+                "predicted_quantity": 1,
+                "estimated_cost": 3.50,
+                "urgency": 0.85,
+                "category": "Dairy"
+            },
+            {
+                "item": "Spinach",
+                "predicted_quantity": 2,
+                "estimated_cost": 3.00,
+                "urgency": 0.80,
+                "category": "Produce"
+            },
+            {
+                "item": "Quinoa",
+                "predicted_quantity": 1,
+                "estimated_cost": 5.25,
+                "urgency": 0.60,
+                "category": "Grains"
+            },
+            {
+                "item": "Greek Yogurt",
+                "predicted_quantity": 3,
+                "estimated_cost": 4.50,
+                "urgency": 0.75,
+                "category": "Dairy"
+            },
+            {
+                "item": "Blueberries",
+                "predicted_quantity": 2,
+                "estimated_cost": 6.00,
+                "urgency": 0.50,
+                "category": "Produce"
+            }
+        ],
+        "predictions": {
+            "Olive Oil": {
+                "days_until_purchase": 2,
+                "current_stock": 0.1
+            },
+            "Rice": {
+                "days_until_purchase": 10,
+                "current_stock": 0.5
+            }
+        }
+    },
+    "gamification": {
+        "achievements": [
+            {
+                "id": "eco_warrior",
+                "name": "Eco Warrior",
+                "description": "Saved 10kg of CO2",
+                "icon": "leaf",
+                "unlocked_at": "2023-10-15"
+            },
+            {
+                "id": "protein_champ",
+                "name": "Protein Champ",
+                "description": "Hit protein goal 7 days in a row",
+                "icon": "dumbbell",
+                "unlocked_at": "2023-10-20"
+            },
+            {
+                "id": "variety_king",
+                "name": "Variety King",
+                "description": "Tried 5 different cuisines",
+                "icon": "globe",
+                "unlocked_at": "2023-10-22"
+            }
+        ],
+        "leaderboard": [
+            {
+                "user_id": "usr_1",
+                "username": "You",
+                "score": 1250,
+                "rank": 4
+            },
+            {
+                "user_id": "usr_2",
+                "username": "EcoChef99",
+                "score": 2100,
+                "rank": 1
+            },
+            {
+                "user_id": "usr_3",
+                "username": "GreenEater",
+                "score": 1850,
+                "rank": 2
+            },
+            {
+                "user_id": "usr_4",
+                "username": "SustainBros",
+                "score": 1500,
+                "rank": 3
+            },
+            {
+                "user_id": "usr_5",
+                "username": "HealthyLife",
+                "score": 1100,
+                "rank": 5
+            }
+        ],
+        "impact_summary": {
+            "total_carbon_saved": 45.5,
+            "total_meals_logged": 124,
+            "average_health_score": 88,
+            "visual_impact": {
+                "trees": 2,
+                "car_miles": 150,
+                "water_bottles": 500
+            }
+        }
+    }
+}
