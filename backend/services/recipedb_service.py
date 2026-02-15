@@ -44,6 +44,8 @@ class RecipeDBService(BaseAPIService):
         # Search by recipe_id
         result = self._make_request("recipe2-api/recipe/recipesinfo", params={"recipe_id": recipe_id})
         
+        if isinstance(result, dict):
+            return self._map_to_domain_recipe(result)
         if isinstance(result, list) and len(result) > 0:
             return self._map_to_domain_recipe(result[0])
         return None
@@ -206,7 +208,10 @@ class RecipeDBService(BaseAPIService):
                 "flavor_profile": {}, # Populated by TasteEngine later
                 "tags": [x for x in [raw.get("region") or raw.get("Region"), raw.get("sub_region") or raw.get("Sub_region"), raw.get("continent") or raw.get("Continent")] if x],
                 "cuisine": raw.get("region") or raw.get("Region"),
-                "instructions": instructions
+                "instructions": instructions,
+                # Fix for missing Prep Time and Score
+                "readyInMinutes": int(float(raw.get("total_time") or raw.get("readyInMinutes") or (float(raw.get("prep_time") or 0) + float(raw.get("cook_time") or 0)) or 30)),
+                "healthScore": int(float(raw.get("health_score") or raw.get("healthScore") or 75))
             }
         except Exception as e:
             print(f"Error mapping recipe {raw.get('Recipe_id')}: {e}")
