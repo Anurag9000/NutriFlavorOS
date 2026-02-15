@@ -6,6 +6,7 @@ import ProgressRings from '../components/ProgressRings';
 import QuickStats from '../components/dashboard/QuickStats';
 import RecipeCard from '../components/RecipeCard';
 import RecipeDetailModal from '../components/meals/RecipeDetailModal';
+import RecipeSearch from '../components/meals/RecipeSearch';
 import { Calendar } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -74,6 +75,11 @@ export default function DashboardPage() {
                     variety={day1.scores.variety}
                     sustainability={0.85}
                 />
+            </div>
+
+            {/* Recipe Search */}
+            <div className="card p-8">
+                <RecipeSearch />
             </div>
 
             {/* Quick Stats */}

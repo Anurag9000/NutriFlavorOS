@@ -41,7 +41,7 @@ class APIConfig:
 
     # Mock Mode Configuration
     # Defaults to True if API keys are not set, or can be forced via env var
-    MOCK_MODE: bool = os.getenv("MOCK_MODE", "false").lower() == "true"
+    MOCK_MODE: bool = os.getenv("MOCK_MODE", "true").lower() == "true"
     
     # Mock Data Paths
     # config.py is in backend/, so we want backend/data
