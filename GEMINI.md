@@ -25,6 +25,33 @@ NutriFlavorOS is an advanced, AI-driven nutrition and sustainability platform th
 
 ---
 
+## 🗺️ Master Roadmap & Remaining Implementation
+
+Based on an exhaustive gap analysis between the "Dream Specs" and the current codebase, the following phases are required for 100% completion:
+
+### **Phase 1: The "Great Wiring" (Integration)**
+*Goal: Connect existing ML brains to the system's body.*
+- [ ] **Activate Vision:** Update `vision_routes.py` to use `RecipeVisionAnalyzer`. Connect frontend `ARMealScanner` to this real endpoint.
+- [ ] **Activate Taste Transformer:** Replace heuristic cosine similarity in `TasteEngine.py` with the `DeepTastePredictor` model.
+- [ ] **Activate RL Planner:** Integrate `RLMealPlanner` (PPO) into the `PlanGenerator` for optimal 7-day sequencing.
+- [ ] **Engage Online Learning:** Wire `OnlineLearningManager` into `/feedback` routes so user ratings update `.pth` weights.
+
+### **Phase 2: Building "Dream" Features (Expansion)**
+*Goal: Implement high-value features from the Innovation Roadmap.*
+- [ ] **AI Meal Buddy:** Create `backend/ml/conversational_agent.py` for personalized nutrition chat.
+- [ ] **Wearable Sync:** Implement `backend/integrations/wearables.py` for real-time biometric adjustment.
+- [ ] **Budget Optimizer:** Add cost-minimization constraints to `PlanGenerator`.
+- [ ] **Family Mode:** Develop `FamilyPlanner` for multi-profile unified meal plans.
+
+### **Phase 3: Production Hardening (Infrastructure)**
+*Goal: Prepare for real-world scale and security.*
+- [ ] **Database Migration:** Migrate JSON storage to **PostgreSQL** using SQLAlchemy.
+- [ ] **Real Authentication:** Replace Mock Auth with **JWT-based security**.
+- [ ] **Frontend Realignment:** Replace all `MOCK_DATA` constants with real API hooks.
+- [ ] **Cloud Deployment:** Containerize with Docker and set up CI/CD pipelines.
+
+---
+
 ## 🛠️ Building and Running
 
 ### Prerequisites
@@ -32,7 +59,6 @@ NutriFlavorOS is an advanced, AI-driven nutrition and sustainability platform th
 - **Node.js:** 18+ (npm or bun)
 
 ### 1. Recommended: One-Command Launch
-The system includes a master launcher that verifies databases, checks ML models (training them if necessary), and prepares the environment:
 ```bash
 python scripts/launch_system.py
 ```
@@ -41,15 +67,10 @@ python scripts/launch_system.py
 ```bash
 cd backend
 python -m venv venv
-# Linux/macOS
 source venv/bin/activate
-# Windows
-.\venv\Scripts\activate
 pip install -r requirements.txt
-# Run the server
 python -m backend.main
 ```
-The API will be available at `http://localhost:8000`.
 
 ### 3. Manual Frontend Setup
 ```bash
@@ -57,47 +78,15 @@ cd frontend
 npm install
 npm run dev
 ```
-The application will be available at `http://localhost:5173`.
-
-### 4. ML Model Training
-To train or update the neural networks with early stopping:
-```bash
-python scripts/train_all_models.py
-```
-
-### 5. Verification & Testing
-Verify the full API flow (Auth, Meals, Grocery, Analytics):
-```bash
-python scripts/verify_frontend_api.py
-```
-Frontend tests: `cd frontend && npm run test`
-
----
-
-## 📂 Project Structure
-
-- `backend/api/`: FastAPI route definitions (REST endpoints).
-- `backend/engines/`: Core business logic (Health, Taste, Variety, Plan Generation).
-- `backend/ml/`: Machine learning model definitions, training scripts, and weights.
-- `backend/services/`: Data access layers for external/mock databases.
-- `backend/data/`: Mock JSON data for offline development.
-- `frontend/src/`: React application source code.
-- `scripts/`: System-wide orchestration, verification, and data processing scripts.
 
 ---
 
 ## 🔧 Development Conventions
 
 ### Backend
-- **Models:** All data structures should be defined as Pydantic models in `backend/models.py`.
-- **Config:** External API URLs and keys are managed in `backend/config.py` via `.env`.
-- **Mock Mode:** The system defaults to `MOCK_MODE=true` if API keys for CosyLab services are missing, using local JSON files in `backend/data/`.
+- **Models:** Defined as Pydantic models in `backend/models.py`.
+- **Mock Mode:** Defaults to `MOCK_MODE=true` if API keys are missing.
 
 ### Frontend
-- **Components:** Uses shadcn/ui components for a consistent design language.
-- **Styling:** Vanilla CSS and Tailwind CSS are preferred.
-- **State Management:** TanStack Query (React Query) is used for API interactions and caching.
-
-### ML Lifecycle
-- Models support **Online Learning** via user feedback (ratings, logs).
-- Training logs and weight versioning are handled within the `backend/ml/` directory.
+- **State Management:** TanStack Query (React Query) for all API interactions.
+- **Styling:** Tailwind CSS + shadcn/ui.
