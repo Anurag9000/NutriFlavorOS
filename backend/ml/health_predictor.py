@@ -5,7 +5,7 @@ Predicts weight loss trajectory, HbA1c levels, and other health metrics
 import torch
 import torch.nn as nn
 import numpy as np
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any
 from collections import deque
 from .device_config import get_device, to_device
 
@@ -73,13 +73,13 @@ class HealthOutcomePredictor:
         # Normalization parameters (learned from training data)
         self.feature_means = np.zeros(input_dim)
         self.feature_stds = np.ones(input_dim)
-    
-    def predict_outcomes(self, user_history: List[Dict]) -> Dict[str, any]:
+    def predict_outcomes(self, user_history: List[Dict]) -> Dict[str, Any]:
         """
         Predict health outcomes based on user history
-        
+
         Args:
             user_history: List of daily records with:
+    ...
                 - calories, protein_g, carbs_g, fat_g
                 - exercise_minutes, sleep_hours
                 - stress_level (1-10), adherence (0-1)

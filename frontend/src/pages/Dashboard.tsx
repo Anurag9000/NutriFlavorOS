@@ -58,7 +58,7 @@ export default function Dashboard() {
   // Get today's meals from existing meal plan - NO GENERATION
   const mealPlanQ = useGetMealPlan(userId);
   const todayMeals = mealPlanQ.data?.days?.[0]?.meals
-    ? Object.entries(mealPlanQ.data.days[0].meals).map(([type, meal]: [string, any]) => {
+    ? Object.entries(mealPlanQ.data.days[0].meals).map(([type, meal]: [string, {id: string, name: string, calories: number, macros?: {protein: number, carbs: number, fat: number}}]) => {
       let normalizedType = type.toLowerCase();
       if (normalizedType.includes("snack")) normalizedType = "snack";
 
@@ -90,7 +90,7 @@ export default function Dashboard() {
 
   // Achievements — use API data only
   const displayAchievements = achieveQ.data?.achievements
-    ? achieveQ.data.achievements.filter((a: any) => a.unlocked !== false).slice(0, 3).map((a: any, i: number) => ({
+    ? achieveQ.data.achievements.filter((a: {id?: string, name?: string, title?: string, icon?: string, xp?: number, points?: number, unlocked?: boolean}) => a.unlocked !== false).slice(0, 3).map((a: {id?: string, name?: string, title?: string, icon?: string, xp?: number, points?: number}, i: number) => ({
       id: a.id ?? `ach_${i}`,
       title: a.name ?? a.title ?? "Achievement",
       icon: a.icon ?? "🏆",
@@ -245,7 +245,7 @@ export default function Dashboard() {
                 <CardTitle className="text-sm">Recent Achievements</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {displayAchievements.map((a: any) => (
+                {displayAchievements.map((a: {id: string, title: string, icon: string, xp: number}) => (
                   <div key={a.id} className="flex items-center gap-3">
                     <span className="text-lg">{a.icon}</span>
                     <div>

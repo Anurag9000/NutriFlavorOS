@@ -128,7 +128,9 @@ class VarietyEngine:
             return 1.0
         
         # Get candidate cuisine (from recipe metadata or infer)
-        candidate_cuisine = candidate.cuisine if hasattr(candidate, 'cuisine') else "unknown"
+        candidate_cuisine = "unknown"
+        if hasattr(candidate, 'cuisine') and candidate.cuisine:
+            candidate_cuisine = candidate.cuisine
         
         # Count recent cuisine occurrences
         recent_cuisines = self.cuisine_history[-self.no_repeat_window:]
@@ -151,7 +153,7 @@ class VarietyEngine:
         candidate_textures = self._get_recipe_textures(candidate)
         
         # Get recent texture distribution
-        recent_texture_counts = Counter()
+        recent_texture_counts: Counter[str] = Counter()
         for day_textures in self.texture_history[-3:]:  # Last 3 days
             recent_texture_counts.update(day_textures)
         
@@ -259,7 +261,7 @@ class VarietyEngine:
     
     def _analyze_textures(self, recipes: List[Recipe]) -> Dict[str, int]:
         """Analyze texture distribution in recipes"""
-        texture_counts = defaultdict(int)
+        texture_counts: Dict[str, int] = defaultdict(int)
         
         for recipe in recipes:
             textures = self._get_recipe_textures(recipe)
@@ -303,7 +305,7 @@ class VarietyEngine:
     
     def get_ingredient_frequency_report(self) -> Dict[str, int]:
         """Get frequency report of all ingredients over time"""
-        frequency = Counter()
+        frequency: Counter[str] = Counter()
         
         for day_ingredients in self.ingredient_history:
             frequency.update(day_ingredients)

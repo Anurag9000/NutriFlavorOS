@@ -50,9 +50,10 @@ export default function Analytics() {
 
     mealPlan.days.forEach(day => {
       if (day.meals) {
-        Object.values(day.meals).forEach((meal: any) => {
-          totalCalories += meal.calories || 0;
-          totalProtein += meal.macros?.protein || 0;
+        Object.values(day.meals).forEach((m) => {
+          const meal = m as Record<string, unknown>;
+          totalCalories += (meal.calories as number) || 0;
+          totalProtein += (meal.macros as Record<string, number>)?.protein || 0;
           mealCount++;
         });
       }
@@ -102,10 +103,11 @@ export default function Analytics() {
 
     mealPlan.days.forEach(day => {
       if (day.meals) {
-        Object.values(day.meals).forEach((meal: any) => {
-          totalProtein += meal.macros?.protein || 0;
-          totalCarbs += meal.macros?.carbs || 0;
-          totalFat += meal.macros?.fat || 0;
+        Object.values(day.meals).forEach((m) => {
+          const meal = m as Record<string, unknown>;
+          totalProtein += (meal.macros as Record<string, number>)?.protein || 0;
+          totalCarbs += (meal.macros as Record<string, number>)?.carbs || 0;
+          totalFat += (meal.macros as Record<string, number>)?.fat || 0;
         });
       }
     });

@@ -34,7 +34,7 @@ export const MagneticButton = ({ children, className = "", strength = 30, ...pro
             onMouseLeave={handleMouseLeave}
             animate={{ x, y }}
             transition={{ type: "spring", stiffness: 150, damping: 15, mass: 0.1 }}
-            {...(props as any)}
+            {...props}
         >
             {children}
         </motion.button>

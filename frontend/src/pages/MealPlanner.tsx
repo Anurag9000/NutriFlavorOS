@@ -48,7 +48,7 @@ export default function MealPlanner() {
   const { toast } = useToast();
 
   const [selectedDay, setSelectedDay] = useState(0);
-  const [displayPlan, setDisplayPlan] = useState<any[]>([]);
+  const [displayPlan, setDisplayPlan] = useState<unknown[]>([]);
   const [prepTimeline, setPrepTimeline] = useState<Record<number, string[]>>({});
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [isApiPlan, setIsApiPlan] = useState(false);
@@ -78,8 +78,7 @@ export default function MealPlanner() {
         goal: "maintenance",
       });
       const converted = apiPlanToDisplay(result);
-      setDisplayPlan(converted as any);
-      setPrepTimeline(result.prep_timeline ?? {});
+      setDisplayPlan(converted as unknown[]);      setPrepTimeline(result.prep_timeline ?? {});
       setIsApiPlan(true);
       toast({ title: "✨ AI Plan Generated", description: "Real recipes from your backend!" });
     } catch (error) {
@@ -126,7 +125,7 @@ export default function MealPlanner() {
       // Try to load existing plan from API first
       if (getMealPlanQ.data) {
         const converted = apiPlanToDisplay(getMealPlanQ.data);
-        setDisplayPlan(converted as any);
+        setDisplayPlan(converted as unknown[]);
         setPrepTimeline(getMealPlanQ.data.prep_timeline ?? {});
         setIsApiPlan(true);
         console.log("Loaded existing meal plan from backend");

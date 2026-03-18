@@ -5,7 +5,7 @@ Predicts what user will buy, when, and how much using time-series forecasting
 import torch
 import torch.nn as nn
 import numpy as np
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 from datetime import datetime, timedelta
 from collections import defaultdict
 import json
@@ -81,14 +81,14 @@ class GroceryPredictor:
         self.device = device if device is not None else get_device()
         
         self.model = GroceryLSTM().to(self.device)
-        self.item_to_id = {}
-        self.id_to_item = {}
+        self.item_to_id: Dict[str, int] = {}
+        self.id_to_item: Dict[int, str] = {}
         self.next_id = 0
         
         # User's purchase history
-        self.purchase_history = []  # List of {item, quantity, date, price}
-        self.current_inventory = {}  # {item: quantity}
-        self.consumption_rates = {}  # {item: units_per_day}
+        self.purchase_history: List[Dict[str, Any]] = []  # List of {item, quantity, date, price}
+        self.current_inventory: Dict[str, float] = {}  # {item: quantity}
+        self.consumption_rates: Dict[str, float] = {}  # {item: units_per_day}
         
         # Load model if exists
         self._load_model()
@@ -108,12 +108,12 @@ class GroceryPredictor:
         if action == "add":
             self.current_inventory[item] += quantity
         elif action == "consume":
-            self.current_inventory[item] = max(0, self.current_inventory[item] - quantity)
+            self.current_inventory[item] = max(0.0, self.current_inventory[item] - quantity)
         
         # Update consumption rate
         self._update_consumption_rate(item, quantity, action)
         
-    def log_purchase(self, items: List[Dict[str, any]]):
+    def log_purchase(self, items: List[Dict[str, Any]]):
         """
         Log a grocery purchase
         

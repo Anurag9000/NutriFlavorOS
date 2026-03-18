@@ -8,7 +8,7 @@ import torchvision.models as models
 import torchvision.transforms as transforms
 from PIL import Image
 import numpy as np
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Any
 from .device_config import get_device, to_device
 
 class RecipeVisionAnalyzer(nn.Module):
@@ -86,7 +86,7 @@ class RecipeVisionAnalyzer(nn.Module):
         
         return food_class, nutrition
     
-    def analyze_image(self, image_path: str) -> Dict[str, any]:
+    def analyze_image(self, image_path: str) -> Dict[str, Any]:
         """
         Analyze a food image and return nutrition estimates
         

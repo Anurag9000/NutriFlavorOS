@@ -1,7 +1,7 @@
 """
 Taste Engine - Molecular flavor analysis and hedonic prediction
 """
-from typing import Dict, List
+from typing import Dict, List, Any
 from backend.models import UserProfile, Recipe
 from backend.services.flavordb_service import FlavorDBService
 import numpy as np
@@ -171,7 +171,7 @@ class TasteEngine:
         
         return hedonic_score
     
-    def analyze_flavor_pairing(self, ing1: str, ing2: str) -> Dict[str, any]:
+    def analyze_flavor_pairing(self, ing1: str, ing2: str) -> Dict[str, Any]:
         """
         Analyze molecular compatibility between two ingredients
         Uses FlavorDB synthesis endpoint

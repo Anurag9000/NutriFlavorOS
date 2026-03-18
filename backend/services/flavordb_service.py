@@ -1,6 +1,4 @@
-import json
-import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, cast
 from backend.services.base_service import BaseAPIService
 from backend.config import APIConfig
 
@@ -23,7 +21,11 @@ class FlavorDBService(BaseAPIService):
         # API First
 
         mol = self.get_molecule_details(ingredient)
-        return mol.get("flavor_profile") if mol else {}
+        if mol:
+            profile = mol.get("flavor_profile")
+            if isinstance(profile, dict):
+                return cast(Dict[str, Any], profile)
+        return {}
     
     def get_functional_groups(self, ingredient: str) -> List[str]:
         """Get chemical functional groups"""

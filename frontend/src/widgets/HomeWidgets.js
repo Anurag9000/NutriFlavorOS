@@ -1,7 +1,7 @@
-"""
+/*
 Home Screen Widgets(iOS / Android)
 Real - time widgets that update without opening the app
-"""
+*/
 
 // Widget configurations for iOS (WidgetKit) and Android (Glance)
 

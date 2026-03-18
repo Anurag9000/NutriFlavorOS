@@ -1,0 +1,83 @@
+backend/ml/device_config.py:19: error: Need type annotation for "_device_info" (hint: "_device_info: dict[<type>, <type>] = ...")  [var-annotated]
+backend/ml/device_config.py:82: error: "None" has no attribute "type"  [attr-defined]
+backend/gamification/gamification_mechanics.py:281: error: Incompatible return value type (got "dict[str, str] | None", expected "dict[Any, Any]")  [return-value]
+backend/ml/recipe_generator_nlp.py:43: error: Incompatible default for argument "dietary_constraints" (default has type "None", argument has type "list[str]")  [assignment]
+backend/ml/recipe_generator_nlp.py:43: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+backend/ml/recipe_generator_nlp.py:43: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+backend/ml/recipe_generator_nlp.py:44: error: Incompatible default for argument "cuisine" (default has type "None", argument has type "str")  [assignment]
+backend/ml/recipe_generator_nlp.py:44: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+backend/ml/recipe_generator_nlp.py:44: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+backend/ml/recipe_generator_nlp.py:45: error: Function "builtins.any" is not valid as a type  [valid-type]
+backend/ml/recipe_generator_nlp.py:45: note: Perhaps you meant "typing.Any" instead of "any"?
+backend/ml/recipe_generator_nlp.py:135: error: "object" has no attribute "append"  [attr-defined]
+backend/ml/recipe_generator_nlp.py:140: error: "object" has no attribute "append"  [attr-defined]
+backend/ml/recipe_generator_nlp.py:177: error: Incompatible default for argument "dietary_constraint" (default has type "None", argument has type "str")  [assignment]
+backend/ml/recipe_generator_nlp.py:177: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+backend/ml/recipe_generator_nlp.py:177: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+backend/services/base_service.py:5: error: Library stubs not installed for "requests"  [import-untyped]
+backend/services/base_service.py:5: note: Hint: "python3 -m pip install types-requests"
+backend/services/base_service.py:5: note: (or run "mypy --install-types" to install all missing stub packages)
+backend/services/base_service.py:5: note: See https://mypy.readthedocs.io/en/stable/running_mypy.html#missing-imports
+backend/services/base_service.py:137: error: Item "None" of "dict[Any, Any] | None" has no attribute "get"  [union-attr]
+backend/services/base_service.py:148: error: Name "os" is not defined  [name-defined]
+backend/services/base_service.py:149: error: Name "os" is not defined  [name-defined]
+backend/services/base_service.py:262: error: Item "None" of "dict[Any, Any] | None" has no attribute "get"  [union-attr]
+backend/services/base_service.py:271: error: Item "None" of "dict[Any, Any] | None" has no attribute "get"  [union-attr]
+backend/services/base_service.py:298: error: Item "None" of "dict[Any, Any] | None" has no attribute "get"  [union-attr]
+backend/services/base_service.py:304: error: Item "None" of "dict[Any, Any] | None" has no attribute "get"  [union-attr]
+backend/services/base_service.py:308: error: Item "None" of "dict[Any, Any] | None" has no attribute "get"  [union-attr]
+backend/services/base_service.py:309: error: Item "None" of "dict[Any, Any] | None" has no attribute "get"  [union-attr]
+backend/services/base_service.py:337: error: Item "None" of "dict[Any, Any] | None" has no attribute "get"  [union-attr]
+backend/services/base_service.py:341: error: Item "None" of "dict[Any, Any] | None" has no attribute "get"  [union-attr]
+backend/services/base_service.py:353: error: Item "None" of "dict[Any, Any] | None" has no attribute "get"  [union-attr]
+backend/services/recipedb_service.py:295: error: Incompatible types in assignment (expression has type "str", target has type "int")  [assignment]
+backend/services/recipedb_service.py:303: error: Incompatible types in assignment (expression has type "str", target has type "int")  [assignment]
+backend/services/recipedb_service.py:305: error: Incompatible types in assignment (expression has type "str", target has type "int")  [assignment]
+backend/services/flavordb_service.py:26: error: Incompatible return value type (got "Any | dict[Any, Any] | None", expected "dict[str, Any]")  [return-value]
+backend/engines/variety_engine.py:140: error: Invalid index type "str | None" for "Counter[str]"; expected type "str"  [index]
+backend/engines/variety_engine.py:154: error: Need type annotation for "recent_texture_counts"  [var-annotated]
+backend/engines/variety_engine.py:262: error: Need type annotation for "texture_counts"  [var-annotated]
+backend/engines/variety_engine.py:306: error: Need type annotation for "frequency"  [var-annotated]
+backend/engines/health_engine.py:97: error: Argument "micro_nutrients" to "NutrientTarget" has incompatible type "dict[str, object]"; expected "dict[str, float]"  [arg-type]
+backend/engines/health_engine.py:118: error: Incompatible default for argument "user_conditions" (default has type "None", argument has type "list[str]")  [assignment]
+backend/engines/health_engine.py:118: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+backend/engines/health_engine.py:118: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+backend/engines/health_engine.py:154: error: Incompatible types in assignment (expression has type "float", variable has type "dict[str, float]")  [assignment]
+backend/engines/health_engine.py:155: error: Unsupported operand types for < ("int" and "dict[str, float]")  [operator]
+backend/ml/recipe_vision.py:89: error: Function "builtins.any" is not valid as a type  [valid-type]
+backend/ml/recipe_vision.py:89: note: Perhaps you meant "typing.Any" instead of "any"?
+backend/ml/health_predictor.py:77: error: Function "builtins.any" is not valid as a type  [valid-type]
+backend/ml/health_predictor.py:77: note: Perhaps you meant "typing.Any" instead of "any"?
+backend/ml/grocery_predictor.py:84: error: Need type annotation for "item_to_id" (hint: "item_to_id: dict[<type>, <type>] = ...")  [var-annotated]
+backend/ml/grocery_predictor.py:85: error: Need type annotation for "id_to_item" (hint: "id_to_item: dict[<type>, <type>] = ...")  [var-annotated]
+backend/ml/grocery_predictor.py:89: error: Need type annotation for "purchase_history" (hint: "purchase_history: list[<type>] = ...")  [var-annotated]
+backend/ml/grocery_predictor.py:90: error: Need type annotation for "current_inventory" (hint: "current_inventory: dict[<type>, <type>] = ...")  [var-annotated]
+backend/ml/grocery_predictor.py:91: error: Need type annotation for "consumption_rates" (hint: "consumption_rates: dict[<type>, <type>] = ...")  [var-annotated]
+backend/ml/grocery_predictor.py:116: error: Function "builtins.any" is not valid as a type  [valid-type]
+backend/ml/grocery_predictor.py:116: note: Perhaps you meant "typing.Any" instead of "any"?
+backend/engines/taste_engine.py:174: error: Function "builtins.any" is not valid as a type  [valid-type]
+backend/engines/taste_engine.py:174: note: Perhaps you meant "typing.Any" instead of "any"?
+backend/ml/online_learning_manager.py:33: error: Need type annotation for "interaction_buffer"  [var-annotated]
+backend/ml/online_learning_manager.py:44: error: Incompatible default for argument "timestamp" (default has type "None", argument has type "datetime")  [assignment]
+backend/ml/online_learning_manager.py:44: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+backend/ml/online_learning_manager.py:44: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+backend/ml/online_learning_manager.py:72: error: Incompatible default for argument "actual_hba1c" (default has type "None", argument has type "float")  [assignment]
+backend/ml/online_learning_manager.py:72: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+backend/ml/online_learning_manager.py:72: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+backend/ml/online_learning_manager.py:73: error: Incompatible default for argument "actual_cholesterol" (default has type "None", argument has type "float")  [assignment]
+backend/ml/online_learning_manager.py:73: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+backend/ml/online_learning_manager.py:73: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+backend/engines/plan_generator.py:59: error: Need type annotation for "history" (hint: "history: list[<type>] = ...")  [var-annotated]
+backend/engines/plan_generator.py:281: error: Incompatible return value type (got "None", expected "Recipe")  [return-value]
+backend/engines/plan_generator.py:302: error: Need type annotation for "shopping_list" (hint: "shopping_list: dict[<type>, <type>] = ...")  [var-annotated]
+backend/api/recipe_routes.py:80: error: Incompatible types in assignment (expression has type "Any | None", variable has type "list[str]")  [assignment]
+backend/api/meal_routes.py:75: error: Argument "gender" to "UserProfile" has incompatible type "str"; expected "Gender"  [arg-type]
+backend/api/meal_routes.py:76: error: Argument "goal" to "UserProfile" has incompatible type "str"; expected "Goal"  [arg-type]
+backend/api/meal_routes.py:84: error: Unsupported operand types for + ("None" and "int")  [operator]
+backend/api/meal_routes.py:84: note: Left operand is of type "Any | None"
+backend/api/meal_routes.py:87: error: Argument 1 to "update_cached_day" has incompatible type "Any | None"; expected "str"  [arg-type]
+backend/api/meal_routes.py:87: error: Argument 2 to "update_cached_day" has incompatible type "Any | None"; expected "int"  [arg-type]
+backend/api/meal_routes.py:109: error: Argument "gender" to "UserProfile" has incompatible type "str"; expected "Gender"  [arg-type]
+backend/api/meal_routes.py:110: error: Argument "goal" to "UserProfile" has incompatible type "str"; expected "Goal"  [arg-type]
+backend/api/meal_routes.py:114: error: Argument 1 to "get" of "dict" has incompatible type "Any | None"; expected "str"  [arg-type]
+Found 59 errors in 16 files (checked 48 source files)

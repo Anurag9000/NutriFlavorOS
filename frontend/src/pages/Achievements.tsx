@@ -20,6 +20,17 @@ const leaderboardTypes = [
   { key: "variety_score", label: "Variety Score" },
 ];
 
+interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  progress: number;
+  unlocked: boolean;
+  icon: string;
+  xp: number;
+}
+
 export default function Achievements() {
   const { user } = useAuth();
   const userId = user?.id ?? "usr_1";
@@ -32,22 +43,22 @@ export default function Achievements() {
   const impactQ = useImpactSummary(userId);
 
   // Use API achievements only - no mock data fallback
-  const achievements = achieveQ.data?.achievements
-    ? (achieveQ.data.achievements as any[]).map((a: any, i: number) => ({
-      id: a.id ?? `ach_${i}`,
-      title: a.name ?? a.title ?? "Achievement",
-      description: a.description ?? "",
-      category: a.category ?? "milestone",
-      progress: a.progress ?? (a.unlocked ? 100 : 0),
-      unlocked: a.unlocked ?? false,
-      icon: a.icon ?? "🏆",
-      xp: a.xp ?? a.points ?? 100,
+  const achievements: Achievement[] = achieveQ.data?.achievements
+    ? (achieveQ.data.achievements as Record<string, unknown>[]).map((a, i) => ({
+      id: (a.id as string) ?? `ach_${i}`,
+      title: (a.name as string) ?? (a.title as string) ?? "Achievement",
+      description: (a.description as string) ?? "",
+      category: (a.category as string) ?? "milestone",
+      progress: (a.progress as number) ?? ((a.unlocked as boolean) ? 100 : 0),
+      unlocked: (a.unlocked as boolean) ?? false,
+      icon: (a.icon as string) ?? "🏆",
+      xp: (a.xp as number) ?? (a.points as number) ?? 100,
     }))
     : [];
 
   const totalEarned = achieveQ.data?.total_earned ?? achievements.filter(a => a.unlocked).length;
   const leaderboard = leaderboardQ.data?.leaderboard ?? [];
-  const userRank = rankQ.data as any;
+  const userRank = rankQ.data as Record<string, unknown>;
   const impact = impactQ.data;
 
   return (
@@ -74,13 +85,13 @@ export default function Achievements() {
           {/* Left: Achievements */}
           <div className="lg:col-span-2 space-y-6">
             {cats.map((cat) => {
-              const items = achievements.filter((a: any) => a.category === cat);
+              const items = achievements.filter((a) => a.category === cat);
               if (!items.length) return null;
               return (
                 <div key={cat}>
                   <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">{categoryLabels[cat]}</h2>
                   <div className="grid sm:grid-cols-2 gap-4">
-                    {items.map((a: any) => (
+                    {items.map((a) => (
                       <Card key={a.id} className={`relative ${!a.unlocked ? "opacity-70" : ""}`}>
                         <CardContent className="p-5">
                           <div className="flex items-start gap-3">

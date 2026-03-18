@@ -213,13 +213,13 @@ export const userApi = {
 
 export const authApi = {
     login: (email: string, password: string) =>
-        request<{ access_token: string; token_type: string; user: any }>("/auth/login", {
+        request<{ access_token: string; token_type: string; user: Record<string, unknown> }>("/auth/login", {
             method: "POST",
             body: JSON.stringify({ email, password }),
         }),
 
-    signup: (data: any) =>
-        request<{ access_token: string; token_type: string; user: any }>("/auth/signup", {
+    signup: (data: Record<string, unknown>) =>
+        request<{ access_token: string; token_type: string; user: Record<string, unknown> }>("/auth/signup", {
             method: "POST",
             body: JSON.stringify(data),
         }),
