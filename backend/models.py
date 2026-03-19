@@ -55,6 +55,7 @@ class Recipe(BaseModel):
     tags: List[str] = []
     cuisine: Optional[str] = None  # For variety tracking
     instructions: List[str] = []  # Cooking steps
+    estimated_cost: Optional[float] = 0.0 # Estimated cost for budget optimization
 
 class DailyPlan(BaseModel):
     day: int

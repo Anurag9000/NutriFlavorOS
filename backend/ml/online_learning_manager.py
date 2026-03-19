@@ -228,16 +228,39 @@ class OnlineLearningManager:
         self.interaction_buffer["health"] = []
         
     def _update_rl_planner(self):
-        """Update RL meal planner with buffered interactions"""
+        """Update RL meal planner with buffered interactions using PPO update"""
         from backend.ml.meal_planner_rl import RLMealPlanner
+        import os
         
-        # This uses PPO which is already designed for online learning
-        # Just need to add the new experiences to replay buffer
+        # Load existing model to update it
+        model_path = Path("backend/ml/weights/rl_planner.pth")
+        model = RLMealPlanner()
+        if model_path.exists():
+            model.load_model(str(model_path))
         
         batch = self.interaction_buffer["meal_selection"]
         
-        # Log for now (full PPO update would require more infrastructure)
-        self._log_model_update("meal_planner_rl", 0.0, len(batch))
+        # In a real PPO, we need more than just 5 samples for a stable update.
+        # We will add these to the internal buffer and trigger train if enough samples.
+        for x in batch:
+            # Note: value and log_prob would ideally be captured during inference
+            # We use placeholder/simulated values if they are missing
+            model.store_transition(
+                state=torch.FloatTensor(x["state"]),
+                action=x["action"],
+                reward=x["reward"],
+                log_prob=x.get("log_prob", 0.0),
+                value=torch.tensor([0.5]), # Baseline
+                done=False
+            )
+        
+        # Trigger PPO train
+        if len(model.states) >= 10: # Minimum batch for online tweak
+            model.train()
+            # Save updated weights
+            model.save_model(str(model_path))
+            self._log_model_update("meal_planner_rl", 0.0, len(batch))
+        
         self.interaction_buffer["meal_selection"] = []
         
     def _update_grocery_predictor(self):

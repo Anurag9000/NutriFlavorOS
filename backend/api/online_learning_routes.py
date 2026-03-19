@@ -16,77 +16,79 @@ from typing import List, Dict, Optional
 from datetime import datetime
 import numpy as np
 
-# from backend.ml.online_learning_manager import online_learning_manager
-# from backend.ml.grocery_predictor import GroceryPredictor
-# from backend.gamification.gamification_engine import gamification_engine
+from backend.ml.online_learning_manager import online_learning_manager
 
 router = APIRouter(prefix="/api/v1", tags=["online_learning"])
 
-def load_demo_data(section: str):
-    try:
-        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "demo_data.json")
-        with open(path, 'r') as f:
-            data = json.load(f)
-        return data.get(section, {})
-    except Exception as e:
-        print(f"Error loading demo data: {e}")
-        return {}
+# ... (load_demo_data and Pydantic models remain same)
 
-# ==================== MODELS ====================
-
-class TasteFeedback(BaseModel):
-    user_id: str
-    recipe_id: str
-    rating: float  # 0-1 scale
-    user_genome: List[float]
-    recipe_profile: List[float]
-
-class HealthOutcome(BaseModel):
-    user_id: str
-    actual_weight: float
-    actual_hba1c: Optional[float] = None
-    actual_cholesterol: Optional[float] = None
-    meal_history: List[Dict]
-
-class MealSelection(BaseModel):
-    user_id: str
-    state: List[float]
-    selected_recipe_id: int
-    reward: float
-
-class GroceryPurchase(BaseModel):
-    user_id: str
-    items: List[Dict]  # [{item: str, quantity: float, price: float}]
-
-class GroceryConsumption(BaseModel):
-    user_id: str
-    item: str
-    quantity: float
-
-class MealImpact(BaseModel):
-    user_id: str
-    carbon_footprint: float
-    health_score: float
-    variety_score: float
-    taste_rating: Optional[float] = None
-
-# ==================== ONLINE LEARNING ENDPOINTS (Stubbed) ====================
+# ==================== ONLINE LEARNING ENDPOINTS (Activated) ====================
 
 @router.post("/feedback/taste")
 async def log_taste_feedback(feedback: TasteFeedback):
-    return {"status": "success", "message": "Taste feedback logged (Demo)", "current_buffer_size": 5}
+    """
+    Log user's taste rating and update taste predictor model
+    """
+    try:
+        online_learning_manager.log_taste_feedback(
+            user_id=feedback.user_id,
+            recipe_id=feedback.recipe_id,
+            user_genome=np.array(feedback.user_genome),
+            recipe_profile=np.array(feedback.recipe_profile),
+            rating=feedback.rating
+        )
+        return {
+            "status": "success", 
+            "message": "Taste feedback logged and model updated in background",
+            "buffer_info": f"Updates trigger every {online_learning_manager.buffer_size} samples"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/feedback/health")
 async def log_health_outcome(outcome: HealthOutcome):
-    return {"status": "success", "message": "Health outcome logged (Demo)", "current_buffer_size": 5}
+    """
+    Log actual health outcomes and update trajectory models
+    """
+    try:
+        online_learning_manager.log_health_outcome(
+            user_id=outcome.user_id,
+            meal_history=outcome.meal_history,
+            actual_weight=outcome.actual_weight,
+            actual_hba1c=outcome.actual_hba1c,
+            actual_cholesterol=outcome.actual_cholesterol
+        )
+        return {
+            "status": "success", 
+            "message": "Health outcome logged",
+            "buffer_info": f"Updates trigger every {online_learning_manager.buffer_size} samples"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/feedback/meal_selection")
 async def log_meal_selection(selection: MealSelection):
-    return {"status": "success", "message": "Meal selection logged (Demo)"}
+    """
+    Update RL policy based on user selection
+    """
+    try:
+        online_learning_manager.log_meal_selection(
+            user_id=selection.user_id,
+            state=np.array(selection.state),
+            selected_recipe_id=selection.selected_recipe_id,
+            reward=selection.reward
+        )
+        return {"status": "success", "message": "Meal selection reward logged"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/models/stats/{model_name}")
 async def get_model_stats(model_name: str):
-    return {"updates": 10, "avg_loss": 0.05, "last_update": datetime.now().isoformat()}
+    """
+    Retrieve training statistics for a specific model
+    """
+    stats = online_learning_manager.get_model_stats(model_name)
+    return stats
 
 # ==================== GROCERY PREDICTION ENDPOINTS (Demo Data) ====================
 

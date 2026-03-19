@@ -134,9 +134,8 @@ class TasteEngine:
     
     def predict_hedonic_score(self, recipe: Recipe, user_genome: Dict[str, float]) -> float:
         """
-        Predict hedonic (pleasure) score using REAL molecular similarity
-        NO HARDCODING - uses actual FlavorDB data
-        Returns: Score 0.0-1.0
+        Predict hedonic (pleasure) score using deep learning Transformer model
+        Falls back to molecular similarity if model weights are missing
         """
         if not user_genome:
             return 0.5
@@ -147,29 +146,43 @@ class TasteEngine:
         if not recipe_profile:
             return 0.5
         
-        # Calculate cosine similarity between user genome and recipe profile
-        similarity = self._calculate_cosine_similarity(user_genome, recipe_profile)
-        
-        # Adjust for aroma intensity (stronger aromas = more impact on hedonic score)
+        try:
+            # Use Deep Learning Transformer model
+            from backend.ml.taste_predictor import get_pretrained_taste_predictor
+            predictor = get_pretrained_taste_predictor()
+            
+            # Predict score and confidence
+            hedonic_score, confidence = predictor.predict_single(user_genome, recipe_profile)
+            
+            # Boost score based on confidence
+            if confidence > 0.8:
+                hedonic_score += 0.05
+            
+            # Additional heuristic: boost for aroma intensity
+            aroma_boost = self._calculate_aroma_boost(recipe)
+            
+            # Final ensemble score
+            final_score = (hedonic_score * 0.85) + (aroma_boost * 0.15)
+            return max(0.0, min(1.0, final_score))
+            
+        except Exception as e:
+            # Fallback to molecular similarity logic if DL model fails
+            print(f"Warning: DeepTastePredictor failed, falling back to similarity: {e}")
+            similarity = self._calculate_cosine_similarity(user_genome, recipe_profile)
+            aroma_boost = self._calculate_aroma_boost(recipe)
+            return max(0.0, min(1.0, similarity + aroma_boost))
+
+    def _calculate_aroma_boost(self, recipe: Recipe) -> float:
+        """Calculate score boost based on aromatic intensity"""
         aroma_boost = 0.0
         for ingredient in recipe.ingredients:
             try:
                 threshold = self.flavor_service.get_aroma_threshold(ingredient)
-                # Lower threshold = stronger aroma = higher boost
                 if threshold < 1.0:
-                    aroma_boost += (1.0 - threshold) * 0.1
-            except (KeyError, ValueError, TypeError) as e:
-                print(f"Warning: Could not get aroma threshold for {ingredient}: {e}")
+                    aroma_boost += (1.0 - threshold) * 0.05
+            except Exception:
                 continue
-            except Exception as e:
-                print(f"Unexpected error processing aroma for {ingredient}: {e}")
-                continue
-        
-        # Final hedonic score
-        hedonic_score = similarity + min(0.2, aroma_boost)
-        hedonic_score = max(0.0, min(1.0, hedonic_score))
-        
-        return hedonic_score
+        return min(0.2, aroma_boost)
     
     def analyze_flavor_pairing(self, ing1: str, ing2: str) -> Dict[str, Any]:
         """

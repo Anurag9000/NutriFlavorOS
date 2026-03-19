@@ -6,11 +6,34 @@
 const API_BASE = "http://localhost:8000/api/v1";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+    // Get token from localStorage
+    const token = localStorage.getItem("nutriflavor_token");
+    
+    const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...((options?.headers as Record<string, string>) || {}),
+    };
+    
+    if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const res = await fetch(`${API_BASE}${path}`, {
-        headers: { "Content-Type": "application/json", ...options?.headers },
         ...options,
+        headers,
     });
-    if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
+    
+    if (res.status === 401) {
+        // Unauthorized - clear token and potentially redirect
+        localStorage.removeItem("nutriflavor_token");
+        // window.location.href = "/login";
+    }
+    
+    if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`API ${res.status}: ${errorText}`);
+    }
+    
     return res.json();
 }
 

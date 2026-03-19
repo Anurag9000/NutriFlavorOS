@@ -418,9 +418,35 @@ class GamificationEngine:
             return json.load(f)
     
     def _filter_by_period(self, stats: Dict, period: str) -> Dict:
-        """Filter stats by time period"""
-        # TODO: Implement time-based filtering
-        return stats
+        """
+        Filter stats by time period (daily, weekly, monthly)
+        Assumes stats contain a 'history' list with timestamps
+        """
+        if period == "all" or "history" not in stats:
+            return stats
+            
+        now = datetime.now()
+        if period == "day":
+            delta = timedelta(days=1)
+        elif period == "week":
+            delta = timedelta(weeks=1)
+        elif period == "month":
+            delta = timedelta(days=30)
+        else:
+            return stats
+
+        filtered_history = [
+            item for item in stats.get("history", [])
+            if datetime.fromisoformat(item["timestamp"]) > (now - delta)
+        ]
+        
+        # Re-calculate aggregates based on filtered history
+        new_stats = stats.copy()
+        new_stats["history"] = filtered_history
+        new_stats["period_carbon_saved"] = sum(item.get("carbon_saved", 0) for item in filtered_history)
+        new_stats["period_health_score"] = np.mean([item.get("health_score", 0) for item in filtered_history]) if filtered_history else 0
+        
+        return new_stats
     
     def _save_challenge(self, challenge: Dict):
         """Save challenge data"""

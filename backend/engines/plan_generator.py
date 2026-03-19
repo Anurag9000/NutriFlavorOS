@@ -34,13 +34,32 @@ class PlanGenerator:
         self.sustainability_service = SustainableFoodDBService()
 
         # Load recipes via Service (supports both Mock and Live modes)
-        # We fetch a broad set of recipes to initialize the generator
-        # In production, this might be a more specific query or cached set
         try:
             self.recipes = [Recipe(**r) for r in self.recipe_service.search_by_title("")]
+            # Create ID to Index mapping for RL agent
+            self.recipe_id_map = {r.id: i for i, r in enumerate(self.recipes)}
+            self.index_to_recipe = {i: r for i, r in enumerate(self.recipes)}
         except Exception as e:
             print(f"Error loading recipes from service: {e}")
             self.recipes = []
+            self.recipe_id_map = {}
+            self.index_to_recipe = {}
+
+        # Initialize RL Planner (PPO)
+        from backend.ml.meal_planner_rl import RLMealPlanner
+        import os
+        
+        # Determine action dimension based on loaded recipes (cap at 1000 for stability)
+        action_dim = min(max(len(self.recipes), 100), 1000)
+        self.rl_planner = RLMealPlanner(action_dim=action_dim)
+        
+        # Load weights if they exist
+        weights_path = os.path.join(os.path.dirname(__file__), "..", "ml", "weights", "rl_planner.pth")
+        if os.path.exists(weights_path):
+            try:
+                self.rl_planner.load_model(weights_path)
+            except Exception as e:
+                print(f"Warning: Could not load RL weights: {e}")
 
     def create_plan(self, user: UserProfile, days: int = 7) -> PlanResponse:
         """Generate comprehensive meal plan"""
@@ -183,6 +202,7 @@ class PlanGenerator:
 
         # Calculate day statistics
         total_cals = sum([m.calories for m in day_recipes])
+        total_cost = sum([m.estimated_cost or 0.0 for m in day_recipes])
         variety_score = self.variety_engine.calculate_variety_score(day_recipes)
 
         # Calculate average taste score (REAL, not hardcoded!)
@@ -220,7 +240,8 @@ class PlanGenerator:
             total_stats={
                 "calories": float(total_cals),
                 "target_calories": float(targets.calories),
-                "carbon_footprint_kg": float(carbon_footprint)
+                "carbon_footprint_kg": float(carbon_footprint),
+                "total_cost": float(total_cost)
             },
             scores={
                 "health_match": float(health_match),
@@ -232,9 +253,37 @@ class PlanGenerator:
     def _select_best_recipe(self, candidates: List[Recipe], history: List[Recipe],
                            targets: NutrientTarget, genome: Dict, is_snack: bool) -> Optional[Recipe]:
         """
-        Select best recipe using multi-objective optimization
-        Weights: 40% health, 40% taste, 20% variety
+        Select best recipe using RL-augmented multi-objective optimization
+        Combines PPO policy with Health, Taste, and Variety heuristics
         """
+        if not candidates:
+            return None
+
+        # 1. Get RL Policy Suggestion
+        rl_suggestion = None
+        try:
+            # Encode current state
+            # Context for RL: day of week (simplified as 0), meal slot, etc.
+            time_context = {"meal_slot": "snack" if is_snack else "lunch"}
+            state = self.rl_planner.encode_state(
+                user.model_dump() if hasattr(user, "model_dump") else user.__dict__, 
+                [h.model_dump() if hasattr(h, "model_dump") else h.__dict__ for h in history[-10:]], 
+                [], # Pantry not implemented yet
+                time_context
+            )
+            
+            # Map candidate recipes to indices for RL masking
+            candidate_indices = [self.recipe_id_map[r.id] for r in candidates if r.id in self.recipe_id_map]
+            # Ensure indices are within RL action space
+            valid_indices = [idx for idx in candidate_indices if idx < self.rl_planner.action_dim]
+            
+            if valid_indices:
+                idx, log_prob = self.rl_planner.select_recipe(state, valid_indices)
+                rl_suggestion = self.index_to_recipe.get(idx)
+        except Exception as e:
+            print(f"Warning: RL selection failed: {e}")
+
+        # 2. Heuristic Optimization (Validation Layer)
         best_score = -1.0
         best_recipe = None
 
@@ -255,33 +304,38 @@ class PlanGenerator:
                 continue
 
             # Calculate component scores
-            # 1. Health score (40% weight)
+            # 1. Health score (35% weight)
             cal_diff = abs(recipe.calories - calorie_target)
             if calorie_target > 0:
                 health_score = max(0, 1.0 - (cal_diff / calorie_target))
             else:
                 health_score = 0.5
 
-            # 2. Taste score (40% weight) - REAL CALCULATION
+            # 2. Taste score (35% weight) - REAL CALCULATION
             taste_score = self.taste_engine.predict_hedonic_score(recipe, genome)
 
             # 3. Variety score (20% weight)
             variety_score = self.variety_engine.score_variety(recipe, history[-9:])
+            
+            # 4. Budget Score (10% weight)
+            # Low cost = High score. Assumes average meal cost is $5.0.
+            cost = recipe.estimated_cost or 5.0
+            budget_score = max(0.0, 1.0 - (cost / 15.0)) # 15.0 is the upper limit for "expensive"
 
             # Weighted total
-            total_score = (health_score * 0.4) + (taste_score * 0.4) + (variety_score * 0.2)
+            heuristic_score = (health_score * 0.35) + (taste_score * 0.35) + (variety_score * 0.2) + (budget_score * 0.1)
+            
+            # 3. RL Integration: Boost the score of the RL-suggested recipe
+            if rl_suggestion and recipe.id == rl_suggestion.id:
+                heuristic_score += 0.3  # Significant boost for the neural network choice
 
-            if total_score > best_score:
-                best_score = total_score
+            if heuristic_score > best_score:
+                best_score = heuristic_score
                 best_recipe = recipe
 
         # Fallback
         if not best_recipe and candidates:
             best_recipe = random.choice(candidates)
-        elif not best_recipe:
-            # No candidates available at all
-            print("Warning: No valid recipes available for selection")
-            return None
 
         return best_recipe
 
@@ -375,11 +429,18 @@ class PlanGenerator:
             p.total_stats.get("carbon_footprint_kg", 0.0)
             for p in daily_plans
         )
+        
+        # Total Plan Cost
+        total_cost = sum(
+            p.total_stats.get("total_cost", 0.0)
+            for p in daily_plans
+        )
 
         return {
             "average_health_match": round(avg_health, 2),
             "average_taste_match": round(avg_taste, 2),
             "average_variety": round(avg_variety, 2),
             "total_carbon_footprint_kg": round(total_carbon, 2),
+            "total_plan_cost": round(total_cost, 2),
             "sustainability_rating": "Excellent" if total_carbon < 20 else "Good" if total_carbon < 35 else "Fair"
         }
