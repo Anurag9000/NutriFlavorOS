@@ -157,10 +157,10 @@ export default function Dashboard() {
           </Card>
           <Card>
             <CardContent className="p-5 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-sustainability/10"><TrendingUp className="h-4 w-4 text-sustainability" /></div>
+              <div className="p-2 rounded-lg bg-emerald-500/10"><TrendingUp className="h-4 w-4 text-emerald-500" /></div>
               <div>
-                <p className="text-sm text-muted-foreground">Weekly Score</p>
-                <p className="text-xl font-bold">{dashboardMetrics.weeklyScore}%</p>
+                <p className="text-sm text-muted-foreground">Weekly Cost</p>
+                <p className="text-xl font-bold">${mealPlanQ.data?.overall_stats?.total_plan_cost ?? "0.00"}</p>
               </div>
             </CardContent>
           </Card>

@@ -27,9 +27,15 @@ class UserProfile(BaseModel):
     disliked_ingredients: List[str] = []
     dietary_restrictions: List[str] = []
     
-    # Health (optional)
+    # Health (optional overrides)
     health_conditions: List[str] = []  # e.g., ["diabetes", "hypertension"]
     medications: List[str] = []  # For drug-food interaction checks
+    
+    # Manual target overrides (determined by engine by default)
+    target_calories: Optional[int] = None
+    target_protein_g: Optional[int] = None
+    target_carbs_g: Optional[int] = None
+    target_fat_g: Optional[int] = None
 
 class NutrientTarget(BaseModel):
     calories: int

@@ -34,10 +34,12 @@ function apiPlanToDisplay(plan: PlanResponse) {
         protein: recipe.macros?.protein ?? 0,
         carbs: recipe.macros?.carbs ?? 0,
         fat: recipe.macros?.fat ?? 0,
+        estimated_cost: recipe.estimated_cost ?? 5.00, // Budget optimizer
         sustainabilityScore: 7, // Placeholder until backend provides this in recipe object
       };
     }),
     scores: d.scores,
+    total_stats: d.total_stats,
     prepTimeline: plan.prep_timeline?.[d.day] ?? [],
   }));
 }
@@ -379,7 +381,7 @@ export default function MealPlanner() {
                   <Sparkles className="h-4 w-4 text-purple-500" />
                   Daily Nutrition Summary
                 </h3>
-                <div className="grid grid-cols-4 gap-4 text-center divide-x divide-border/40">
+                <div className="grid grid-cols-5 gap-4 text-center divide-x divide-border/40">
                   <div>
                     <p className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-orange-400 to-red-600">
                       {plan.meals.reduce((s, m) => s + m.calories, 0)}
@@ -397,6 +399,10 @@ export default function MealPlanner() {
                   <div>
                     <p className="text-2xl font-bold text-rose-500">{plan.meals.reduce((s, m) => s + m.fat, 0)}g</p>
                     <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Fat</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-emerald-500">${plan.total_stats?.total_cost?.toFixed(2) ?? "0.00"}</p>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Cost</p>
                   </div>
                 </div>
               </CardContent>

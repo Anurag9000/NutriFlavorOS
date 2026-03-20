@@ -69,6 +69,13 @@ class RecipeVisionAnalyzer(nn.Module):
         self.to(self.device)
         self.eval()
 
+    def forward(self, x):
+        """Forward pass through the network"""
+        features = self.backbone(x)
+        food_class = self.classifier(features)
+        nutrition = self.nutrition_head(features)
+        return food_class, nutrition
+
     def load_weights(self, path: str):
         """Load trained weights if available"""
         try:
@@ -148,6 +155,19 @@ class RecipeVisionAnalyzer(nn.Module):
             'fat_g': fat
         }
 
+    def batch_analyze(self, image_paths: list) -> list:
+        """Analyze multiple images in batch"""
+        results = []
+        for path in image_paths:
+            try:
+                # Helper to load from path if needed
+                img = Image.open(path)
+                result = self.analyze_pil_image(img)
+                results.append(result)
+            except Exception as e:
+                results.append({'error': str(e)})
+        return results
+
 # Global instance for API usage
 _vision_model = None
 
@@ -161,14 +181,3 @@ def get_vision_analyzer():
         if os.path.exists(weights_path):
             _vision_model.load_weights(weights_path)
     return _vision_model
-    
-    def batch_analyze(self, image_paths: list) -> list:
-        """Analyze multiple images in batch"""
-        results = []
-        for path in image_paths:
-            try:
-                result = self.analyze_image(path)
-                results.append(result)
-            except Exception as e:
-                results.append({'error': str(e)})
-        return results

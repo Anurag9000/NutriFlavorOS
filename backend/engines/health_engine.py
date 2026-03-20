@@ -58,32 +58,40 @@ class HealthEngine:
         return bmr
 
     def calculate_targets(self, user: UserProfile) -> NutrientTarget:
-        """Calculate comprehensive macro and micronutrient targets"""
-        bmr = self.calculate_bmr(user)
-        tdee = bmr * user.activity_level
-
-        # Adjust for goal
-        target_calories = tdee
-        if user.goal == Goal.WEIGHT_LOSS:
-            target_calories -= 500
-        elif user.goal == Goal.MUSCLE_GAIN:
-            target_calories += 400
-
-        target_calories = max(1200, target_calories)
-
-        # Macro Split
-        if user.goal == Goal.MUSCLE_GAIN:
-            p_ratio, c_ratio, f_ratio = 0.35, 0.40, 0.25
-        elif user.goal == Goal.WEIGHT_LOSS:
-            p_ratio, c_ratio, f_ratio = 0.40, 0.30, 0.30
+        """Calculate macro/micro targets, respecting manual overrides if they exist"""
+        
+        # 1. Calorie Logic
+        if user.target_calories is not None:
+            target_calories = user.target_calories
         else:
-            p_ratio, c_ratio, f_ratio = 0.30, 0.35, 0.35
+            bmr = self.calculate_bmr(user)
+            tdee = bmr * user.activity_level
+            target_calories = tdee
+            if user.goal == Goal.WEIGHT_LOSS:
+                target_calories -= 500
+            elif user.goal == Goal.MUSCLE_GAIN:
+                target_calories += 400
+            target_calories = max(1200, target_calories)
 
-        protein_g = (target_calories * p_ratio) / 4
-        carbs_g = (target_calories * c_ratio) / 4
-        fat_g = (target_calories * f_ratio) / 9
+        # 2. Macro Logic
+        if all(v is not None for v in [user.target_protein_g, user.target_carbs_g, user.target_fat_g]):
+            protein_g = user.target_protein_g
+            carbs_g = user.target_carbs_g
+            fat_g = user.target_fat_g
+        else:
+            # Automatic Macro Split based on Goal
+            if user.goal == Goal.MUSCLE_GAIN:
+                p_ratio, c_ratio, f_ratio = 0.35, 0.40, 0.25
+            elif user.goal == Goal.WEIGHT_LOSS:
+                p_ratio, c_ratio, f_ratio = 0.40, 0.30, 0.30
+            else:
+                p_ratio, c_ratio, f_ratio = 0.30, 0.35, 0.35
 
-        # Calculate micronutrient targets based on gender
+            protein_g = (target_calories * p_ratio) / 4
+            carbs_g = (target_calories * c_ratio) / 4
+            fat_g = (target_calories * f_ratio) / 9
+
+        # 3. Micronutrient Logic (Always RDA based on gender)
         gender_key = "male" if user.gender == Gender.MALE else "female"
         micro_targets = {
             nutrient: float(data[gender_key])

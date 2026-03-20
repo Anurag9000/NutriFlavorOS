@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Body
 from backend.models import UserProfile
 from backend.services.dietrxdb_service import DietRxDBService
+from backend.engines.health_engine import HealthEngine
 from typing import List, Dict
 import json
 import os
@@ -9,6 +10,7 @@ router = APIRouter(prefix="/api/v1/user", tags=["user"])
 
 # Initialize Service
 dietrx_service = DietRxDBService()
+health_engine = HealthEngine()
 
 # Persistence File
 USER_DB_FILE = "user_db.json"
@@ -56,9 +58,17 @@ async def get_user_profile(user_id: str):
 @router.put("/{user_id}", response_model=UserProfile)
 async def update_user_profile(user_id: str, profile: UserProfile):
     """
-    Update a user's profile
+    Update a user's profile and initialize defaults if needed
     """
-    users_db[user_id] = profile.dict()
+    # If targets are not set, initialize them automatically from health engine
+    if profile.target_calories is None:
+        targets = health_engine.calculate_targets(profile)
+        profile.target_calories = targets.calories
+        profile.target_protein_g = targets.protein_g
+        profile.target_carbs_g = targets.carbs_g
+        profile.target_fat_g = targets.fat_g
+        
+    users_db[user_id] = profile.model_dump()
     save_users(users_db)
     return profile
 

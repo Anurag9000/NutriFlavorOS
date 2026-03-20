@@ -4,10 +4,14 @@ from typing import List
 import uvicorn
 
 from backend.models import UserProfile, PlanResponse
-
+from backend.database import init_db
 from backend.engines.plan_generator import PlanGenerator
 
+# Initialize Database
+init_db()
+
 # Import Routers
+
 from backend.api import (
     user_routes,
     meal_routes,

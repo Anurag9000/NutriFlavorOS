@@ -97,8 +97,12 @@ class TasteEngine:
     
     def get_recipe_flavor_profile(self, recipe: Recipe) -> Dict[str, float]:
         """
-        Build comprehensive flavor profile for a recipe using FlavorDB
+        Build comprehensive flavor profile for a recipe.
+        Uses pre-populated flavor_profile if available, otherwise calculates from FlavorDB.
         """
+        if recipe.flavor_profile and len(recipe.flavor_profile) > 0:
+            return recipe.flavor_profile
+
         recipe_profile = {}
         
         for ingredient in recipe.ingredients:

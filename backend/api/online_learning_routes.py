@@ -2,12 +2,6 @@
 API Endpoints for Online Learning and Gamification
 Integrates all new ML features with the backend
 """
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from typing import List, Dict, Optional
-from datetime import datetime
-import numpy as np
-
 import json
 import os
 from fastapi import APIRouter, HTTPException
@@ -20,7 +14,54 @@ from backend.ml.online_learning_manager import online_learning_manager
 
 router = APIRouter(prefix="/api/v1", tags=["online_learning"])
 
-# ... (load_demo_data and Pydantic models remain same)
+def load_demo_data(section: str):
+    try:
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "demo_data.json")
+        with open(path, 'r') as f:
+            data = json.load(f)
+        return data.get(section, {})
+    except Exception as e:
+        print(f"Error loading demo data: {e}")
+        return {}
+
+# ==================== MODELS ====================
+
+class TasteFeedback(BaseModel):
+    user_id: str
+    recipe_id: str
+    rating: float  # 0-1 scale
+    user_genome: List[float]
+    recipe_profile: List[float]
+
+class HealthOutcome(BaseModel):
+    user_id: str
+    actual_weight: float
+    actual_hba1c: Optional[float] = None
+    actual_cholesterol: Optional[float] = None
+    meal_history: List[Dict]
+
+class MealSelection(BaseModel):
+    user_id: str
+    state: List[float]
+    selected_recipe_id: int
+    reward: float
+
+class GroceryPurchase(BaseModel):
+    user_id: str
+    items: List[Dict]  # [{item: str, quantity: float, price: float}]
+
+class GroceryConsumption(BaseModel):
+    user_id: str
+    item: str
+    quantity: float
+
+class MealImpact(BaseModel):
+    user_id: str
+    carbon_footprint: float
+    health_score: float
+    variety_score: float
+    taste_rating: Optional[float] = None
+
 
 # ==================== ONLINE LEARNING ENDPOINTS (Activated) ====================
 
@@ -159,10 +200,6 @@ async def log_meal_impact(impact: MealImpact):
 async def get_leaderboard(leaderboard_type: str = "carbon_saved", period: str = "month", limit: int = 100):
     data = load_demo_data("gamification")
     
-    # Map frontend types to JSON keys
-    # specific keys: leaderboard_carbon_saved, leaderboard_health_score, leaderboard_variety_score
-    # frontend sends: "carbon_saved", "health_score", "variety_score"
-    
     key = f"leaderboard_{leaderboard_type}"
     leaderboard = data.get(key, data.get("leaderboard", []))
     
@@ -176,22 +213,18 @@ async def get_leaderboard(leaderboard_type: str = "carbon_saved", period: str = 
 async def get_user_rank(user_id: str, leaderboard_type: str = "carbon_saved"):
     data = load_demo_data("gamification")
     
-    # Map leaderboard type to JSON key
     key = f"leaderboard_{leaderboard_type}"
     leaderboard = data.get(key, [])
     
-    # Find user in the specific leaderboard
     for entry in leaderboard:
-        # Check username or user_id
         if entry.get("user_id") == "usr_1" or entry.get("username") == "You":
             return {
                 "rank": entry.get("rank"),
-                "total_users": len(leaderboard) + 20, # Simulated
-                "percentile": 100 - (entry.get("rank", 4) * 5) # Simulated
+                "total_users": len(leaderboard) + 20,
+                "percentile": 100 - (entry.get("rank", 4) * 5)
             }
             
     return {"rank": 4, "total_users": 100, "percentile": 96}
-
 
 @router.get("/gamification/achievements/{user_id}")
 async def get_user_achievements(user_id: str):

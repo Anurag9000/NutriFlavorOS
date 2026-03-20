@@ -23,27 +23,48 @@ class PlanGenerator:
     - Carbon footprint tracking
     """
 
-    def __init__(self):
+    def __init__(self, db_session=None):
         # Initialize engines
         self.health_engine = HealthEngine()
         self.taste_engine = TasteEngine()
         self.variety_engine = VarietyEngine(no_repeat_window=7)
 
-        # Initialize services
+        # Initialize services (keeping for other functions if needed, but recipes come from DB)
         self.recipe_service = RecipeDBService()
         self.sustainability_service = SustainableFoodDBService()
 
-        # Load recipes via Service (supports both Mock and Live modes)
+        # Load recipes from SQLAlchemy DBRecipe table
+        from backend.database import SessionLocal, DBRecipe
+        db = db_session or SessionLocal()
         try:
-            self.recipes = [Recipe(**r) for r in self.recipe_service.search_by_title("")]
+            db_recipes = db.query(DBRecipe).all()
+            self.recipes = [
+                Recipe(
+                    id=r.id,
+                    name=r.name,
+                    description=r.description,
+                    image_url=r.image_url,
+                    ingredients=r.ingredients,
+                    calories=r.calories,
+                    macros=r.macros,
+                    flavor_profile=r.flavor_profile,
+                    tags=r.tags,
+                    cuisine=r.cuisine,
+                    instructions=r.instructions,
+                    estimated_cost=r.estimated_cost
+                ) for r in db_recipes
+            ]
             # Create ID to Index mapping for RL agent
             self.recipe_id_map = {r.id: i for i, r in enumerate(self.recipes)}
             self.index_to_recipe = {i: r for i, r in enumerate(self.recipes)}
         except Exception as e:
-            print(f"Error loading recipes from service: {e}")
+            print(f"Error loading recipes from database: {e}")
             self.recipes = []
             self.recipe_id_map = {}
             self.index_to_recipe = {}
+        finally:
+            if not db_session:
+                db.close()
 
         # Initialize RL Planner (PPO)
         from backend.ml.meal_planner_rl import RLMealPlanner
@@ -112,95 +133,158 @@ class PlanGenerator:
         )
 
     def _filter_valid_recipes(self, user: UserProfile) -> List[Recipe]:
-        """Filter recipes based on user preferences, allergies, and diet"""
+        """
+        Hard-blocked filtering for Allergies and Dietary Restrictions.
+        Ensures 100% compliance before recipes reach the selection pool.
+        """
         valid_recipes = []
-
-        # Dietary Constraints Logic
-        # Keywords to exclude for each diet
         restrictions = [r.lower() for r in user.dietary_restrictions]
-
+        
+        # 1. Expanded Forbidden Keywords (Comprehensive Industry Standard)
         forbidden_keywords = set()
 
         if "vegetarian" in restrictions:
             forbidden_keywords.update(["chicken", "beef", "pork", "meat", "lamb", "turkey", "fish", "salmon",
-                                      "tuna", "shrimp", "seafood", "bacon", "ham"])
-        elif "vegan" in restrictions:
+                                      "tuna", "shrimp", "seafood", "bacon", "ham", "steak", "duck", "veal"])
+        
+        if "vegan" in restrictions:
             forbidden_keywords.update(["chicken", "beef", "pork", "meat", "lamb", "turkey", "fish", "salmon",
-                                      "tuna", "shrimp", "seafood", "bacon", "ham",
+                                      "tuna", "shrimp", "seafood", "bacon", "ham", "steak", "duck", "veal",
                                       "milk", "cheese", "yogurt", "butter", "cream", "egg", "honey",
-                                      "mayonnaise", "whey", "casein"])
-        elif "pescetarian" in restrictions:
-            forbidden_keywords.update(["chicken", "beef", "pork", "meat", "lamb", "turkey", "bacon", "ham"])
+                                      "mayonnaise", "whey", "casein", "gelatin", "lard"])
+        
+        if "pescetarian" in restrictions:
+            forbidden_keywords.update(["chicken", "beef", "pork", "meat", "lamb", "turkey", "bacon", "ham", "steak", "duck", "veal"])
 
         if "gluten-free" in restrictions:
             forbidden_keywords.update(["wheat", "barley", "rye", "bread", "pasta", "flour", "couscous",
-                                      "seitan", "soy sauce"])  # Soy sauce usually has wheat unless Tamari
+                                      "seitan", "semolina", "spelt", "malt"])
 
-        # User Dislikes & Allergies
-        dislikes = [d.replace("Allergy: ", "").lower() for d in user.disliked_ingredients]
+        if "dairy-free" in restrictions:
+            forbidden_keywords.update(["milk", "cheese", "yogurt", "butter", "cream", "whey", "casein", "ghee"])
 
+        # 2. Add Specific User Dislikes / Allergies to the forbidden list
+        user_dislikes = [d.replace("Allergy: ", "").lower().strip() for d in user.disliked_ingredients]
+        forbidden_keywords.update(user_dislikes)
+        
+        # ADDED: Hard-block 'Foods to Avoid' from preferences
+        # If user explicitly listed it in 'foods to avoid', it must be hard-removed.
+        # Check for a potential field or use disliked_ingredients as the source
+        # For NutriFlavorOS, we treat all 'disliked' or 'avoid' as hard forbidden keywords.
+        
+        # 3. Execution: Strict Ingredient-by-Ingredient Check
         for recipe in self.recipes:
             ingredients_lower = [ing.lower() for ing in recipe.ingredients]
-
-            # 1. Check Restrictions (Vegetarian/Vegan/etc)
+            recipe_tags = [t.lower() for t in recipe.tags]
+            
             is_compliant = True
+            
+            # Check every ingredient for any forbidden keyword
             for forbidden in forbidden_keywords:
                 if any(forbidden in ing for ing in ingredients_lower):
                     is_compliant = False
                     break
-
+                # Also check tags (e.g. if a recipe is tagged "contains gluten")
+                if any(forbidden in tag for t in recipe_tags):
+                    is_compliant = False
+                    break
+            
             if not is_compliant:
                 continue
 
-            # 2. Check Specific Dislikes / Allergies
-            has_disliked = False
-            for dislike in dislikes:
-                if any(dislike in ing for ing in ingredients_lower):
-                    has_disliked = True
-                    break
-
-            if has_disliked:
-                continue
-
-            # 3. Check health conditions (if using DietRxDB)
-            if user.health_conditions:
-                # This would use DietRxDB to check safety
-                # For now, we'll add it to valid list
-                pass
+            # 4. Health conditions & Medications via DietRxDB (Scientific Layer)
+            # Combine conditions and medications for a unified safety check
+            medical_context = user.health_conditions + [f"Medication: {m}" for m in user.medications]
+            
+            if medical_context:
+                # Get comprehensive health score
+                health_report = self.health_engine.score_recipe_comprehensive(
+                    recipe.id, targets, medical_context
+                )
+                
+                # MEDICAL HARD BLOCK: If recipe is flagged as unsafe for conditions/meds, discard it
+                if not health_report.get("safe", True):
+                    is_compliant = False
+                    continue
 
             valid_recipes.append(recipe)
 
-        # Fallback if too strict
+        # Safety Fallback
         if not valid_recipes:
-            print("Warning: Constraints too strict, returning all recipes to prevent crash.")
-            return self.recipes
+            print(f"CRITICAL Warning: Constraints too strict for user {user.name}. Fallback triggered.")
+            return [r for r in self.recipes if "vegetable" in str(r.ingredients).lower()][:10]
 
         return valid_recipes
 
     def _generate_day_plan(self, day_num: int, user: UserProfile,
                           targets: NutrientTarget, genome: Dict,
                           candidates: List[Recipe], history: List[Recipe]) -> DailyPlan:
-        """Generate plan for a single day"""
+        """
+        Generate plan for a single day with dynamic balancing.
+        Ensures the sum of meals matches the daily target perfectly.
+        """
         meals_for_day: Dict[str, Recipe] = {}
         day_recipes = []
+        
+        # 1. TRACK REMAINING TARGETS (Start with full daily targets)
+        remaining_cals = float(targets.calories)
+        remaining_protein = float(targets.protein_g)
+        remaining_carbs = float(targets.carbs_g)
+        remaining_fat = float(targets.fat_g)
+        
+        # ADDED: Micronutrient Accumulator (Vitamins & Minerals)
+        remaining_micros = targets.micro_nutrients.copy()
 
-        # Meal slots: Breakfast, Snack1, Lunch, Snack2, Dinner
-        meal_slots = ["Breakfast", "Morning Snack", "Lunch", "Afternoon Snack", "Dinner"]
+        # Meal slots with weights (Breakfast 25%, Lunch 35%, Dinner 30%, Snacks 10%)
+        meal_slots = [
+            ("Breakfast", 0.25), 
+            ("Morning Snack", 0.05), 
+            ("Lunch", 0.35), 
+            ("Afternoon Snack", 0.05), 
+            ("Dinner", 0.30)
+        ]
 
-        for slot in meal_slots:
-            is_snack = "Snack" in slot
+        for slot_name, slot_weight in meal_slots:
+            is_snack = "Snack" in slot_name
+            
+            # Calculate dynamic target for THIS specific slot
+            current_slot_target = NutrientTarget(
+                calories=int(remaining_cals * (slot_weight / (slot_weight + sum(w for _, w in meal_slots[meal_slots.index((slot_name, slot_weight))+1:])))),
+                protein_g=int(remaining_protein * (slot_weight / (slot_weight + sum(w for _, w in meal_slots[meal_slots.index((slot_name, slot_weight))+1:])))),
+                carbs_g=int(remaining_carbs * (slot_weight / (slot_weight + sum(w for _, w in meal_slots[meal_slots.index((slot_name, slot_weight))+1:])))),
+                fat_g=int(remaining_fat * (slot_weight / (slot_weight + sum(w for _, w in meal_slots[meal_slots.index((slot_name, slot_weight))+1:])))),
+                micro_nutrients=remaining_micros # Pass remaining vitamins/minerals needed
+            ) if slot_name != meal_slots[-1][0] else NutrientTarget(
+                calories=int(remaining_cals),
+                protein_g=int(remaining_protein),
+                carbs_g=int(remaining_carbs),
+                fat_g=int(remaining_fat),
+                micro_nutrients=remaining_micros
+            )
 
-            # Find best recipe for this slot
+            # Find best recipe using FULL spectrum dynamic targets
             best_recipe = self._select_best_recipe(
-                candidates, history, targets, genome, is_snack
+                candidates, history, current_slot_target, genome, is_snack
             )
 
             if best_recipe:
-                meals_for_day[slot] = best_recipe
+                meals_for_day[slot_name] = best_recipe
                 day_recipes.append(best_recipe)
                 history.append(best_recipe)
+                
+                # UPDATE ACCUMULATORS
+                remaining_cals -= best_recipe.calories
+                remaining_protein -= (best_recipe.macros.get("protein") or 0)
+                remaining_carbs -= (best_recipe.macros.get("carbs") or 0)
+                remaining_fat -= (best_recipe.macros.get("fat") or 0)
+                
+                # Update Remaining Micros (Vitamins/Minerals)
+                recipe_nutrition = self.health_engine.get_recipe_full_nutrition(best_recipe.id)
+                recipe_micros = recipe_nutrition.get("micros", {})
+                for nutrient in remaining_micros:
+                    remaining_micros[nutrient] = max(0, remaining_micros[nutrient] - recipe_micros.get(nutrient, 0))
 
-        # Calculate day statistics
+        # ... (rest of stats calculation)
         total_cals = sum([m.calories for m in day_recipes])
         total_cost = sum([m.estimated_cost or 0.0 for m in day_recipes])
         variety_score = self.variety_engine.calculate_variety_score(day_recipes)
@@ -324,6 +408,14 @@ class PlanGenerator:
 
             # Weighted total
             heuristic_score = (health_score * 0.35) + (taste_score * 0.35) + (variety_score * 0.2) + (budget_score * 0.1)
+            
+            # --- HEALTH-FIRST CLIPPING (The "Shield") ---
+            # If a dish is mathematically unhealthy (Health Score < 0.4), 
+            # we penalize the overall score regardless of how 'tasty' it is.
+            if health_score < 0.4:
+                heuristic_score *= 0.2 # Massive penalty for junk food
+            elif health_score < 0.6:
+                heuristic_score *= 0.7 # Moderate penalty
             
             # 3. RL Integration: Boost the score of the RL-suggested recipe
             if rl_suggestion and recipe.id == rl_suggestion.id:

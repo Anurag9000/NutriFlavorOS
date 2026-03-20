@@ -12,71 +12,81 @@ export const ARMealScanner = ({ onMealDetected }) => {
     const [detectedMeal, setDetectedMeal] = useState(null);
     const [cameraActive, setCameraActive] = useState(false);
 
+    const fileInputRef = useRef(null);
+
     useEffect(() => {
+        const handlePaste = (event) => {
+            const items = event.clipboardData?.items;
+            if (!items) return;
+            
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf("image") !== -1) {
+                    const blob = items[i].getAsFile();
+                    processImageBlob(blob);
+                    break;
+                }
+            }
+        };
+
+        window.addEventListener('paste', handlePaste);
         if (cameraActive) {
             startCamera();
         }
         return () => {
+            window.removeEventListener('paste', handlePaste);
             stopCamera();
         };
     }, [cameraActive]);
 
-    const startCamera = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment' } // Use back camera on mobile
-            });
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-            }
-        } catch (err) {
-            console.error('Camera access denied:', err);
+    const handleFileUpload = (event) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            processImageBlob(file);
         }
     };
 
-    const stopCamera = () => {
-        if (videoRef.current && videoRef.current.srcObject) {
-            const tracks = videoRef.current.srcObject.getTracks();
-            tracks.forEach(track => track.stop());
+    const processImageBlob = async (blob) => {
+        setIsScanning(true);
+        const formData = new FormData();
+        formData.append('image', blob);
+
+        try {
+            const response = await fetch('/api/v1/vision/analyze', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                // Map backend format to component format
+                setDetectedMeal({
+                    name: result.data.food_name,
+                    calories: result.data.calories,
+                    protein: result.data.protein_g,
+                    carbs: result.data.carbs_g,
+                    fat: result.data.fat_g,
+                    confidence: Math.round(result.data.confidence * 100),
+                    health_score: 0.85,
+                    taste_score: 0.92,
+                    emoji: '🥘'
+                });
+            }
+            setIsScanning(false);
+        } catch (err) {
+            console.error('Meal detection failed:', err);
+            setIsScanning(false);
         }
     };
 
     const scanMeal = async () => {
         setIsScanning(true);
-
-        // Capture frame from video
         const canvas = canvasRef.current;
         const video = videoRef.current;
         const context = canvas.getContext('2d');
-
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0);
-
-        // Convert to blob and send to backend
-        canvas.toBlob(async (blob) => {
-            const formData = new FormData();
-            formData.append('image', blob);
-
-            try {
-                const response = await fetch('/api/v1/vision/detect_meal', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-                setDetectedMeal(result);
-                setIsScanning(false);
-
-                // Haptic feedback
-                if (navigator.vibrate) {
-                    navigator.vibrate(200);
-                }
-            } catch (err) {
-                console.error('Meal detection failed:', err);
-                setIsScanning(false);
-            }
-        });
+        canvas.toBlob(processImageBlob);
     };
 
     return (
@@ -172,10 +182,46 @@ export const ARMealScanner = ({ onMealDetected }) => {
                 borderRadius: '20px',
                 color: 'white',
                 fontSize: '14px',
-                backdropFilter: 'blur(10px)'
+                backdropFilter: 'blur(10px)',
+                textAlign: 'center'
             }}>
-                Point camera at your meal
+                Point camera at your meal <br/>
+                <span className="text-xs opacity-70">or paste/upload an image</span>
             </div>
+
+            {/* Hidden File Input */}
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileUpload} 
+                accept="image/*" 
+                style={{ display: 'none' }}
+            />
+
+            {/* Upload Button */}
+            <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => fileInputRef.current.click()}
+                style={{
+                    position: 'absolute',
+                    bottom: '40px',
+                    right: '40px',
+                    width: '50px',
+                    height: '50px',
+                    borderRadius: '50%',
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '20px',
+                    color: 'white'
+                }}
+            >
+                📁
+            </motion.button>
         </div>
     );
 };
