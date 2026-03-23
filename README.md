@@ -22,6 +22,10 @@ FoodScope is a next-generation food tracking and meal planning application that 
 - **Auto-Generated Lists**: Shopping lists created automatically from your meal plan.
 - **Inventory Tracking**: Track what you have at home to reduce waste.
 
+## 🏗️ System Architecture
+
+![NutriFlavorOS Architecture](docs/images/architecture.png)
+
 ## 🛠️ Technology Stack
 
 - **Frontend**: React 19, Vite, Tailwind CSS, Framer Motion, Recharts
