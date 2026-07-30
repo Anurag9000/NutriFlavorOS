@@ -1,237 +1,160 @@
+"""Transparent preference scoring for recipe ranking.
+
+No neural predictor is used unless a separately validated artifact is introduced.
+The current score combines explicit ingredient preferences with deterministic
+flavor-profile similarity and labels missing data neutrally.
 """
-Taste Engine - Molecular flavor analysis and hedonic prediction
-"""
-from typing import Dict, List, Any
-from backend.models import UserProfile, Recipe
+
+from __future__ import annotations
+
+import math
+import os
+import re
+from typing import Any, Dict
+
+from backend.models import Recipe, UserProfile
 from backend.services.flavordb_service import FlavorDBService
-import numpy as np
+
 
 class TasteEngine:
-    """
-    Advanced Taste Engine with:
-    - Molecular flavor fingerprinting
-    - Chemical compound analysis
-    - Scientific flavor pairing
-    - Real hedonic score prediction (NO HARDCODING!)
-    """
-    
     def __init__(self):
         self.flavor_service = FlavorDBService()
-        self._ingredient_cache = {}
-    
+        self.external_flavor_enabled = (
+            os.getenv("ENABLE_EXTERNAL_FLAVOR_DATA", "false").lower() == "true"
+        )
+        self._ingredient_cache: Dict[str, Dict[str, float]] = {}
+
+    @staticmethod
+    def _normalize(value: str) -> str:
+        return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+
+    def _profile_for_ingredient(self, ingredient: str) -> Dict[str, float]:
+        key = self._normalize(ingredient)
+        if key in self._ingredient_cache:
+            return self._ingredient_cache[key]
+        if not self.external_flavor_enabled:
+            return {}
+
+        try:
+            response = self.flavor_service.get_flavor_profile(ingredient) or {}
+            profile = {
+                str(name): float(value)
+                for name, value in (response.get("flavor_vector", {}) or {}).items()
+                if isinstance(value, (int, float))
+            }
+        except Exception as exc:
+            print(f"Flavor lookup failed for {ingredient}: {exc}")
+            profile = {}
+        self._ingredient_cache[key] = profile
+        return profile
+
     def generate_flavor_genome(self, user: UserProfile) -> Dict[str, float]:
-        """
-        Creates a 'Flavor Genome' vector using REAL molecular flavor data from FlavorDB
-        Returns: Comprehensive flavor profile with chemical compound preferences
-        """
-        flavor_genome = {}
-        
-        # Build genome from liked ingredients
+        totals: Dict[str, float] = {}
+        for ingredient, direction in [
+            *((ingredient, 1.0) for ingredient in user.liked_ingredients),
+            *((ingredient, -1.0) for ingredient in user.disliked_ingredients),
+        ]:
+            for dimension, value in self._profile_for_ingredient(ingredient).items():
+                totals[dimension] = totals.get(dimension, 0.0) + value * direction
+
+        norm = math.sqrt(sum(value * value for value in totals.values()))
+        genome = {dimension: value / norm for dimension, value in totals.items()} if norm else {}
         for ingredient in user.liked_ingredients:
-            try:
-                # Get real flavor profile from FlavorDB
-                # Note: This works for Molecules (e.g. Vanillin) but returns empty for complex Entities (e.g. Garlic)
-                profile = self.flavor_service.get_flavor_profile(ingredient)
-                
-                if not profile:
-                    # Graceful skip for Entities or items without direct molecular mapping
-                    # print(f"Info: No molecular profile for '{ingredient}'. Skipping flavor analysis for this item.")
-                    continue
-
-                flavor_vector = profile.get("flavor_vector", {})
-                
-                # Get functional groups (chemical fingerprint)
-                functional_groups = self.flavor_service.get_functional_groups(ingredient)
-                
-                # Get aroma intensity
-                aroma_threshold = self.flavor_service.get_aroma_threshold(ingredient)
-                
-                # Merge into genome with positive weight
-                for compound, intensity in flavor_vector.items():
-                    if compound not in flavor_genome:
-                        flavor_genome[compound] = 0.0
-                    # Weight by aroma threshold (lower threshold = stronger preference)
-                    weight = 1.0 / (aroma_threshold + 0.1)
-                    flavor_genome[compound] += intensity * weight
-                
-                # Add functional group preferences
-                for group in functional_groups:
-                    group_key = f"functional_{group}"
-                    if group_key not in flavor_genome:
-                        flavor_genome[group_key] = 0.0
-                    flavor_genome[group_key] += 1.0
-                    
-            except (KeyError, ValueError, TypeError) as e:
-                print(f"Warning: Could not fetch flavor data for {ingredient}: {e}")
-                continue
-            except Exception as e:
-                print(f"Unexpected error fetching flavor data for {ingredient}: {e}")
-                continue
-        
-        # Subtract disliked ingredients
+            genome[f"ingredient_like:{self._normalize(ingredient)}"] = 1.0
         for ingredient in user.disliked_ingredients:
-            try:
-                profile = self.flavor_service.get_flavor_profile(ingredient)
-                flavor_vector = profile.get("flavor_vector", {})
-                
-                for compound, intensity in flavor_vector.items():
-                    if compound not in flavor_genome:
-                        flavor_genome[compound] = 0.0
-                    flavor_genome[compound] -= intensity * 0.5  # Negative weight
-                    
-            except (KeyError, ValueError, TypeError) as e:
-                print(f"Warning: Could not fetch disliked ingredient data for {ingredient}: {e}")
-                continue
-            except Exception as e:
-                print(f"Unexpected error processing disliked ingredient {ingredient}: {e}")
-                continue
-        
-        # Normalize genome values to 0-1 range
-        if flavor_genome:
-            max_val = max(abs(v) for v in flavor_genome.values())
-            if max_val > 0:
-                flavor_genome = {k: max(0, min(1, (v / max_val + 1) / 2)) 
-                                for k, v in flavor_genome.items()}
-        
-        return flavor_genome
-    
+            genome[f"ingredient_dislike:{self._normalize(ingredient)}"] = -1.0
+        return genome
+
     def get_recipe_flavor_profile(self, recipe: Recipe) -> Dict[str, float]:
-        """
-        Build comprehensive flavor profile for a recipe.
-        Uses pre-populated flavor_profile if available, otherwise calculates from FlavorDB.
-        """
-        if recipe.flavor_profile and len(recipe.flavor_profile) > 0:
-            return recipe.flavor_profile
+        if recipe.flavor_profile:
+            return {
+                str(name): float(value)
+                for name, value in recipe.flavor_profile.items()
+                if isinstance(value, (int, float))
+            }
 
-        recipe_profile = {}
-        
+        totals: Dict[str, float] = {}
         for ingredient in recipe.ingredients:
-            try:
-                # Get molecular flavor data
-                profile = self.flavor_service.get_flavor_profile(ingredient)
-                flavor_vector = profile.get("flavor_vector", {})
-                
-                # Get aroma intensity for weighting
-                aroma_threshold = self.flavor_service.get_aroma_threshold(ingredient)
-                weight = 1.0 / (aroma_threshold + 0.1)
-                
-                # Merge into recipe profile
-                for compound, intensity in flavor_vector.items():
-                    if compound not in recipe_profile:
-                        recipe_profile[compound] = 0.0
-                    recipe_profile[compound] += intensity * weight
-                    
-            except (KeyError, ValueError, TypeError) as e:
-                print(f"Warning: Could not fetch flavor profile for ingredient {ingredient}: {e}")
-                continue
-            except Exception as e:
-                print(f"Unexpected error processing ingredient {ingredient}: {e}")
-                continue
-        
-        # Normalize
-        if recipe_profile:
-            total = sum(recipe_profile.values())
-            if total > 0:
-                recipe_profile = {k: v / total for k, v in recipe_profile.items()}
-        
-        return recipe_profile
-    
+            for dimension, value in self._profile_for_ingredient(ingredient).items():
+                totals[dimension] = totals.get(dimension, 0.0) + value
+        norm = math.sqrt(sum(value * value for value in totals.values()))
+        return {dimension: value / norm for dimension, value in totals.items()} if norm else {}
+
     def predict_hedonic_score(self, recipe: Recipe, user_genome: Dict[str, float]) -> float:
-        """
-        Predict hedonic (pleasure) score using deep learning Transformer model
-        Falls back to molecular similarity if model weights are missing
-        """
-        if not user_genome:
-            return 0.5
-        
-        # Get recipe's molecular flavor profile
-        recipe_profile = self.get_recipe_flavor_profile(recipe)
-        
-        if not recipe_profile:
-            return 0.5
-        
-        try:
-            # Use Deep Learning Transformer model
-            from backend.ml.taste_predictor import get_pretrained_taste_predictor
-            predictor = get_pretrained_taste_predictor()
-            
-            # Predict score and confidence
-            hedonic_score, confidence = predictor.predict_single(user_genome, recipe_profile)
-            
-            # Boost score based on confidence
-            if confidence > 0.8:
-                hedonic_score += 0.05
-            
-            # Additional heuristic: boost for aroma intensity
-            aroma_boost = self._calculate_aroma_boost(recipe)
-            
-            # Final ensemble score
-            final_score = (hedonic_score * 0.85) + (aroma_boost * 0.15)
-            return max(0.0, min(1.0, final_score))
-            
-        except Exception as e:
-            # Fallback to molecular similarity logic if DL model fails
-            print(f"Warning: DeepTastePredictor failed, falling back to similarity: {e}")
-            similarity = self._calculate_cosine_similarity(user_genome, recipe_profile)
-            aroma_boost = self._calculate_aroma_boost(recipe)
-            return max(0.0, min(1.0, similarity + aroma_boost))
+        """Return a deterministic preference score in ``[0, 1]``."""
 
-    def _calculate_aroma_boost(self, recipe: Recipe) -> float:
-        """Calculate score boost based on aromatic intensity"""
-        aroma_boost = 0.0
-        for ingredient in recipe.ingredients:
-            try:
-                threshold = self.flavor_service.get_aroma_threshold(ingredient)
-                if threshold < 1.0:
-                    aroma_boost += (1.0 - threshold) * 0.05
-            except Exception:
-                continue
-        return min(0.2, aroma_boost)
-    
+        normalized_recipe = self._normalize(" ".join([recipe.name, *recipe.ingredients]))
+        liked_terms = [
+            key.split(":", 1)[1]
+            for key in user_genome
+            if key.startswith("ingredient_like:")
+        ]
+        disliked_terms = [
+            key.split(":", 1)[1]
+            for key in user_genome
+            if key.startswith("ingredient_dislike:")
+        ]
+        liked_hits = sum(1 for item in liked_terms if item and item in normalized_recipe)
+        disliked_hits = sum(1 for item in disliked_terms if item and item in normalized_recipe)
+
+        profile = self.get_recipe_flavor_profile(recipe)
+        molecular_genome = {
+            key: value
+            for key, value in user_genome.items()
+            if not key.startswith("ingredient_like:")
+            and not key.startswith("ingredient_dislike:")
+        }
+        similarity = (
+            self._calculate_cosine_similarity(molecular_genome, profile)
+            if molecular_genome and profile
+            else 0.0
+        )
+        molecular_component = (
+            (similarity + 1.0) / 2.0 if molecular_genome and profile else 0.5
+        )
+        explicit_component = max(
+            0.0, min(1.0, 0.5 + liked_hits * 0.2 - disliked_hits * 0.35)
+        )
+        return max(
+            0.0,
+            min(1.0, explicit_component * 0.7 + molecular_component * 0.3),
+        )
+
     def analyze_flavor_pairing(self, ing1: str, ing2: str) -> Dict[str, Any]:
-        """
-        Analyze molecular compatibility between two ingredients
-        Uses FlavorDB synthesis endpoint
-        """
+        if not self.external_flavor_enabled:
+            return {
+                "compatible": None,
+                "similarity_score": None,
+                "data_status": "disabled",
+                "reason": "External flavor data is not configured",
+            }
         try:
-            pairing_data = self.flavor_service.synthesize_flavor_pairing(ing1, ing2)
-            similarity = self.flavor_service.calculate_flavor_similarity(ing1, ing2)
-            
+            profile1 = self._profile_for_ingredient(ing1)
+            profile2 = self._profile_for_ingredient(ing2)
+            similarity = self._calculate_cosine_similarity(profile1, profile2)
             return {
-                "compatible": similarity > 0.6,
+                "compatible": similarity >= 0.6,
                 "similarity_score": similarity,
-                "pairing_data": pairing_data,
-                "recommendation": "Excellent" if similarity > 0.8 else 
-                                "Good" if similarity > 0.6 else
-                                "Fair" if similarity > 0.4 else "Poor"
+                "data_status": "external_unvalidated",
             }
-        except Exception as e:
+        except Exception as exc:
             return {
-                "compatible": False,
-                "similarity_score": 0.0,
-                "error": str(e)
+                "compatible": None,
+                "similarity_score": None,
+                "data_status": "unavailable",
+                "error": str(exc),
             }
-    
-    def _calculate_cosine_similarity(self, vec1: Dict[str, float], vec2: Dict[str, float]) -> float:
-        """
-        Calculate cosine similarity between two flavor vectors
-        """
-        # Get all unique compounds
-        all_compounds = set(vec1.keys()) | set(vec2.keys())
-        
-        if not all_compounds:
+
+    @staticmethod
+    def _calculate_cosine_similarity(
+        vec1: Dict[str, float], vec2: Dict[str, float]
+    ) -> float:
+        keys = set(vec1) | set(vec2)
+        if not keys:
             return 0.0
-        
-        # Build vectors
-        v1 = np.array([vec1.get(c, 0.0) for c in all_compounds])
-        v2 = np.array([vec2.get(c, 0.0) for c in all_compounds])
-        
-        # Calculate cosine similarity
-        dot_product = np.dot(v1, v2)
-        norm1 = np.linalg.norm(v1)
-        norm2 = np.linalg.norm(v2)
-        
+        dot = sum(float(vec1.get(key, 0.0)) * float(vec2.get(key, 0.0)) for key in keys)
+        norm1 = math.sqrt(sum(float(vec1.get(key, 0.0)) ** 2 for key in keys))
+        norm2 = math.sqrt(sum(float(vec2.get(key, 0.0)) ** 2 for key in keys))
         if norm1 == 0 or norm2 == 0:
             return 0.0
-        
-        return dot_product / (norm1 * norm2)
+        return max(-1.0, min(1.0, dot / (norm1 * norm2)))
