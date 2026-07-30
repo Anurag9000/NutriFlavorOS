@@ -1,140 +1,151 @@
-import json
-import os
-from fastapi import APIRouter, HTTPException, Body
-from backend.models import UserProfile, PlanResponse, Gender, Goal
-from backend.engines.plan_generator import PlanGenerator
-from typing import Dict
-from backend.utils.meal_persistence import get_cached_plan, cache_plan, update_cached_day
+from __future__ import annotations
 
+import logging
+from typing import Optional
+
+from fastapi import APIRouter, Body, Depends, HTTPException, status
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from backend.database import DBMealPlan, DBUser, get_db
+from backend.engines.plan_generator import InfeasiblePlanError, PlanGenerator
+from backend.models import DailyPlan, PlanResponse, Recipe, UserProfile
+from backend.utils.security import get_current_user, require_self
+from backend.utils.user_profiles import apply_profile, db_user_to_profile
+
+
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/meals", tags=["meals"])
-
-# Initialize generator
-generator = PlanGenerator()
+_generator: Optional[PlanGenerator] = None
 
 
-def load_demo_data(section: str):
-    try:
-        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "demo_data.json")
-        with open(path, 'r') as f:
-            data = json.load(f)
-        return data.get(section, {})
-    except Exception as e:
-        print(f"Error loading demo data: {e}")
-        return {}
+class RegenerateDayPayload(BaseModel):
+    user_id: str
+    day_index: int = Field(ge=0, le=30)
+
+
+class SwapMealPayload(BaseModel):
+    user_id: str
+    meal_slot: str = Field(min_length=1, max_length=80)
+
+
+def get_generator() -> PlanGenerator:
+    global _generator
+    if _generator is None:
+        _generator = PlanGenerator()
+    return _generator
+
+
+def _latest_plan(db: Session, user_id: str) -> Optional[DBMealPlan]:
+    return (
+        db.query(DBMealPlan)
+        .filter(DBMealPlan.user_id == user_id)
+        .order_by(DBMealPlan.created_at.desc(), DBMealPlan.id.desc())
+        .first()
+    )
+
+
+def _raise_planner_error(exc: Exception) -> None:
+    if isinstance(exc, (InfeasiblePlanError, ValueError)):
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    logger.exception("Unexpected meal planner failure", exc_info=exc)
+    raise HTTPException(status_code=500, detail="Meal plan generation failed") from exc
 
 
 @router.get("/plan/{user_id}", response_model=PlanResponse)
-async def get_meal_plan(user_id: str):
-    """
-    Get existing meal plan for a user
-    """
-    # 1. Try to get from cache (Live Mode)
-    plan = get_cached_plan(user_id)
+def get_meal_plan(
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+) -> PlanResponse:
+    require_self(user_id, current_user)
+    stored = _latest_plan(db, user_id)
+    if stored is None:
+        raise HTTPException(status_code=404, detail="No meal plan found")
+    try:
+        return PlanResponse.model_validate(stored.plan_data)
+    except ValueError as exc:
+        logger.exception("Stored plan failed schema validation", exc_info=exc)
+        raise HTTPException(status_code=500, detail="Stored meal plan is invalid") from exc
 
-    # 2. If not in cache, fallback to Demo Data (Demo Mode)
-    if not plan:
-        print(f"Plan not found in cache for {user_id}. Attempting to load Demo Data...")
-        demo_plan_data = load_demo_data("meal_plan")
-        if demo_plan_data:
-            # Inject user_id to satisfy PlanResponse model
-            demo_plan_data["user_id"] = user_id
-            return demo_plan_data
 
-        raise HTTPException(
-            status_code=404,
-            detail="No meal plan found. Please generate a new plan."
+@router.post("/generate", response_model=PlanResponse, status_code=status.HTTP_201_CREATED)
+def generate_meal_plan(
+    profile: Optional[UserProfile] = Body(default=None),
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+) -> PlanResponse:
+    if profile is not None:
+        apply_profile(current_user, profile)
+        db.add(current_user)
+        db.commit()
+        db.refresh(current_user)
+
+    persisted_profile = db_user_to_profile(current_user)
+    try:
+        plan = get_generator().create_plan(
+            persisted_profile,
+            days=7,
+            user_id=current_user.id,
         )
+    except Exception as exc:
+        _raise_planner_error(exc)
+        raise AssertionError("unreachable")
+
+    db.add(DBMealPlan(user_id=current_user.id, plan_data=plan.model_dump(mode="json")))
+    db.commit()
     return plan
 
 
-@router.post("/generate", response_model=PlanResponse)
-async def generate_meal_plan(user: UserProfile):
-    """
-    Generate a 7-day meal plan
-    """
-    try:
-        plan = generator.create_plan(user, days=7)
-
-        # Cache the generated plan
-        # Use user.name as user_id if available, otherwise use a default
-        user_id = user.name or "default_user"
-        cache_plan(user_id, plan)
-
-        return plan
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/regenerate_day")
-async def regenerate_day(payload: Dict = Body(...)):
-    """
-    Regenerate a specific day in the plan
-    """
-    user_id = payload.get("user_id")
-    day_index = payload.get("day_index")
-
-    if user_id is None or day_index is None:
-        raise HTTPException(status_code=400, detail="user_id and day_index are required")
-
-    # In a real app, we would fetch the user profile from DB using user_id
-    # For now, we'll create a dummy profile to generate a single day
-    dummy_user = UserProfile(
-        age=30, weight_kg=70.0, height_cm=175.0, gender=Gender.MALE,
-        activity_level=1.5, goal=Goal.MAINTENANCE
-    )
+@router.post("/regenerate_day", response_model=DailyPlan)
+def regenerate_day(
+    payload: RegenerateDayPayload,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+) -> DailyPlan:
+    require_self(payload.user_id, current_user)
+    profile = db_user_to_profile(current_user)
 
     try:
-        # Generate a single day plan
-        # We might need to adjust PlanGenerator to support single day generation
-        # or just take one day from a new plan
-        full_plan = generator.create_plan(dummy_user, days=1)
-        if not full_plan.days:
-            raise HTTPException(status_code=500, detail="Failed to generate day plan")
+        generated = get_generator().create_plan(profile, days=1, user_id=current_user.id)
+    except Exception as exc:
+        _raise_planner_error(exc)
+        raise AssertionError("unreachable")
 
-        new_day = full_plan.days[0]
-        new_day.day = int(day_index) + 1  # Adjust day number
+    new_day = generated.days[0].model_copy(update={"day": payload.day_index + 1})
+    stored = _latest_plan(db, current_user.id)
+    if stored is None:
+        replacement = generated.model_copy(update={"days": [new_day]})
+        db.add(DBMealPlan(user_id=current_user.id, plan_data=replacement.model_dump(mode="json")))
+    else:
+        current_plan = PlanResponse.model_validate(stored.plan_data)
+        if payload.day_index >= len(current_plan.days):
+            raise HTTPException(status_code=404, detail="Plan day not found")
+        updated_days = list(current_plan.days)
+        updated_days[payload.day_index] = new_day
+        stored.plan_data = current_plan.model_copy(update={"days": updated_days}).model_dump(mode="json")
+        db.add(stored)
 
-        # Update the cached plan if it exists
-        update_cached_day(str(user_id), int(day_index), new_day)
-
-        return new_day
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    db.commit()
+    return new_day
 
 
-@router.post("/swap_meal")
-async def swap_meal(payload: Dict = Body(...)):
-    """
-    Swap a specific meal
-    """
-    user_id = payload.get("user_id")
-    meal_slot = payload.get("meal_slot")  # e.g. "breakfast"
-
-    if user_id is None or meal_slot is None:
-        raise HTTPException(status_code=400, detail="user_id and meal_slot are required")
-
-    # Logic to find a replacement recipe
-    # For now, return a random recipe from the generator's DB if accessible, or a mock one.
-    # We will instantiate a temporary generator to access its db
+@router.post("/swap_meal", response_model=Recipe)
+def swap_meal(
+    payload: SwapMealPayload,
+    current_user: DBUser = Depends(get_current_user),
+) -> Recipe:
+    require_self(payload.user_id, current_user)
+    profile = db_user_to_profile(current_user)
 
     try:
-        # This is a bit inefficient but works for prototype
-        # ideally we expose a 'get_random_recipe' method in PlanGenerator or RecipeDBService
-        dummy_user = UserProfile(
-            age=30, weight_kg=70.0, height_cm=175.0, gender=Gender.MALE,
-            activity_level=1.5, goal=Goal.MAINTENANCE
-        )
-        # Generate a small plan and pick a meal
-        plan = generator.create_plan(dummy_user, days=1)
-        if not plan.days or not plan.days[0].meals:
-            raise HTTPException(status_code=500, detail="Failed to generate recipes for swap")
+        generated = get_generator().create_plan(profile, days=1, user_id=current_user.id)
+    except Exception as exc:
+        _raise_planner_error(exc)
+        raise AssertionError("unreachable")
 
-        new_recipe = plan.days[0].meals.get(str(meal_slot))
-
-        if not new_recipe:
-            # Fallback if slot doesn't exist in generated plan (unlikely)
-            new_recipe = list(plan.days[0].meals.values())[0]
-
-        return new_recipe
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    normalized_slot = payload.meal_slot.strip().lower()
+    for slot, recipe in generated.days[0].meals.items():
+        if slot.lower() == normalized_slot:
+            return recipe
+    raise HTTPException(status_code=404, detail="Meal slot not found")
