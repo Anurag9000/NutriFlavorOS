@@ -1,78 +1,155 @@
-"""
-PostgreSQL Database Schema and Configuration
-Uses SQLAlchemy ORM for production persistence
-"""
-import os
-from sqlalchemy import create_engine, Column, Integer, String, Float, JSON, ForeignKey, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
-from datetime import datetime
+"""Database schema and session management.
 
-# Database URL - fallback to SQLite for local development if PG is not available
+The application can run against SQLite for local development or PostgreSQL in
+hosted environments. Runtime code no longer stores user profiles in a separate
+JSON file; a single transactional store is used for identity and profile data.
+"""
+
+from __future__ import annotations
+
+import os
+from datetime import datetime, timezone
+from typing import Generator
+
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, JSON, String, create_engine, inspect, text
+from sqlalchemy.orm import Session, declarative_base, relationship, sessionmaker
+
+
 DB_URL = os.getenv("DATABASE_URL", "sqlite:///nutriflavor.db")
 
-engine = create_engine(DB_URL)
+_engine_kwargs = {"pool_pre_ping": True}
+if DB_URL.startswith("sqlite"):
+    _engine_kwargs["connect_args"] = {"check_same_thread": False}
+
+engine = create_engine(DB_URL, **_engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 class DBUser(Base):
-    """User Profile and Biometrics"""
+    """Authenticated user and their meal-planning profile."""
+
     __tablename__ = "users"
-    
+
     id = Column(String, primary_key=True, index=True)
-    name = Column(String)
-    age = Column(Integer)
-    weight_kg = Column(Float)
-    height_cm = Column(Float)
-    gender = Column(String)
-    activity_level = Column(Float)
-    goal = Column(String)
-    
-    # Store preferences as JSON for flexibility
-    liked_ingredients = Column(JSON)
-    disliked_ingredients = Column(JSON)
-    dietary_restrictions = Column(JSON)
-    health_conditions = Column(JSON)
-    
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    plans = relationship("DBMealPlan", back_populates="user")
+    hashed_password = Column(String, nullable=True)
+    name = Column(String, nullable=False, default="New User")
+    age = Column(Integer, nullable=True)
+    weight_kg = Column(Float, nullable=True)
+    height_cm = Column(Float, nullable=True)
+    gender = Column(String, nullable=True)
+    activity_level = Column(Float, nullable=True)
+    goal = Column(String, nullable=True)
+
+    liked_ingredients = Column(JSON, nullable=False, default=list)
+    disliked_ingredients = Column(JSON, nullable=False, default=list)
+    allergies = Column(JSON, nullable=False, default=list)
+    dietary_restrictions = Column(JSON, nullable=False, default=list)
+    health_conditions = Column(JSON, nullable=False, default=list)
+    medications = Column(JSON, nullable=False, default=list)
+
+    target_calories = Column(Integer, nullable=True)
+    target_protein_g = Column(Integer, nullable=True)
+    target_carbs_g = Column(Integer, nullable=True)
+    target_fat_g = Column(Integer, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+    plans = relationship(
+        "DBMealPlan",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
 
 class DBRecipe(Base):
-    """Recipe Database"""
+    """Recipe data used by the deterministic planner."""
+
     __tablename__ = "recipes"
-    
+
     id = Column(String, primary_key=True, index=True)
-    name = Column(String, index=True)
-    description = Column(String)
+    name = Column(String, index=True, nullable=False)
+    description = Column(String, nullable=False, default="")
     image_url = Column(String)
-    ingredients = Column(JSON)
-    calories = Column(Integer)
-    macros = Column(JSON)
-    flavor_profile = Column(JSON)
-    tags = Column(JSON)
+    ingredients = Column(JSON, nullable=False, default=list)
+    calories = Column(Integer, nullable=False, default=0)
+    macros = Column(JSON, nullable=False, default=dict)
+    flavor_profile = Column(JSON, nullable=False, default=dict)
+    tags = Column(JSON, nullable=False, default=list)
     cuisine = Column(String)
-    instructions = Column(JSON)
-    estimated_cost = Column(Float)
+    instructions = Column(JSON, nullable=False, default=list)
+    estimated_cost = Column(Float, nullable=False, default=0.0)
+
 
 class DBMealPlan(Base):
-    """Saved Meal Plans"""
+    """Versioned snapshots of generated meal plans."""
+
     __tablename__ = "meal_plans"
-    
+
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    user_id = Column(String, ForeignKey("users.id"))
-    plan_data = Column(JSON) # Full PlanResponse dump
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    plan_data = Column(JSON, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+
     user = relationship("DBUser", back_populates="plans")
 
-def init_db():
-    """Create all tables"""
-    Base.metadata.create_all(bind=engine)
 
-def get_db():
-    """Dependency for FastAPI routes"""
+class DBFeedback(Base):
+    """Append-only user feedback captured for offline, reviewed training pipelines."""
+
+    __tablename__ = "feedback_events"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    feedback_type = Column(String, nullable=False, index=True)
+    payload = Column(JSON, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+
+
+_SQLITE_USER_MIGRATIONS = {
+    "hashed_password": "ALTER TABLE users ADD COLUMN hashed_password VARCHAR",
+    "allergies": "ALTER TABLE users ADD COLUMN allergies JSON",
+    "medications": "ALTER TABLE users ADD COLUMN medications JSON",
+    "target_calories": "ALTER TABLE users ADD COLUMN target_calories INTEGER",
+    "target_protein_g": "ALTER TABLE users ADD COLUMN target_protein_g INTEGER",
+    "target_carbs_g": "ALTER TABLE users ADD COLUMN target_carbs_g INTEGER",
+    "target_fat_g": "ALTER TABLE users ADD COLUMN target_fat_g INTEGER",
+}
+
+
+def _migrate_sqlite_user_table() -> None:
+    if not DB_URL.startswith("sqlite"):
+        return
+
+    inspector = inspect(engine)
+    if "users" not in inspector.get_table_names():
+        return
+
+    existing = {column["name"] for column in inspector.get_columns("users")}
+    statements = [sql for name, sql in _SQLITE_USER_MIGRATIONS.items() if name not in existing]
+    if not statements:
+        return
+
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
+
+
+def init_db() -> None:
+    """Create tables and apply safe local SQLite compatibility migrations."""
+
+    Base.metadata.create_all(bind=engine)
+    _migrate_sqlite_user_table()
+
+
+def get_db() -> Generator[Session, None, None]:
+    """FastAPI dependency that always closes the request-scoped session."""
+
     db = SessionLocal()
     try:
         yield db
