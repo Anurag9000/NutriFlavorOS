@@ -1,43 +1,51 @@
-/**
- * NutriFlavorOS — Centralized API Client
- * Connects frontend to all backend endpoints
- */
+/** NutriFlavorOS centralized API client. */
 
-const API_BASE = "http://localhost:8000/api/v1";
+const configuredBase = import.meta.env.VITE_API_BASE_URL as string | undefined;
+const defaultBase = import.meta.env.DEV ? "http://localhost:8000/api/v1" : "/api/v1";
+const API_BASE = (configuredBase?.trim() || defaultBase).replace(/\/$/, "");
+const TOKEN_KEY = "nutriflavor_token";
+const USER_KEY = "nfos_user";
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-    // Get token from localStorage
-    const token = localStorage.getItem("nutriflavor_token");
-    
-    const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        ...((options?.headers as Record<string, string>) || {}),
-    };
-    
-    if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-    }
+export class ApiError extends Error {
+    readonly status: number;
+    readonly detail: unknown;
 
-    const res = await fetch(`${API_BASE}${path}`, {
-        ...options,
-        headers,
-    });
-    
-    if (res.status === 401) {
-        // Unauthorized - clear token and potentially redirect
-        localStorage.removeItem("nutriflavor_token");
-        // window.location.href = "/login";
+    constructor(status: number, detail: unknown) {
+        const message =
+            typeof detail === "string"
+                ? detail
+                : detail && typeof detail === "object" && "detail" in detail
+                  ? String((detail as { detail: unknown }).detail)
+                  : `Request failed with status ${status}`;
+        super(message);
+        this.name = "ApiError";
+        this.status = status;
+        this.detail = detail;
     }
-    
-    if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`API ${res.status}: ${errorText}`);
-    }
-    
-    return res.json();
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const headers = new Headers(options.headers);
+    if (!(options.body instanceof FormData) && !headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json");
+    }
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+
+    const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    if (response.status === 401) {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+        window.dispatchEvent(new CustomEvent("nutriflavor:unauthorized"));
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    const payload: unknown = contentType.includes("application/json")
+        ? await response.json()
+        : await response.text();
+    if (!response.ok) throw new ApiError(response.status, payload);
+    return payload as T;
+}
 
 export interface UserProfile {
     id?: string;
@@ -50,9 +58,14 @@ export interface UserProfile {
     goal: "weight_loss" | "maintenance" | "muscle_gain";
     liked_ingredients?: string[];
     disliked_ingredients?: string[];
+    allergies?: string[];
     dietary_restrictions?: string[];
     health_conditions?: string[];
     medications?: string[];
+    target_calories?: number;
+    target_protein_g?: number;
+    target_carbs_g?: number;
+    target_fat_g?: number;
 }
 
 export interface Recipe {
@@ -62,21 +75,18 @@ export interface Recipe {
     image_url?: string;
     ingredients: string[];
     calories: number;
-    macros: { protein: number; carbs: number; fat: number };
+    macros: { protein?: number; carbs?: number; fat?: number; [key: string]: number | undefined };
     flavor_profile?: Record<string, number>;
     tags?: string[];
     cuisine?: string;
-    instructions?: string[] | string;
-    nutrition?: Record<string, unknown>;
-    readyInMinutes?: number;
-    servings?: number;
-    healthScore?: number;
+    instructions?: string[];
+    estimated_cost?: number;
 }
 
 export interface DailyPlan {
     day: number;
     meals: Record<string, Recipe>;
-    total_stats: Record<string, number>;
+    total_stats: Record<string, unknown>;
     scores: Record<string, number>;
 }
 
@@ -86,11 +96,14 @@ export interface PlanResponse {
     shopping_list?: Record<string, Record<string, unknown>>;
     prep_timeline?: Record<number, string[]>;
     overall_stats?: Record<string, unknown>;
+    warnings?: string[];
 }
 
 export interface ShoppingListItem {
     item: string;
     predicted_quantity: number;
+    quantity_label?: string;
+    quantity_status?: string;
     estimated_cost: number;
     urgency: number;
     category?: string;
@@ -103,6 +116,7 @@ export interface ShoppingListResponse {
         estimated_total_cost: number;
         days_covered: number;
         urgent_items: number;
+        cost_status?: string;
     };
 }
 
@@ -114,9 +128,9 @@ export interface LeaderboardEntry {
 }
 
 export interface ImpactSummary {
-    total_carbon_saved: number;
-    total_meals_logged: number;
-    average_health_score: number;
+    total_carbon_saved?: number;
+    total_meals_logged?: number;
+    average_health_score?: number;
     visual_impact?: Record<string, unknown>;
     equivalents?: Record<string, unknown>;
 }
@@ -132,50 +146,64 @@ export interface SustainabilityData {
     water_saved_l: number;
     trees_planted_equivalent: number;
     sustainable_meals_count: number;
+    planned_carbon_footprint_kg?: number | null;
+    data_status?: string;
+    baseline_status?: string;
 }
 
 export interface CarbonBreakdown {
     total_footprint: number;
     average_meal_footprint: number;
-    breakdown: { category: string; value: number }[];
+    breakdown: { category: string; value: number; status?: string }[];
+    data_status?: string;
 }
 
 export interface TasteDataPoint {
     subject: string;
     A: number;
     fullMark: number;
+    metric?: string;
 }
 
 export interface VarietyDataPoint {
     name: string;
     value: number;
+    count?: number;
+    metric?: string;
 }
 
 export interface HealthInsightPoint {
     date: string;
     score: number;
+    metric?: string;
+    period?: string;
 }
 
-// ─── Meal API ─────────────────────────────────────────────────────────────────
+interface AuthResponse {
+    access_token: string;
+    token_type: string;
+    user: Record<string, unknown>;
+}
+
+interface AcceptedFeedback {
+    status: string;
+    event_id: number;
+    message: string;
+    model_updated: boolean;
+}
 
 export const mealApi = {
-    getMealPlan: (userId: string) =>
-        request<PlanResponse>(`/meals/plan/${userId}`, {
-            method: "GET",
-        }),
-
-    generatePlan: (profile: UserProfile) =>
+    getMealPlan: (userId: string) => request<PlanResponse>(`/meals/plan/${encodeURIComponent(userId)}`),
+    generatePlan: (profile?: UserProfile) =>
         request<PlanResponse>("/meals/generate", {
             method: "POST",
-            body: JSON.stringify(profile),
+            body: profile ? JSON.stringify(profile) : undefined,
         }),
-
     regenerateDay: (userId: string, dayIndex: number) =>
         request<DailyPlan>("/meals/regenerate_day", {
             method: "POST",
             body: JSON.stringify({ user_id: userId, day_index: dayIndex }),
         }),
-
     swapMeal: (userId: string, mealSlot: string) =>
         request<Recipe>("/meals/swap_meal", {
             method: "POST",
@@ -183,149 +211,121 @@ export const mealApi = {
         }),
 };
 
-// ─── Analytics API ────────────────────────────────────────────────────────────
-
 export const analyticsApi = {
     getHealthInsights: (userId: string, period = "30d") =>
-        request<HealthInsightPoint[]>(`/analytics/health/${userId}?period=${period}`),
-
+        request<HealthInsightPoint[]>(`/analytics/health/${encodeURIComponent(userId)}?period=${encodeURIComponent(period)}`),
     getTasteInsights: (userId: string) =>
-        request<TasteDataPoint[]>(`/analytics/taste/${userId}`),
-
+        request<TasteDataPoint[]>(`/analytics/taste/${encodeURIComponent(userId)}`),
     getVarietyInsights: (userId: string) =>
-        request<VarietyDataPoint[]>(`/analytics/variety/${userId}`),
-
+        request<VarietyDataPoint[]>(`/analytics/variety/${encodeURIComponent(userId)}`),
     predictHealth: (payload: Record<string, unknown>) =>
         request<HealthPrediction>("/analytics/predict_health", {
             method: "POST",
             body: JSON.stringify(payload),
         }),
-
     getInsights: (userId: string) =>
-        request<{ insight: string; category: string; priority: string }>(`/analytics/insights/${userId}`, {
-            method: "GET",
-        }),
+        request<{ insight: string; category: string; priority: string }>(
+            `/analytics/insights/${encodeURIComponent(userId)}`,
+        ),
 };
 
-// ─── User API ─────────────────────────────────────────────────────────────────
-
 export const userApi = {
-    getProfile: (userId: string) =>
-        request<UserProfile>(`/user/${userId}`),
-
+    getProfile: (userId: string) => request<UserProfile>(`/user/${encodeURIComponent(userId)}`),
     updateProfile: (userId: string, profile: UserProfile) =>
-        request<UserProfile>(`/user/${userId}`, {
+        request<UserProfile>(`/user/${encodeURIComponent(userId)}`, {
             method: "PUT",
             body: JSON.stringify(profile),
         }),
-
     addHealthCondition: (userId: string, condition: string) =>
         request<{ status: string; message: string; dataset_verified: boolean }>(
-            `/user/${userId}/health_condition`,
-            { method: "POST", body: JSON.stringify({ condition }) }
+            `/user/${encodeURIComponent(userId)}/health_condition`,
+            { method: "POST", body: JSON.stringify({ condition }) },
         ),
-
     addMedication: (userId: string, medication: string) =>
         request<{ status: string; message: string }>(
-            `/user/${userId}/medication`,
-            { method: "POST", body: JSON.stringify({ medication }) }
+            `/user/${encodeURIComponent(userId)}/medication`,
+            { method: "POST", body: JSON.stringify({ medication }) },
         ),
 };
-
-// ─── Auth API ─────────────────────────────────────────────────────────────────
 
 export const authApi = {
     login: (email: string, password: string) =>
-        request<{ access_token: string; token_type: string; user: Record<string, unknown> }>("/auth/login", {
+        request<AuthResponse>("/auth/login", {
             method: "POST",
             body: JSON.stringify({ email, password }),
         }),
-
     signup: (data: Record<string, unknown>) =>
-        request<{ access_token: string; token_type: string; user: Record<string, unknown> }>("/auth/signup", {
+        request<AuthResponse>("/auth/signup", {
             method: "POST",
             body: JSON.stringify(data),
         }),
+    me: () => request<{ id: string; email: string; name: string }>("/auth/me"),
 };
-
-// ─── Recipe API ───────────────────────────────────────────────────────────────
 
 export const recipeApi = {
     search: (q?: string, tags?: string, limit = 20) => {
-        const params = new URLSearchParams();
+        const params = new URLSearchParams({ limit: String(limit) });
         if (q) params.set("q", q);
         if (tags) params.set("tags", tags);
-        params.set("limit", String(limit));
-        return request<Record<string, unknown>[]>(`/recipes/search?${params}`);
+        return request<Recipe[]>(`/recipes/search?${params}`);
     },
-
-    getDetails: (recipeId: string) =>
-        request<Recipe>(`/recipes/${recipeId}`),
+    getDetails: (recipeId: string) => request<Recipe>(`/recipes/${encodeURIComponent(recipeId)}`),
 };
-
-// ─── Grocery API ──────────────────────────────────────────────────────────────
 
 export const groceryApi = {
     getShoppingList: (userId: string, daysAhead = 7) =>
-        request<ShoppingListResponse>(`/grocery/shopping_list/${userId}?days_ahead=${daysAhead}`),
-
+        request<ShoppingListResponse>(
+            `/grocery/shopping_list/${encodeURIComponent(userId)}?days_ahead=${daysAhead}`,
+        ),
     logPurchase: (userId: string, items: { item: string; quantity: number; price: number }[]) =>
-        request<{ status: string; message: string; total_items_tracked: number }>(
-            "/grocery/purchase",
-            { method: "POST", body: JSON.stringify({ user_id: userId, items }) }
-        ),
-
+        request<Record<string, unknown>>("/grocery/purchase", {
+            method: "POST",
+            body: JSON.stringify({ user_id: userId, items }),
+        }),
     logConsumption: (userId: string, item: string, quantity: number) =>
-        request<{ status: string; message: string; current_stock: number; consumption_rate: number }>(
-            "/grocery/consume",
-            { method: "POST", body: JSON.stringify({ user_id: userId, item, quantity }) }
-        ),
-
+        request<Record<string, unknown>>("/grocery/consume", {
+            method: "POST",
+            body: JSON.stringify({ user_id: userId, item, quantity }),
+        }),
     predictNextPurchase: (userId: string, item: string) =>
-        request<{ item: string; prediction: Record<string, unknown>; recommendation: string }>(
-            `/grocery/predict/${userId}/${encodeURIComponent(item)}`
+        request<Record<string, unknown>>(
+            `/grocery/predict/${encodeURIComponent(userId)}/${encodeURIComponent(item)}`,
         ),
 };
-
-// ─── Gamification API ─────────────────────────────────────────────────────────
 
 export const gamificationApi = {
     getAchievements: (userId: string) =>
         request<{ achievements: Record<string, unknown>[]; total_earned: number }>(
-            `/gamification/achievements/${userId}`
+            `/gamification/achievements/${encodeURIComponent(userId)}`,
         ),
-
     getLeaderboard: (type = "carbon_saved", period = "month", limit = 100) =>
         request<{ leaderboard: LeaderboardEntry[]; type: string; period: string }>(
-            `/gamification/leaderboard?leaderboard_type=${type}&period=${period}&limit=${limit}`
+            `/gamification/leaderboard?leaderboard_type=${encodeURIComponent(type)}&period=${encodeURIComponent(period)}&limit=${limit}`,
         ),
-
     getUserRank: (userId: string, type = "carbon_saved") =>
         request<Record<string, unknown>>(
-            `/gamification/rank/${userId}?leaderboard_type=${type}`
+            `/gamification/rank/${encodeURIComponent(userId)}?leaderboard_type=${encodeURIComponent(type)}`,
         ),
-
     getImpactSummary: (userId: string) =>
-        request<ImpactSummary>(`/gamification/impact_summary/${userId}`),
-
-    logMealImpact: (userId: string, data: { carbon_footprint: number; health_score: number; variety_score: number; taste_rating?: number }) =>
-        request<{ status: string; visual_impact: Record<string, unknown>; new_achievements: unknown[]; total_points: number }>(
-            "/gamification/log_meal",
-            { method: "POST", body: JSON.stringify({ user_id: userId, ...data }) }
-        ),
+        request<ImpactSummary>(`/gamification/impact_summary/${encodeURIComponent(userId)}`),
+    logMealImpact: (
+        userId: string,
+        data: { carbon_footprint: number; health_score: number; variety_score: number; taste_rating?: number },
+    ) =>
+        request<Record<string, unknown>>("/gamification/log_meal", {
+            method: "POST",
+            body: JSON.stringify({ user_id: userId, ...data }),
+        }),
 };
-
-// ─── Sustainability API ───────────────────────────────────────────────────────
 
 export const sustainabilityApi = {
     getData: (userId: string, period = "monthly") =>
-        request<SustainabilityData>(`/sustainability/${userId}?period=${period}`),
-
+        request<SustainabilityData>(
+            `/sustainability/${encodeURIComponent(userId)}?period=${encodeURIComponent(period)}`,
+        ),
     getCarbonFootprint: (userId: string) =>
-        request<CarbonBreakdown>(`/sustainability/carbon-footprint/${userId}`),
+        request<CarbonBreakdown>(`/sustainability/carbon-footprint/${encodeURIComponent(userId)}`),
 };
-
-// ─── Feedback / Online Learning API ───────────────────────────────────────────
 
 export const feedbackApi = {
     logTasteFeedback: (data: {
@@ -335,34 +335,32 @@ export const feedbackApi = {
         user_genome: number[];
         recipe_profile: number[];
     }) =>
-        request<{ status: string; message: string; current_buffer_size: number }>(
-            "/feedback/taste",
-            { method: "POST", body: JSON.stringify(data) }
-        ),
-
+        request<AcceptedFeedback>("/feedback/taste", {
+            method: "POST",
+            body: JSON.stringify(data),
+        }),
     logHealthOutcome: (data: {
         user_id: string;
         actual_weight: number;
         actual_hba1c?: number;
         actual_cholesterol?: number;
         meal_history: Record<string, unknown>[];
+        consent_to_store: boolean;
     }) =>
-        request<{ status: string; message: string; current_buffer_size: number }>(
-            "/feedback/health",
-            { method: "POST", body: JSON.stringify(data) }
-        ),
-
+        request<AcceptedFeedback>("/feedback/health", {
+            method: "POST",
+            body: JSON.stringify(data),
+        }),
     logMealSelection: (data: {
         user_id: string;
         state: number[];
         selected_recipe_id: number;
         reward: number;
     }) =>
-        request<{ status: string; message: string }>(
-            "/feedback/meal_selection",
-            { method: "POST", body: JSON.stringify(data) }
-        ),
-
+        request<AcceptedFeedback>("/feedback/meal_selection", {
+            method: "POST",
+            body: JSON.stringify(data),
+        }),
     getModelStats: (modelName: string) =>
-        request<Record<string, unknown>>(`/models/stats/${modelName}`),
+        request<Record<string, unknown>>(`/models/stats/${encodeURIComponent(modelName)}`),
 };
