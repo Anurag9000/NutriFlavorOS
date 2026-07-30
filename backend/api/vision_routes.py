@@ -1,34 +1,33 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException
-from typing import Dict, Any
-import io
-from PIL import Image
-from backend.ml.recipe_vision import get_vision_analyzer
+"""Food-image analysis endpoint.
+
+The repository does not contain a validated food-recognition checkpoint. The
+previous route returned random classification and nutrient heads from an
+ImageNet backbone. It is intentionally disabled rather than emitting plausible
+but unsupported nutrition results.
+"""
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+
+from backend.database import DBUser
+from backend.utils.security import get_current_user
+
 
 router = APIRouter(prefix="/api/v1/vision", tags=["vision"])
 
+
 @router.post("/analyze")
-async def analyze_food_image(image: UploadFile = File(...)):
-    """
-    Analyze food image using real ResNet50-based computer vision
-    """
-    if not image.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File provided is not an image.")
-    
-    try:
-        # Read image bytes
-        contents = await image.read()
-        pil_image = Image.open(io.BytesIO(contents))
-        
-        # Get analyzer singleton
-        analyzer = get_vision_analyzer()
-        
-        # Perform analysis
-        results = analyzer.analyze_pil_image(pil_image)
-        
-        return {
-            "success": True,
-            "data": results,
-            "filename": image.filename
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Vision analysis failed: {str(e)}")
+async def analyze_food_image(
+    image: UploadFile = File(...),
+    _: DBUser = Depends(get_current_user),
+):
+    if not image.content_type or not image.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File provided is not an image")
+
+    contents = await image.read(5 * 1024 * 1024 + 1)
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image exceeds the 5 MB limit")
+
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Food-image analysis is disabled until a validated checkpoint and calibration report are available",
+    )
