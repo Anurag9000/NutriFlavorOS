@@ -2,8 +2,29 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.venv/
 venv/
 .env
+.env.*
+!.env.example
+
+# Runtime databases and user-owned data
+*.db
+*.sqlite
+*.sqlite3
+user_db.json
+meal_plans.json
+backend/user_db.json
+backend/meal_plans.json
+
+# Generated model artifacts and experiment outputs
+backend/ml/weights/*.pt
+backend/ml/weights/*.pth
+backend/ml/models/
+checkpoints/
+runs/
+mlruns/
+reports/generated/
 
 # Node
 node_modules/
@@ -14,8 +35,17 @@ dist/
 .vscode/
 .idea/
 
-# Testing
+# Testing and coverage
 .pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.vitest/
 test_output.txt
 test_results.txt
 test_log.txt
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
