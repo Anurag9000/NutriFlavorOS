@@ -1,128 +1,114 @@
-from fastapi import APIRouter, HTTPException, Body
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from backend.database import DBUser, get_db
+from backend.engines.health_engine import HealthEngine
 from backend.models import UserProfile
 from backend.services.dietrxdb_service import DietRxDBService
-from backend.engines.health_engine import HealthEngine
-from typing import List, Dict
-import json
-import os
+from backend.utils.security import get_current_user, require_self
+from backend.utils.user_profiles import apply_profile, db_user_to_profile
+
 
 router = APIRouter(prefix="/api/v1/user", tags=["user"])
-
-# Initialize Service
 dietrx_service = DietRxDBService()
 health_engine = HealthEngine()
 
-# Persistence File
-USER_DB_FILE = "user_db.json"
 
-def load_users():
-    if os.path.exists(USER_DB_FILE):
-        try:
-            with open(USER_DB_FILE, 'r') as f:
-                return json.load(f)
-        except:
-            return {}
-    return {}
+class HealthConditionPayload(BaseModel):
+    condition: str = Field(min_length=1, max_length=160)
 
-def save_users(users):
-    with open(USER_DB_FILE, 'w') as f:
-        json.dump(users, f, indent=2)
 
-# Load users on startup
-users_db = load_users()
+class MedicationPayload(BaseModel):
+    medication: str = Field(min_length=1, max_length=160)
+
+
+def _clean_label(value: str) -> str:
+    cleaned = " ".join(value.strip().split())
+    if not cleaned:
+        raise HTTPException(status_code=422, detail="A non-empty value is required")
+    return cleaned
+
 
 @router.get("/{user_id}", response_model=UserProfile)
-async def get_user_profile(user_id: str):
-    """
-    Get a user's profile with persistence
-    """
-    if user_id not in users_db:
-        # Create default profile if new user
-        default_profile = {
-            "name": "New User",
-            "age": 30,
-            "weight_kg": 70.0,
-            "height_cm": 170.0,
-            "gender": "male",
-            "activity_level": 1.4,
-            "goal": "maintenance",
-            "dietary_restrictions": [],
-            "health_conditions": [],
-            "medications": []
-        }
-        users_db[user_id] = default_profile
-        save_users(users_db)
-        
-    return users_db[user_id]
+def get_user_profile(
+    user_id: str,
+    current_user: DBUser = Depends(get_current_user),
+) -> UserProfile:
+    require_self(user_id, current_user)
+    return db_user_to_profile(current_user)
+
 
 @router.put("/{user_id}", response_model=UserProfile)
-async def update_user_profile(user_id: str, profile: UserProfile):
-    """
-    Update a user's profile and initialize defaults if needed
-    """
-    # If targets are not set, initialize them automatically from health engine
+def update_user_profile(
+    user_id: str,
+    profile: UserProfile,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+) -> UserProfile:
+    require_self(user_id, current_user)
+
     if profile.target_calories is None:
         targets = health_engine.calculate_targets(profile)
         profile.target_calories = targets.calories
         profile.target_protein_g = targets.protein_g
         profile.target_carbs_g = targets.carbs_g
         profile.target_fat_g = targets.fat_g
-        
-    users_db[user_id] = profile.model_dump()
-    save_users(users_db)
-    return profile
+
+    apply_profile(current_user, profile)
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
+    return db_user_to_profile(current_user)
+
 
 @router.post("/{user_id}/health_condition")
-async def add_health_condition(user_id: str, payload: Dict = Body(...)):
-    """
-    Add a health condition and validate with DietRxDB
-    """
-    condition = payload.get("condition")
-    if not condition:
-        raise HTTPException(status_code=400, detail="Condition required")
-        
-    # Validation with DietRxDB
-    # We check if the disease exists in the database
-    # This ensures we have data for it later
+def add_health_condition(
+    user_id: str,
+    payload: HealthConditionPayload,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    require_self(user_id, current_user)
+    condition = _clean_label(payload.condition)
+
     try:
         disease_info = dietrx_service.get_disease_info(condition)
-        is_known = "name" in disease_info or len(disease_info) > 0
-    except:
-        is_known = False
-        
-    # Update profile
-    user_profile = users_db.get(user_id, {})
-    current_conditions = user_profile.get("health_conditions", [])
-    
-    if condition not in current_conditions:
-        current_conditions.append(condition)
-        user_profile["health_conditions"] = current_conditions
-        users_db[user_id] = user_profile
-        save_users(users_db)
-        
+        reference_data_found = bool(disease_info)
+    except Exception:
+        reference_data_found = False
+
+    conditions = list(current_user.health_conditions or [])
+    if condition not in conditions:
+        conditions.append(condition)
+        current_user.health_conditions = conditions
+        db.add(current_user)
+        db.commit()
+
     return {
-        "status": "success", 
+        "status": "success",
         "message": f"Added condition: {condition}",
-        "dataset_verified": is_known
+        "dataset_verified": reference_data_found,
     }
 
+
 @router.post("/{user_id}/medication")
-async def add_medication(user_id: str, payload: Dict = Body(...)):
-    """
-    Add a medication
-    """
-    medication = payload.get("medication")
-    if not medication:
-        raise HTTPException(status_code=400, detail="Medication required")
-        
-    # Update profile
-    user_profile = users_db.get(user_id, {})
-    current_meds = user_profile.get("medications", [])
-    
-    if medication not in current_meds:
-        current_meds.append(medication)
-        user_profile["medications"] = current_meds
-        users_db[user_id] = user_profile
-        save_users(users_db)
-        
+def add_medication(
+    user_id: str,
+    payload: MedicationPayload,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    require_self(user_id, current_user)
+    medication = _clean_label(payload.medication)
+
+    medications = list(current_user.medications or [])
+    if medication not in medications:
+        medications.append(medication)
+        current_user.medications = medications
+        db.add(current_user)
+        db.commit()
+
     return {"status": "success", "message": f"Added medication: {medication}"}
