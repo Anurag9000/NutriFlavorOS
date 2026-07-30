@@ -1,42 +1,36 @@
-# Multistage Dockerfile for NutriFlavorOS
-# Combined Backend (FastAPI) and Frontend (React)
-
-# --- Stage 1: Build Frontend ---
-FROM node:18-alpine AS frontend-builder
+# Build the React application.
+FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm install
+RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-# --- Stage 2: Final Image ---
-FROM python:3.10-slim
+# Run the FastAPI application and serve the built SPA from the same origin.
+FROM python:3.11-slim AS runtime
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PORT=8000
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libpq-dev \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy backend requirements and install
-COPY backend/requirements.txt ./backend/
+COPY backend/requirements.txt ./backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
-# Copy backend source
 COPY backend/ ./backend/
 COPY scripts/ ./scripts/
-
-# Copy built frontend from Stage 1
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV PORT=8000
-ENV MOCK_MODE=false
+RUN addgroup --system app \
+    && adduser --system --ingroup app app \
+    && chown -R app:app /app
+USER app
 
-# Expose port
 EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
 
-# Start command (runs FastAPI)
-CMD ["python", "-m", "backend.main"]
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
