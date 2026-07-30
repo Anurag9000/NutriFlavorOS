@@ -1,404 +1,122 @@
+"""Shared client for optional upstream data services.
+
+The old client blocked async request handlers, kept an unbounded process-local
+cache, and silently substituted generated fixtures whenever a live call failed.
+This implementation keeps the existing synchronous service interface for
+compatibility but makes provenance and failure explicit. Callers should move
+network work to an async adapter or thread pool in a later API refactor.
 """
-Base API Service with caching, retry logic, and error handling
-"""
+
+from __future__ import annotations
+
+import threading
 import time
+from collections import OrderedDict, deque
+from typing import Any, Dict, Optional
+
 import requests
-import os
-import json
-from typing import Dict, Any, Optional
+
 from backend.config import APIConfig
 
 
+class ExternalServiceError(RuntimeError):
+    """An optional upstream service could not return a validated response."""
+
+
 class BaseAPIService:
-    """Base class for all API services with common functionality"""
+    """Bounded, thread-safe synchronous HTTP adapter with explicit failures."""
 
     def __init__(self, base_url: str, api_key: Optional[str] = None):
-        self.base_url = base_url.rstrip('/')
+        if not base_url or not base_url.strip():
+            raise ValueError("base_url is required")
+        self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.session = requests.Session()
-        self._cache: Dict[str, tuple[Any, float]] = {}
-        self._request_times: list[float] = []
+        self._cache: OrderedDict[str, tuple[Any, float]] = OrderedDict()
+        self._request_times: deque[float] = deque()
+        self._lock = threading.RLock()
 
-    def _check_rate_limit(self):
-        """Ensure we don't exceed rate limits"""
-        now = time.time()
-        # Remove requests older than 1 minute
-        self._request_times = [t for t in self._request_times if now - t < 60]
-
-        if len(self._request_times) >= APIConfig.MAX_REQUESTS_PER_MINUTE:
-            sleep_time = 60 - (now - self._request_times[0])
-            if sleep_time > 0:
-                time.sleep(sleep_time)
-                self._request_times = []
-
-        self._request_times.append(now)
+    def _check_rate_limit(self) -> None:
+        while True:
+            with self._lock:
+                now = time.monotonic()
+                while self._request_times and now - self._request_times[0] >= 60:
+                    self._request_times.popleft()
+                if len(self._request_times) < APIConfig.MAX_REQUESTS_PER_MINUTE:
+                    self._request_times.append(now)
+                    return
+                sleep_for = max(0.01, 60 - (now - self._request_times[0]))
+            time.sleep(sleep_for)
 
     def _get_from_cache(self, key: str) -> Optional[Any]:
-        """Get value from cache if not expired"""
         if not APIConfig.CACHE_ENABLED:
             return None
-
-        if key in self._cache:
-            value, timestamp = self._cache[key]
-            if time.time() - timestamp < APIConfig.CACHE_TTL:
-                return value
-            else:
+        with self._lock:
+            cached = self._cache.get(key)
+            if cached is None:
+                return None
+            value, timestamp = cached
+            if time.monotonic() - timestamp >= APIConfig.CACHE_TTL:
                 del self._cache[key]
-        return None
+                return None
+            self._cache.move_to_end(key)
+            return value
 
-    def _set_cache(self, key: str, value: Any):
-        """Set value in cache"""
-        if APIConfig.CACHE_ENABLED:
-            self._cache[key] = (value, time.time())
+    def _set_cache(self, key: str, value: Any) -> None:
+        if not APIConfig.CACHE_ENABLED:
+            return
+        with self._lock:
+            self._cache[key] = (value, time.monotonic())
+            self._cache.move_to_end(key)
+            while len(self._cache) > APIConfig.CACHE_MAX_ENTRIES:
+                self._cache.popitem(last=False)
 
-    def _make_request(self, endpoint: str, method: str = "GET",
-                      params: Optional[Dict] = None,
-                      data: Optional[Dict] = None) -> Any:
-        """Make HTTP request with retry logic and FALLBACK to local data"""
+    def _make_request(
+        self,
+        endpoint: str,
+        method: str = "GET",
+        params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        """Return a live JSON response or raise ``ExternalServiceError``."""
 
-        # Check Mock Mode
         if APIConfig.MOCK_MODE:
-            return self._get_mock_response(endpoint, params)
+            raise ExternalServiceError(
+                "Legacy mock service data is disabled; inject an explicit test fixture instead"
+            )
 
+        normalized_method = method.upper()
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
-
-        # Check cache for GET requests
-        if method == "GET":
-            cache_key = f"{url}:{str(params)}"
+        cache_key = f"{normalized_method}:{url}:{sorted((params or {}).items())}"
+        if normalized_method == "GET":
             cached = self._get_from_cache(cache_key)
             if cached is not None:
                 return cached
 
-        # Try Live Request
-        try:
-            # Rate limiting
+        headers = {"Accept": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        last_error: Optional[Exception] = None
+        for attempt in range(APIConfig.MAX_RETRIES):
             self._check_rate_limit()
+            try:
+                response = self.session.request(
+                    method=normalized_method,
+                    url=url,
+                    params=params,
+                    json=data,
+                    headers=headers,
+                    timeout=APIConfig.REQUEST_TIMEOUT_SECONDS,
+                )
+                response.raise_for_status()
+                result = response.json()
+                if normalized_method == "GET":
+                    self._set_cache(cache_key, result)
+                return result
+            except (requests.RequestException, ValueError) as exc:
+                last_error = exc
+                if attempt + 1 < APIConfig.MAX_RETRIES:
+                    time.sleep(APIConfig.RETRY_BACKOFF_FACTOR * (2**attempt))
 
-            # Add API key if available
-            headers = {}
-            if self.api_key:
-                headers['Authorization'] = f'Bearer {self.api_key}'
-
-            # Retry logic
-            for attempt in range(APIConfig.MAX_RETRIES):
-                try:
-                    response = self.session.request(
-                        method=method,
-                        url=url,
-                        params=params,
-                        json=data,
-                        headers=headers,
-                        timeout=10  # Reduced timeout for faster fallback
-                    )
-                    response.raise_for_status()
-                    result = response.json()
-
-                    # Cache successful GET requests
-                    if method == "GET":
-                        self._set_cache(cache_key, result)
-
-                    return result
-
-                except requests.exceptions.RequestException as e:
-                    if attempt == APIConfig.MAX_RETRIES - 1:
-                        raise e
-
-                    # Exponential backoff
-                    sleep_time = APIConfig.RETRY_BACKOFF_FACTOR * (2 ** attempt)
-                    time.sleep(sleep_time)
-
-        except Exception as e:
-            # FAILURE - Activate Fallback
-            print(f"⚠️  API CONNECTION FAILED for {url}")
-            print(f"⚠️  Error: {e}")
-            print("🔄 REVERTING TO LOCAL DEMO DATABASE...")
-            return self._get_mock_response(endpoint, params)
-
-        return None
-
-    def _get_mock_response(self, endpoint: str, params: Optional[Dict] = None) -> Any:
-        """
-        Generate mock response from local JSON files
-        """
-        # Determine which DB to load based on the service class or endpoint
-        # This is a heuristic based on the URL structure or endpoint name
-
-        data = []
-        if params is None:
-            params = {}
-
-        try:
-            if "recipe" in self.base_url or "recipes" in endpoint:
-                with open(APIConfig.MOCK_RECIPES_FILE, 'r') as f:
-                    data = json.load(f)
-
-                # Handle specific recipe endpoints
-                # Case-insensitive check and support both camelCase and kebab-case
-                endpoint_lower = endpoint.lower()
-                if any(x in endpoint_lower for x in ["recipesinfo", "nutritioninfo", "micronutritioninfo"]):
-                    # Support both 'id' and 'recipe_id' parameters
-                    recipe_id = params.get("id") or params.get("recipe_id")
-                    matched_recipe = None
-                    for r in data:
-                        # Match by Recipe_id or id
-                        if str(r.get("Recipe_id")) == str(recipe_id) or str(r.get("id")) == str(recipe_id):
-                            matched_recipe = r
-                            break
-
-                    # Fallback: check meal_plans.json if not found
-                    if not matched_recipe:
-                        try:
-                            # Search in the root meal_plans.json
-                            plans_path = os.path.join(os.getcwd(), "meal_plans.json")
-                            if os.path.exists(plans_path):
-                                with open(plans_path, 'r') as f:
-                                    plans_data = json.load(f)
-
-                                    # Recursively search for meals
-                                    def find_recipe(obj, rid):
-                                        if isinstance(obj, dict):
-                                            if obj.get("id") == str(rid):
-                                                return obj
-                                            for v in obj.values():
-                                                res = find_recipe(v, rid)
-                                                if res:
-                                                    return res
-                                        elif isinstance(obj, list):
-                                            for item in obj:
-                                                res = find_recipe(item, rid)
-                                                if res:
-                                                    return res
-                                        return None
-
-                                    matched_recipe = find_recipe(plans_data, recipe_id)
-                        except Exception as e:
-                            print(f"Error searching meal_plans.json: {e}")
-
-                    if matched_recipe:
-                        if "recipesinfo" in endpoint_lower:
-                            # Map back to expected fields if needed
-                            # Handle different key names between recipes.json and meal_plans.json
-                            title = matched_recipe.get("Recipe_title") or matched_recipe.get("name")
-
-                            # Extract calories from Energy (kcal) if Calories (per serving) is zero
-                            calories = int(float(matched_recipe.get("Calories", matched_recipe.get("calories", 0))))
-                            if calories == 0:
-                                calories = int(float(matched_recipe.get("Energy (kcal)", 0)) /
-                                               int(float(matched_recipe.get("servings", 1))))
-
-                            return {
-                                "id": matched_recipe.get("Recipe_id") or matched_recipe.get("id"),
-                                "title": title,
-                                "calories": calories,
-                                "servings": int(float(matched_recipe.get("servings", 1))),
-                                "readyInMinutes": int(float(matched_recipe.get("total_time",
-                                                                               matched_recipe.get("readyInMinutes",
-                                                                                                  30)))),
-                                "healthScore": int(float(matched_recipe.get("health_score",
-                                                                            matched_recipe.get("healthScore", 75)))),
-                                "instructions": matched_recipe.get("instructions") if isinstance(
-                                    matched_recipe.get("instructions"), list) else matched_recipe.get(
-                                        "Processes", "").split("||"),
-                                "ingredients": matched_recipe.get("ingredients", []),
-                                "image": matched_recipe.get("image") or matched_recipe.get("img_url") or \
-                                    matched_recipe.get("image_url") or \
-                                    "https://images.unsplash.com/photo-1547523199-a223a5cf0003?auto=format&fit=crop&w=800&q=80",
-                                "description": matched_recipe.get("description", matched_recipe.get("Region", "")),
-                                "summary": matched_recipe.get("summary", matched_recipe.get("Region", "")),
-                                "cuisines": [matched_recipe.get("cuisine", matched_recipe.get("Region", "Unknown"))],
-                                "macros": matched_recipe.get("macros", {})
-                            }
-                        if "nutritioninfo" in endpoint_lower:
-                            return matched_recipe.get("nutrition", matched_recipe.get("macros", {}))
-                        if "micronutritioninfo" in endpoint_lower:
-                            return matched_recipe.get("micronutrients", {})
-
-                    return {}
-
-                if endpoint.startswith("instructions/"):
-                    recipe_id = endpoint.split("/")[-1]
-                    for r in data:
-                        if str(r.get("id")) == str(recipe_id):
-                            return {"instructions": r.get("instructions", [])}
-                    return {"instructions": []}
-
-                # --- Recipe Search & Filtering ---
-                filtered = data
-
-                # handle recipes_cuisine/cuisine/{cuisine}
-                if "recipes_cuisine/cuisine/" in endpoint:
-                    cuisine_filter = endpoint.split("/")[-1].lower()
-                    filtered = [r for r in filtered if cuisine_filter in [c.lower() for c in r.get("cuisines", [])]]
-
-                # handle recipes-method/{method}
-                elif "recipes-method/" in endpoint:
-                    method_filter = endpoint.split("/")[-1].lower()
-                    # Mock check: search instructions for method name
-                    filtered = [r for r in filtered if any(
-                        method_filter in step.lower() for step in r.get("instructions", []))]
-
-                # handle recipe-diet (params: diet)
-                elif "recipe-diet" in endpoint:
-                    if params and "diet" in params:
-                        diet_filter = params["diet"].lower()
-                        filtered = [r for r in filtered if diet_filter in [d.lower() for d in r.get("diets", [])]]
-
-                # handle generic filters via params
-                if params:
-                    if "query" in params or "title" in params:  # recipeByTitle matches here
-                        q = params.get("query", params.get("title", "")).lower()
-                        filtered = [r for r in filtered if q in r.get("title", "").lower()]
-
-                    if "min" in params and "max" in params:
-                        # Calories, Protein, Carbs, Weight ranges
-                        # Heuristic: Identify what we are filtering by endpoint name
-                        try:
-                            val_min = float(params["min"])
-                            val_max = float(params["max"])
-
-                            if "calories" in endpoint:
-                                filtered = [r for r in filtered if val_min <= r["nutrition"]["calories"] <= val_max]
-                            elif "protein" in endpoint:
-                                filtered = [r for r in filtered if val_min <= int(
-                                    r["nutrition"]["protein"].replace('g', '')) <= val_max]
-                            elif "carbs" in endpoint:
-                                filtered = [r for r in filtered if val_min <= int(
-                                    r["nutrition"]["carbohydrates"].replace('g', '')) <= val_max]
-                        except Exception:
-                            pass
-
-                    if "day" in params:  # recipesDay
-                        # Return random subset for variety
-                        pass
-
-                    if "utensils" in params:  # bydetails/utensils
-                        pass
-
-                # Default list return with limit
-                limit = int(params.get("limit", 50))
-                # Only return {} if a specific ID was requested but not found
-                # If it's a search (no recipe_id or empty), return the list
-                if any(x in endpoint_lower for x in ["recipesinfo", "nutritioninfo", "micronutritioninfo"]):
-                    if params.get("id") or params.get("recipe_id"):
-                        return {}
-                return filtered[:limit]
-
-            elif "flavor" in self.base_url or "flavor" in endpoint.lower():
-                with open(APIConfig.MOCK_FLAVOR_DB_FILE, 'r') as f:
-                    data = json.load(f)
-
-                # Direct Ingredient Lookups
-                ingredient = params.get("ingredient")
-                if ingredient and ingredient in data:
-                    item = data[ingredient]
-                    mol = item.get("molecular_properties", {})
-
-                    if "flavorProfile" in endpoint:
-                        return item
-                    if "functionalGroups" in endpoint:
-                        return {"functional_groups": item.get("functional_groups", [])}
-                    if "aromaThreshold" in endpoint:
-                        return {"threshold": item.get("aroma_threshold", 1.0)}
-                    if "taste-threshold" in endpoint:
-                        return {"threshold": item.get("taste_threshold", 1.0)}
-                    if "by-description" in endpoint:
-                        return item.get("molecular_properties", {})
-
-                    # Molecular properties specific endpoints
-                    if "aromaticRings" in endpoint:
-                        return {"aromatic_rings": 2}  # Mock
-                    if "monoisotopicMass" in endpoint:
-                        return {"mass": mol.get("weight", 0.0)}
-                    if "alogp" in endpoint:
-                        return {"alogp": mol.get("alogp", 0.0)}
-                    if "topologicalPolarSurfaceArea" in endpoint:
-                        return {"psa": 45.0}  # Mock
-                    if "hbd-count" in endpoint:
-                        return {"hbd_count": mol.get("hbd_count", 0)}
-                    if "hba-count" in endpoint:
-                        return {"hba_count": mol.get("hba_count", 0)}
-
-                    # Safety & Occurrence
-                    if "by-fema" in endpoint:
-                        return {"approved": item["safety_approvals"]["fema"]}
-                    if "by-jecfa" in endpoint:
-                        return {"approved": item["safety_approvals"]["jecfa"]}
-                    if "by-efsa" in endpoint:
-                        return {"approved": item["safety_approvals"]["efsa"]}
-                    if "by-naturalOccurrence" in endpoint:
-                        return {"natural": item["natural_occurrence"]}
-
-                # Search & Filtering
-                if "by-commonName" in endpoint:
-                    name = params.get("name", "").lower()
-                    for k, v in data.items():
-                        if name in k.lower():
-                            return v
-                    return {}
-
-                if "by-name-and-category" in endpoint:
-                    cat = params.get("category", "")
-                    return [v for v in data.values() if v.get("category") == cat]
-
-                if "filter-by-weight-range" in endpoint:
-                    min_w = float(params.get("min", 0))
-                    max_w = float(params.get("max", 1000))
-                    return [v for v in data.values() if min_w <= v["molecular_properties"].get("weight", 0) <= max_w]
-
-                if endpoint == "synthesis":
-                    # Mock synthesis
-                    return {"pairing_score": 0.85, "molecules": ["mock_mol_1", "mock_mol_2"]}
-
-                return {}
-
-            elif "dietrx" in self.base_url:
-                with open(APIConfig.MOCK_DIET_RX_FILE, 'r') as f:
-                    db = json.load(f)
-
-                if endpoint.startswith("disease/"):
-                    disease = endpoint.split("/")[-1]
-                    return db["diseases"].get(disease, {})
-
-                if endpoint.startswith("food-interactions/"):
-                    food = endpoint.split("/")[-1]
-                    return db["interactions"].get(food, [])
-
-                return {}
-
-            elif "sustainable" in self.base_url:
-                with open(APIConfig.MOCK_SUSTAINABLE_DB_FILE, 'r') as f:
-                    data = json.load(f)
-
-                if endpoint == "search":
-                    q = params.get("q", "").lower()
-                    return [{"name": k, **v} for k, v in data.items() if q in k.lower()]
-
-                if endpoint == "ingredient-cf":
-                    ing = params.get("ingredient")
-                    item = data.get(ing, {"carbon_footprint_kg": 0.5})
-                    # Service expects "carbon_footprint"
-                    return {"carbon_footprint": item.get("carbon_footprint_kg", 0.5)}
-
-                if endpoint.endswith("/carbon-footprint-name"):
-                    # {food_name}/carbon-footprint-name
-                    food_name = endpoint.split("/")[0]
-                    item = data.get(food_name, {"carbon_footprint_kg": 0.5})
-                    return {"carbon_footprint": item.get("carbon_footprint_kg", 0.5)}
-
-                if endpoint == "carbon-footprint-sum":
-                    ings = params.get("ingredients", "").split(",")
-                    # Sum up carbon_footprint_kg
-                    total = sum([data.get(i.strip(), {}).get("carbon_footprint_kg", 0.5) for i in ings])
-                    return {"total_carbon": total}
-
-                if endpoint.startswith("recipe/"):
-                    # Mock recipe footprint based on average
-                    return {"carbon_footprint": 2.5, "rating": "Good"}
-
-                return []
-
-        except Exception as e:
-            print(f"Mock Data Error for {endpoint}: {e}")
-            return {}
-
-        return {}
+        raise ExternalServiceError(f"External service request failed for {endpoint}") from last_error
