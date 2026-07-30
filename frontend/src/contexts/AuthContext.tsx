@@ -1,6 +1,5 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { userApi, authApi, UserProfile } from "@/lib/api";
+import React, { createContext, useCallback, useContext, useState } from "react";
+import { authApi } from "@/lib/api";
 
 interface User {
   id: string;
@@ -17,86 +16,93 @@ interface AuthContextType {
   logout: () => void;
 }
 
+const TOKEN_KEY = "nutriflavor_token";
+const USER_KEY = "nfos_user";
+const LEGACY_TOKEN_KEY = "nfos_token";
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const MOCK_USER: User = {
-  id: "usr_1",
-  name: "Alex Chen",
-  email: "alex@nutriflavoros.com",
-};
+function parseStoredUser(): User | null {
+  const token = localStorage.getItem(TOKEN_KEY);
+  const rawUser = localStorage.getItem(USER_KEY);
+  if (!token || !rawUser) return null;
+
+  try {
+    const parsed = JSON.parse(rawUser) as Partial<User>;
+    if (
+      typeof parsed.id !== "string" ||
+      typeof parsed.email !== "string" ||
+      typeof parsed.name !== "string"
+    ) {
+      throw new Error("Invalid stored session");
+    }
+    return parsed as User;
+  } catch {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    return null;
+  }
+}
+
+function parseApiUser(raw: Record<string, unknown>): User {
+  const id = typeof raw.id === "string" ? raw.id : null;
+  const email = typeof raw.email === "string" ? raw.email : null;
+  const name = typeof raw.name === "string" && raw.name.trim() ? raw.name : "User";
+  if (!id || !email) throw new Error("Authentication response did not contain a valid user");
+
+  return {
+    id,
+    email,
+    name,
+    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(id)}`,
+  };
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    const stored = localStorage.getItem("nfos_user");
-    return stored ? JSON.parse(stored) : null;
-  });
+  const [user, setUser] = useState<User | null>(parseStoredUser);
 
-  const login = useCallback(async (email: string, password: string) => {
-    try {
-      const response = await authApi.login(email, password);
-
-      if (response && response.user) {
-        const user: User = {
-          id: response.user.id,
-          name: response.user.name || "User",
-          email: response.user.email,
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${response.user.id}`
-        };
-
-        // Store session
-        localStorage.setItem("nfos_token", response.access_token);
-        localStorage.setItem("nfos_user", JSON.stringify(user));
-        setUser(user);
-      }
-    } catch (error) {
-      console.error("Login failed:", error);
-      throw error;
-    }
+  const persistSession = useCallback((accessToken: string, nextUser: User) => {
+    localStorage.setItem(TOKEN_KEY, accessToken);
+    localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
+    setUser(nextUser);
   }, []);
 
-  const signup = useCallback(async (name: string, email: string, password: string) => {
-    try {
-      // Basic profile data for signup
-      const signupData = {
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const response = await authApi.login(email, password);
+      persistSession(response.access_token, parseApiUser(response.user));
+    },
+    [persistSession],
+  );
+
+  const signup = useCallback(
+    async (name: string, email: string, password: string) => {
+      const response = await authApi.signup({
         name,
         email,
         password,
-        age: 30, // Default
-        weight_kg: 70, // Default
-        height_cm: 170, // Default
-        gender: "other", // Default
-        goal: "maintenance", // Default
-        activity_level: 1.4 // Default
-      };
-
-      const response = await authApi.signup(signupData);
-
-      if (response && response.user) {
-        const newUser: User = {
-          id: response.user.id,
-          name: response.user.name,
-          email: response.user.email,
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${response.user.id}`
-        };
-
-        localStorage.setItem("nfos_token", response.access_token);
-        localStorage.setItem("nfos_user", JSON.stringify(newUser));
-        setUser(newUser);
-      }
-    } catch (error) {
-      console.error("Signup failed:", error);
-      throw error;
-    }
-  }, []);
+        age: 30,
+        weight_kg: 70,
+        height_cm: 170,
+        gender: "other",
+        goal: "maintenance",
+        activity_level: 1.4,
+      });
+      persistSession(response.access_token, parseApiUser(response.user));
+    },
+    [persistSession],
+  );
 
   const logout = useCallback(() => {
-    localStorage.removeItem("nfos_user");
-    localStorage.removeItem("nfos_token");
+    localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
     setUser(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: Boolean(user), login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -104,7 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
+  return context;
 };
