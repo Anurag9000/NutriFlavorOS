@@ -1,96 +1,76 @@
-from fastapi import APIRouter, HTTPException, Query
-from typing import List, Optional, Dict
+"""Recipe retrieval from the canonical local SQLAlchemy store."""
+
+from __future__ import annotations
+
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
+
+from backend.database import DBRecipe, get_db
 from backend.models import Recipe
-from backend.services.recipedb_service import RecipeDBService
+
 
 router = APIRouter(prefix="/api/v1/recipes", tags=["recipes"])
 
-# Initialize Service
-recipe_service = RecipeDBService()
 
-@router.get("/search", response_model=List[Dict])
-async def search_recipes(
-    q: Optional[str] = None, 
-    tags: Optional[str] = None,
-    limit: int = 20
-):
-    """
-    Search recipes using RecipeDB service
-    """
-    try:
-        if not q and not tags:
-            # Default to some popular recipes if no query
-            return recipe_service.search_by_calories(300, 600, limit=limit)
-            
-        if q:
-            # Search by title
-            results = recipe_service.search_by_title(q)
-            # Filter by tags if provided (client-side filtering as DB might not support complex AND)
-            if tags:
-                tag_list = [t.lower() for t in tags.split(",")]
-                # This depends on response structure, assuming 'tags' or 'category' field exists
-                # For now, we return direct results to ensure data flow
-            return results[:limit]
-            
-        if tags:
-            # If only tags provided, maybe search by category or key ingredient
-            # Mapping common tags to service methods
-            tag_list = tags.lower().split(",")
-            if "low-carb" in tag_list:
-                return recipe_service.search_by_carbs(0, 20, limit=limit)
-            elif "high-protein" in tag_list:
-                return recipe_service.search_by_protein(30, 100, limit=limit)
-            elif "vegetarian" in tag_list:
-                 return recipe_service.get_diet_specific_recipes("High Protein Vegetarian", limit=limit)
-            else:
-                # Fallback to general search with first tag
-                return recipe_service.search_by_title(tag_list[0])
-                
-        return []
-    except Exception as e:
-        print(f"Recipe Search Error: {e}")
-        # Fallback to empty list or mock if service fails (graceful degradation)
-        return []
+def _to_recipe(row: DBRecipe) -> Recipe:
+    return Recipe(
+        id=row.id,
+        name=row.name or "Unnamed recipe",
+        description=row.description or "",
+        image_url=row.image_url,
+        ingredients=list(row.ingredients or []),
+        calories=max(0, int(row.calories or 0)),
+        macros=dict(row.macros or {}),
+        flavor_profile=dict(row.flavor_profile or {}),
+        tags=list(row.tags or []),
+        cuisine=row.cuisine,
+        instructions=list(row.instructions or []),
+        estimated_cost=max(0.0, float(row.estimated_cost or 0.0)),
+    )
 
-@router.get("/{recipe_id}")
-async def get_recipe_details(recipe_id: str):
-    """
-    Get detailed recipe info including nutrition and instructions
-    """
-    try:
-        # Fetch data in parallel conceptually (or sequential for now)
-        info = recipe_service.get_recipe_info(recipe_id)
-        
-        if not info:
-             raise HTTPException(status_code=404, detail="Recipe not found")
 
-        nutrition = recipe_service.get_nutrition_info(recipe_id)
-        micronutrition = recipe_service.get_micronutrition_info(recipe_id)
-        
-        # Merge nutrition and micronutrition
-        full_nutrition = {**nutrition, **micronutrition}
+@router.get("/search", response_model=List[Recipe])
+def search_recipes(
+    q: Optional[str] = Query(default=None, min_length=1, max_length=120),
+    tags: Optional[str] = Query(default=None, max_length=300),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> List[Recipe]:
+    query = db.query(DBRecipe)
+    if q:
+        pattern = f"%{q.strip()}%"
+        query = query.filter(
+            or_(
+                DBRecipe.name.ilike(pattern),
+                DBRecipe.description.ilike(pattern),
+                DBRecipe.cuisine.ilike(pattern),
+            )
+        )
 
-        instructions_list = recipe_service.get_recipe_instructions(recipe_id)
-        
-        # Logic to pick best instructions
-        final_instructions = []
-        if instructions_list:
-            final_instructions = instructions_list
-        elif info.get("instructions"):
-             final_instructions = info.get("instructions")
-        
-        # Merge data into a unified response format expected by frontend
-        full_details = {
-            **info,
-            "nutrition": full_nutrition,
-            "instructions": final_instructions, 
-            # Ensure ID is present
-            "id": recipe_id
-        }
-        return full_details
-        
-    except Exception as e:
-        print(f"Error fetching recipe details: {e}")
-        # Return partial info if available, or raise
-        # Better to fail gracefully if we can't get anything, but 404 already handled
-        raise HTTPException(status_code=500, detail=str(e))
+    requested_tags = {
+        tag.strip().lower()
+        for tag in (tags or "").split(",")
+        if tag.strip()
+    }
+
+    candidate_limit = min(max(limit * 5, limit), 500) if requested_tags else limit
+    rows = query.order_by(DBRecipe.name.asc()).limit(candidate_limit).all()
+    recipes = [_to_recipe(row) for row in rows]
+    if requested_tags:
+        recipes = [
+            recipe
+            for recipe in recipes
+            if requested_tags.issubset({tag.lower() for tag in recipe.tags})
+        ]
+    return recipes[:limit]
+
+
+@router.get("/{recipe_id}", response_model=Recipe)
+def get_recipe_details(recipe_id: str, db: Session = Depends(get_db)) -> Recipe:
+    row = db.query(DBRecipe).filter(DBRecipe.id == recipe_id).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    return _to_recipe(row)
