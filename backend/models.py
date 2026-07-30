@@ -1,78 +1,92 @@
-from typing import List, Optional, Dict
-from pydantic import BaseModel
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
+
 
 class Gender(str, Enum):
     MALE = "male"
     FEMALE = "female"
     OTHER = "other"
 
+
 class Goal(str, Enum):
     WEIGHT_LOSS = "weight_loss"
     MAINTENANCE = "maintenance"
     MUSCLE_GAIN = "muscle_gain"
 
+
 class UserProfile(BaseModel):
-    # Biometrics
+    """User-owned planning inputs.
+
+    Medical conditions and medications are retained for transparency, but the
+    current planner does not claim clinical validation. Allergies are modeled
+    separately from preferences so safety filters do not depend on string
+    prefixes embedded in ``disliked_ingredients``.
+    """
+
     name: Optional[str] = None
-    age: int
-    weight_kg: float
-    height_cm: float
+    age: int = Field(ge=18, le=120)
+    weight_kg: float = Field(gt=0, le=500)
+    height_cm: float = Field(gt=0, le=300)
     gender: Gender
-    activity_level: float # 1.2 to 1.9 multiplier
+    activity_level: float = Field(ge=1.0, le=3.0)
     goal: Goal
-    
-    # Preferences
-    liked_ingredients: List[str] = []
-    disliked_ingredients: List[str] = []
-    dietary_restrictions: List[str] = []
-    
-    # Health (optional overrides)
-    health_conditions: List[str] = []  # e.g., ["diabetes", "hypertension"]
-    medications: List[str] = []  # For drug-food interaction checks
-    
-    # Manual target overrides (determined by engine by default)
-    target_calories: Optional[int] = None
-    target_protein_g: Optional[int] = None
-    target_carbs_g: Optional[int] = None
-    target_fat_g: Optional[int] = None
+
+    liked_ingredients: List[str] = Field(default_factory=list)
+    disliked_ingredients: List[str] = Field(default_factory=list)
+    allergies: List[str] = Field(default_factory=list)
+    dietary_restrictions: List[str] = Field(default_factory=list)
+
+    health_conditions: List[str] = Field(default_factory=list)
+    medications: List[str] = Field(default_factory=list)
+
+    target_calories: Optional[int] = Field(default=None, gt=0)
+    target_protein_g: Optional[int] = Field(default=None, ge=0)
+    target_carbs_g: Optional[int] = Field(default=None, ge=0)
+    target_fat_g: Optional[int] = Field(default=None, ge=0)
+
 
 class NutrientTarget(BaseModel):
-    calories: int
-    protein_g: int
-    carbs_g: int
-    fat_g: int
-    micro_nutrients: Dict[str, float] = {}
+    calories: int = Field(gt=0)
+    protein_g: int = Field(ge=0)
+    carbs_g: int = Field(ge=0)
+    fat_g: int = Field(ge=0)
+    micro_nutrients: Dict[str, float] = Field(default_factory=dict)
+
 
 class Ingredient(BaseModel):
     name: str
-    flavor_compounds: List[str] = []
-    flavor_profile: Dict[str, float] = {} # e.g. {"sweet": 0.8, "bitter": 0.1}
+    flavor_compounds: List[str] = Field(default_factory=list)
+    flavor_profile: Dict[str, float] = Field(default_factory=dict)
+
 
 class Recipe(BaseModel):
     id: str
     name: str
     description: str
     image_url: Optional[str] = None
-    ingredients: List[str]
-    calories: int
-    macros: Dict[str, int] # {"protein": 20, "carbs": 30, "fat": 10}
-    flavor_profile: Dict[str, float] = {} # Aggregated or specific
-    tags: List[str] = []
-    cuisine: Optional[str] = None  # For variety tracking
-    instructions: List[str] = []  # Cooking steps
-    estimated_cost: Optional[float] = 0.0 # Estimated cost for budget optimization
+    ingredients: List[str] = Field(default_factory=list)
+    calories: int = Field(ge=0)
+    macros: Dict[str, float] = Field(default_factory=dict)
+    flavor_profile: Dict[str, float] = Field(default_factory=dict)
+    tags: List[str] = Field(default_factory=list)
+    cuisine: Optional[str] = None
+    instructions: List[str] = Field(default_factory=list)
+    estimated_cost: Optional[float] = Field(default=0.0, ge=0)
+
 
 class DailyPlan(BaseModel):
-    day: int
-    meals: Dict[str, Recipe] # "breakfast": Recipe(...)
-    total_stats: Dict[str, float]
-    scores: Dict[str, float] # {"health": 0.9, "taste": 0.85, "variety": 0.95}
+    day: int = Field(ge=1)
+    meals: Dict[str, Recipe]
+    total_stats: Dict[str, Any]
+    scores: Dict[str, float]
+
 
 class PlanResponse(BaseModel):
     user_id: str
     days: List[DailyPlan]
-    shopping_list: Optional[Dict[str, Dict]] = None  # Categorized shopping list
-    prep_timeline: Optional[Dict[int, List[str]]] = None  # Day -> prep tasks
-    overall_stats: Optional[Dict] = None  # Overall plan statistics
-
+    shopping_list: Optional[Dict[str, Dict[str, Any]]] = None
+    prep_timeline: Optional[Dict[int, List[str]]] = None
+    overall_stats: Optional[Dict[str, Any]] = None
+    warnings: List[str] = Field(default_factory=list)
