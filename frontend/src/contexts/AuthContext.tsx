@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { authApi } from "@/lib/api";
 
 interface User {
@@ -100,6 +100,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem(LEGACY_TOKEN_KEY);
     setUser(null);
   }, []);
+
+  useEffect(() => {
+    const handleUnauthorized = () => logout();
+    window.addEventListener("nutriflavor:unauthorized", handleUnauthorized);
+    return () => window.removeEventListener("nutriflavor:unauthorized", handleUnauthorized);
+  }, [logout]);
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated: Boolean(user), login, signup, logout }}>
