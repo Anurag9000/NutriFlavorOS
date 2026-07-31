@@ -7,7 +7,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from backend.database import DBMealPlan, DBUser, get_db
+from backend.database import CURRENT_PLAN_SCHEMA_VERSION, DBMealPlan, DBUser, get_db
 from backend.engines.plan_generator import InfeasiblePlanError, PlanGenerator
 from backend.models import DailyPlan, PlanResponse, Recipe, UserProfile
 from backend.utils.security import get_current_user, require_self
@@ -46,8 +46,13 @@ def _latest_plan(db: Session, user_id: str) -> Optional[DBMealPlan]:
 
 
 def _raise_planner_error(exc: Exception) -> None:
-    if isinstance(exc, (InfeasiblePlanError, ValueError)):
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if isinstance(exc, InfeasiblePlanError):
+        raise HTTPException(status_code=422, detail=exc.to_detail()) from exc
+    if isinstance(exc, ValueError):
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "invalid_planning_request", "message": str(exc)},
+        ) from exc
     logger.exception("Unexpected meal planner failure", exc_info=exc)
     raise HTTPException(status_code=500, detail="Meal plan generation failed") from exc
 
@@ -66,7 +71,15 @@ def get_meal_plan(
         return PlanResponse.model_validate(stored.plan_data)
     except ValueError as exc:
         logger.exception("Stored plan failed schema validation", exc_info=exc)
-        raise HTTPException(status_code=500, detail="Stored meal plan is invalid") from exc
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "stored_plan_schema_mismatch",
+                "message": "Stored meal plan is incompatible with the current API schema",
+                "stored_schema_version": stored.schema_version,
+                "current_schema_version": CURRENT_PLAN_SCHEMA_VERSION,
+            },
+        ) from exc
 
 
 @router.post("/generate", response_model=PlanResponse, status_code=status.HTTP_201_CREATED)
@@ -92,7 +105,13 @@ def generate_meal_plan(
         _raise_planner_error(exc)
         raise AssertionError("unreachable")
 
-    db.add(DBMealPlan(user_id=current_user.id, plan_data=plan.model_dump(mode="json")))
+    db.add(
+        DBMealPlan(
+            user_id=current_user.id,
+            schema_version=CURRENT_PLAN_SCHEMA_VERSION,
+            plan_data=plan.model_dump(mode="json"),
+        )
+    )
     db.commit()
     return plan
 
@@ -116,7 +135,13 @@ def regenerate_day(
     stored = _latest_plan(db, current_user.id)
     if stored is None:
         replacement = generated.model_copy(update={"days": [new_day]})
-        db.add(DBMealPlan(user_id=current_user.id, plan_data=replacement.model_dump(mode="json")))
+        db.add(
+            DBMealPlan(
+                user_id=current_user.id,
+                schema_version=CURRENT_PLAN_SCHEMA_VERSION,
+                plan_data=replacement.model_dump(mode="json"),
+            )
+        )
     else:
         current_plan = PlanResponse.model_validate(stored.plan_data)
         if payload.day_index >= len(current_plan.days):
@@ -124,6 +149,7 @@ def regenerate_day(
         updated_days = list(current_plan.days)
         updated_days[payload.day_index] = new_day
         stored.plan_data = current_plan.model_copy(update={"days": updated_days}).model_dump(mode="json")
+        stored.schema_version = CURRENT_PLAN_SCHEMA_VERSION
         db.add(stored)
 
     db.commit()
