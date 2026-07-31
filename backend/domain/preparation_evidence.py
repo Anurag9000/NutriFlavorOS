@@ -55,6 +55,7 @@ class PreparationTaskTemplate(BaseModel):
 
 class RecipePreparationProfileInput(BaseModel):
     recipe_id: str = Field(min_length=1, max_length=240)
+    profile_version: str = Field(default="1", min_length=1, max_length=120)
     schema_version: str = Field(default="1", pattern=r"^[0-9]+$")
     supported_servings_min: float = Field(gt=0, le=1000)
     supported_servings_max: float = Field(gt=0, le=1000)
@@ -70,6 +71,9 @@ class RecipePreparationProfileInput(BaseModel):
 
     @model_validator(mode="after")
     def validate_profile(self):
+        self.profile_version = self.profile_version.strip()
+        if not self.profile_version:
+            raise ValueError("profile_version cannot be blank")
         if self.supported_servings_max < self.supported_servings_min:
             raise ValueError(
                 "supported_servings_max cannot be less than supported_servings_min"
@@ -123,6 +127,8 @@ class RecipePreparationProfileInput(BaseModel):
 
 class RecipePreparationProfileView(RecipePreparationProfileInput):
     id: int
+    content_hash: str
+    supersedes_profile_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 
