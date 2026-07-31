@@ -10,7 +10,16 @@ from backend.database import Base
 
 
 config = context.config
-if config.config_file_name is not None:
+
+# Alembic's logging bootstrap requires [loggers], [handlers], and [formatters].
+# The repository intentionally keeps alembic.ini minimal, and tests may build a
+# Config programmatically, so logging configuration must be optional.
+file_config = getattr(config, "file_config", None)
+if (
+    config.config_file_name is not None
+    and file_config is not None
+    and all(file_config.has_section(section) for section in ("loggers", "handlers", "formatters"))
+):
     fileConfig(config.config_file_name)
 
 config.set_main_option(
