@@ -15,14 +15,15 @@ from sqlalchemy.engine import Engine
 from backend.database import REQUIRED_RUNTIME_TABLES, engine
 
 
-CURRENT_ALEMBIC_REVISION = "20260731_0004"
+CURRENT_ALEMBIC_REVISION = "20260731_0005"
+CURRENT_REQUIRED_TABLES = REQUIRED_RUNTIME_TABLES | {"recipe_preparation_profiles"}
 
 
 def verify_runtime_schema(
     bind: Engine = engine,
     *,
     expected_revision: str = CURRENT_ALEMBIC_REVISION,
-    required_tables: Iterable[str] = REQUIRED_RUNTIME_TABLES,
+    required_tables: Iterable[str] = CURRENT_REQUIRED_TABLES,
 ) -> None:
     inspector = inspect(bind)
     tables = set(inspector.get_table_names())
