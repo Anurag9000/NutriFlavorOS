@@ -147,6 +147,11 @@ IMPLEMENTED_COMPONENTS: Dict[str, dict] = {
     "survival_expiry": _component(
         "backend.research.advanced_baselines", "KaplanMeierExpiry"
     ),
+    "capability_registry_validator": _component(
+        "backend.research.capabilities",
+        "assert_core_capabilities_valid",
+        status="implemented",
+    ),
 }
 
 
