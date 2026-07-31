@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Exercise PostgreSQL row locks, idempotency, and optimistic versions.
+"""Exercise PostgreSQL inventory and reservation concurrency contracts.
 
-This script is intentionally run after a fresh PostgreSQL Alembic migration in
-CI. SQLite remains supported for local development, but it cannot validate the
-same row-lock semantics used by hosted concurrent deployments.
+This script runs after a fresh PostgreSQL Alembic migration in CI. SQLite is
+supported for local development, but it cannot validate the same row-lock
+semantics used by hosted concurrent deployments.
 """
 
 from __future__ import annotations
@@ -16,20 +16,29 @@ from uuid import uuid4
 from fastapi import HTTPException
 
 from backend.database import (
+    DBHousehold,
     DBInventoryEvent,
+    DBMealPlan,
     DBPantryItem,
+    DBStockReservation,
     DBUser,
     DB_URL,
     SessionLocal,
 )
+from backend.domain.household_access import ReservationMutation, ReservationStatus
 from backend.domain.inventory import (
     HouseholdCreate,
     InventoryMutation,
     PantryItemCreate,
     QuantityRange,
+    ReconciledShoppingItem,
 )
 from backend.services.inventory_service import add_pantry_item, consume_pantry_item
 from backend.services.inventory_service_v4 import create_household
+from backend.services.reservation_service import (
+    commit_plan_reservations,
+    create_plan_reservations,
+)
 
 
 def _assert_postgresql() -> None:
@@ -39,7 +48,7 @@ def _assert_postgresql() -> None:
         )
 
 
-def _setup() -> tuple[str, int]:
+def _setup() -> tuple[str, str, int]:
     session = SessionLocal()
     try:
         suffix = uuid4().hex
@@ -75,7 +84,7 @@ def _setup() -> tuple[str, int]:
                 idempotency_key=f"purchase-{suffix}",
             ),
         )
-        return household.id, item.id
+        return user.id, household.id, item.id
     finally:
         session.close()
 
@@ -91,8 +100,6 @@ def _consume(
 ) -> Dict[str, Any]:
     session = SessionLocal()
     try:
-        from backend.database import DBHousehold
-
         household = session.get(DBHousehold, household_id)
         if household is None:
             raise AssertionError("Household disappeared during concurrency probe")
@@ -204,12 +211,212 @@ def _run_competing_version_probe(household_id: str, item_id: int) -> None:
         session.close()
 
 
+def _create_item_and_plans(
+    user_id: str,
+    household_id: str,
+    ingredient: str,
+    quantity: float,
+    plan_count: int,
+) -> tuple[int, list[int]]:
+    session = SessionLocal()
+    try:
+        household = session.get(DBHousehold, household_id)
+        if household is None:
+            raise AssertionError("Household disappeared during reservation setup")
+        item = add_pantry_item(
+            session,
+            household,
+            PantryItemCreate(
+                ingredient_name=ingredient,
+                quantity=QuantityRange(
+                    quantity_min=quantity,
+                    quantity_max=quantity,
+                    unit="g",
+                ),
+                idempotency_key=f"purchase-{ingredient}-{uuid4().hex}",
+            ),
+        )
+        plans = [
+            DBMealPlan(
+                user_id=user_id,
+                household_id=household_id,
+                schema_version="2",
+                plan_data={},
+            )
+            for _ in range(plan_count)
+        ]
+        session.add_all(plans)
+        session.commit()
+        return item.id, [plan.id for plan in plans]
+    finally:
+        session.close()
+
+
+def _reserve(
+    barrier: Barrier,
+    household_id: str,
+    plan_id: int,
+    ingredient: str,
+    amount: float,
+) -> Dict[str, Any]:
+    session = SessionLocal()
+    try:
+        household = session.get(DBHousehold, household_id)
+        plan = session.get(DBMealPlan, plan_id)
+        if household is None or plan is None:
+            raise AssertionError("Reservation fixture disappeared")
+        barrier.wait(timeout=20)
+        rows = create_plan_reservations(
+            session,
+            household=household,
+            plan=plan,
+            shopping=[
+                ReconciledShoppingItem(
+                    canonical_name=ingredient,
+                    display_name=ingredient.title(),
+                    unit="g",
+                    required_min=amount,
+                    required_max=amount,
+                    pantry_min=amount,
+                    pantry_max=amount,
+                    buy_min=0,
+                    buy_max=0,
+                    coverage_status="covered",
+                )
+            ],
+            reservation_hours=24,
+        )
+        return {
+            "status": "success",
+            "ids": [row.id for row in rows],
+            "quantity_max": sum(float(row.quantity_max) for row in rows),
+        }
+    except HTTPException as exc:
+        session.rollback()
+        return {"status": "http_error", "code": exc.status_code, "detail": exc.detail}
+    finally:
+        session.close()
+
+
+def _run_cross_plan_non_overbooking_probe(
+    user_id: str, household_id: str
+) -> None:
+    item_id, plan_ids = _create_item_and_plans(
+        user_id, household_id, "lentils", 1000, 2
+    )
+    barrier = Barrier(2)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(
+                _reserve,
+                barrier,
+                household_id,
+                plan_id,
+                "lentils",
+                700,
+            )
+            for plan_id in plan_ids
+        ]
+        results = [future.result(timeout=30) for future in futures]
+    assert all(result["status"] == "success" for result in results), results
+    assert sorted(result["quantity_max"] for result in results) == [300, 700], results
+
+    session = SessionLocal()
+    try:
+        total = sum(
+            float(row.quantity_max)
+            for row in session.query(DBStockReservation)
+            .filter(
+                DBStockReservation.pantry_item_id == item_id,
+                DBStockReservation.status == ReservationStatus.ACTIVE.value,
+            )
+            .all()
+        )
+        assert total == 1000
+    finally:
+        session.close()
+
+
+def _commit(
+    barrier: Barrier, household_id: str, plan_id: int
+) -> Dict[str, Any]:
+    session = SessionLocal()
+    try:
+        barrier.wait(timeout=20)
+        rows = commit_plan_reservations(
+            session,
+            household_id,
+            plan_id,
+            ReservationMutation(reason="concurrency probe"),
+        )
+        return {"status": "success", "ids": [row.id for row in rows]}
+    except HTTPException as exc:
+        session.rollback()
+        return {"status": "http_error", "code": exc.status_code, "detail": exc.detail}
+    finally:
+        session.close()
+
+
+def _run_same_plan_retry_and_commit_probe(
+    user_id: str, household_id: str
+) -> None:
+    item_id, plan_ids = _create_item_and_plans(
+        user_id, household_id, "beans", 500, 1
+    )
+    plan_id = plan_ids[0]
+    barrier = Barrier(2)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(
+                _reserve,
+                barrier,
+                household_id,
+                plan_id,
+                "beans",
+                400,
+            )
+            for _ in range(2)
+        ]
+        creation_results = [future.result(timeout=30) for future in futures]
+    assert all(result["status"] == "success" for result in creation_results), creation_results
+    assert creation_results[0]["ids"] == creation_results[1]["ids"], creation_results
+
+    commit_barrier = Barrier(2)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(_commit, commit_barrier, household_id, plan_id)
+            for _ in range(2)
+        ]
+        commit_results = [future.result(timeout=30) for future in futures]
+    assert all(result["status"] == "success" for result in commit_results), commit_results
+    assert commit_results[0]["ids"] == commit_results[1]["ids"], commit_results
+
+    session = SessionLocal()
+    try:
+        item = session.get(DBPantryItem, item_id)
+        assert item is not None
+        assert item.quantity_min == item.quantity_max == 100
+        events = (
+            session.query(DBInventoryEvent)
+            .filter(
+                DBInventoryEvent.pantry_item_id == item_id,
+                DBInventoryEvent.event_type == "reservation_commit",
+            )
+            .all()
+        )
+        assert len(events) == 1
+    finally:
+        session.close()
+
+
 def main() -> None:
     _assert_postgresql()
-    household_id, item_id = _setup()
+    user_id, household_id, item_id = _setup()
     _run_identical_retry_probe(household_id, item_id)
     _run_competing_version_probe(household_id, item_id)
-    print("PostgreSQL inventory concurrency probe passed")
+    _run_cross_plan_non_overbooking_probe(user_id, household_id)
+    _run_same_plan_retry_and_commit_probe(user_id, household_id)
+    print("PostgreSQL inventory and reservation concurrency probes passed")
 
 
 if __name__ == "__main__":
