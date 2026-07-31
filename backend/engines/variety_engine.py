@@ -1,4 +1,4 @@
-"""Deterministic variety scoring with normalized ingredient comparisons."""
+"""Deterministic variety scoring with canonical ingredient comparisons."""
 
 from __future__ import annotations
 
@@ -40,7 +40,12 @@ class VarietyEngine:
 
     @classmethod
     def _ingredient_set(cls, recipe: Recipe) -> Set[str]:
-        return {cls._normalize(item) for item in recipe.ingredients if cls._normalize(item)}
+        values = (
+            [line.name for line in recipe.ingredient_lines if line.name]
+            if recipe.ingredient_lines
+            else recipe.ingredients
+        )
+        return {cls._normalize(item) for item in values if cls._normalize(item)}
 
     def update_history(self, recipes: List[Recipe], cuisine: str) -> None:
         ingredients = set().union(*(self._ingredient_set(recipe) for recipe in recipes)) if recipes else set()
