@@ -15,6 +15,7 @@ export interface PreparationTaskInput {
   latest_finish_minute?: number | null;
   priority: number;
   resource_demands: Record<string, number>;
+  dependencies: string[];
   metadata?: Record<string, unknown>;
 }
 
@@ -32,6 +33,7 @@ export interface ScheduledPreparationTask {
   duration_minutes: number;
   priority: number;
   resource_demands: Record<string, number>;
+  dependencies: string[];
   metadata: Record<string, unknown>;
 }
 
@@ -40,6 +42,7 @@ export interface UnscheduledPreparationTask {
   reason_code: string;
   message: string;
   missing_resources: string[];
+  blocked_by: string[];
   capacity_violations: Record<string, { requested: number; capacity: number }>;
   metadata: Record<string, unknown>;
 }
