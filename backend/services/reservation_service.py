@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Sequence, Tuple
 
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import (
@@ -16,11 +17,11 @@ from backend.database import (
     DBPantryItem,
     DBStockReservation,
 )
-from backend.domain.household_access import (
-    ReservationMutation,
-    ReservationStatus,
-)
+from backend.domain.household_access import ReservationMutation, ReservationStatus
 from backend.domain.inventory import InventoryEventType, ReconciledShoppingItem
+
+
+_EPSILON = 1e-9
 
 
 def utcnow() -> datetime:
@@ -28,7 +29,29 @@ def utcnow() -> datetime:
 
 
 def _as_utc(value: datetime) -> datetime:
-    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+    return (
+        value.replace(tzinfo=timezone.utc)
+        if value.tzinfo is None
+        else value.astimezone(timezone.utc)
+    )
+
+
+def _rows_for_plan(
+    db: Session,
+    household_id: str,
+    plan_id: int,
+    statuses: Sequence[ReservationStatus],
+) -> List[DBStockReservation]:
+    return (
+        db.query(DBStockReservation)
+        .filter(
+            DBStockReservation.household_id == household_id,
+            DBStockReservation.plan_id == plan_id,
+            DBStockReservation.status.in_([status.value for status in statuses]),
+        )
+        .order_by(DBStockReservation.id)
+        .all()
+    )
 
 
 def expire_reservations(db: Session, household_id: str | None = None) -> int:
@@ -38,7 +61,7 @@ def expire_reservations(db: Session, household_id: str | None = None) -> int:
     )
     if household_id:
         query = query.filter(DBStockReservation.household_id == household_id)
-    values = query.with_for_update().all()
+    values = query.order_by(DBStockReservation.id).with_for_update().all()
     now = utcnow()
     for value in values:
         value.status = ReservationStatus.EXPIRED.value
@@ -50,7 +73,9 @@ def expire_reservations(db: Session, household_id: str | None = None) -> int:
     return len(values)
 
 
-def _active_reserved_by_item(db: Session, household_id: str) -> Dict[int, Tuple[float, float]]:
+def _active_reserved_by_item(
+    db: Session, household_id: str
+) -> Dict[int, Tuple[float, float]]:
     expire_reservations(db, household_id)
     rows = (
         db.query(DBStockReservation)
@@ -70,6 +95,24 @@ def _active_reserved_by_item(db: Session, household_id: str) -> Dict[int, Tuple[
             old_max + float(row.quantity_max),
         )
     return result
+
+
+def _active_reserved_for_item(
+    db: Session, household_id: str, pantry_item_id: int
+) -> Tuple[float, float]:
+    rows = (
+        db.query(DBStockReservation)
+        .filter(
+            DBStockReservation.household_id == household_id,
+            DBStockReservation.pantry_item_id == pantry_item_id,
+            DBStockReservation.status == ReservationStatus.ACTIVE.value,
+        )
+        .all()
+    )
+    return (
+        sum(float(row.quantity_min) for row in rows),
+        sum(float(row.quantity_max) for row in rows),
+    )
 
 
 def usable_pantry_intervals(
@@ -127,36 +170,51 @@ def create_plan_reservations(
     reservation_hours: int,
 ) -> List[DBStockReservation]:
     if plan.household_id != household.id:
-        raise HTTPException(status_code=409, detail="Plan is not associated with this household")
-    expire_reservations(db, household.id)
-    if (
-        db.query(DBStockReservation)
-        .filter(
-            DBStockReservation.plan_id == plan.id,
-            DBStockReservation.status == ReservationStatus.ACTIVE.value,
-        )
-        .count()
-        > 0
-    ):
-        return (
-            db.query(DBStockReservation)
-            .filter(
-                DBStockReservation.plan_id == plan.id,
-                DBStockReservation.status == ReservationStatus.ACTIVE.value,
-            )
-            .order_by(DBStockReservation.id)
-            .all()
+        raise HTTPException(
+            status_code=409, detail="Plan is not associated with this household"
         )
 
-    reserved = _active_reserved_by_item(db, household.id)
+    expire_reservations(db, household.id)
+
+    # Serialise retries for the same plan. Without this lock, two requests can
+    # both observe no reservations and race into the unique plan/lot constraint.
+    locked_plan = (
+        db.query(DBMealPlan)
+        .filter(
+            DBMealPlan.id == plan.id,
+            DBMealPlan.household_id == household.id,
+        )
+        .with_for_update()
+        .first()
+    )
+    if locked_plan is None:
+        raise HTTPException(status_code=404, detail="Household plan not found")
+
+    existing = _rows_for_plan(
+        db,
+        household.id,
+        plan.id,
+        [ReservationStatus.ACTIVE],
+    )
+    if existing:
+        return existing
+
     expires_at = utcnow() + timedelta(hours=reservation_hours)
     created: List[DBStockReservation] = []
+    allocated_in_request: Dict[int, Tuple[float, float]] = defaultdict(
+        lambda: (0.0, 0.0)
+    )
 
-    for needed in shopping:
+    # All concurrent plans visit ingredient groups in the same order, reducing
+    # lock-order inversions when plans overlap multiple pantry ingredients.
+    needs = sorted(
+        list(shopping), key=lambda item: (item.canonical_name, item.unit)
+    )
+    for needed in needs:
         if needed.unit == "unquantified" or needed.required_max <= 0:
             continue
-        remaining_min = max(0.0, needed.required_min)
-        remaining_max = max(0.0, needed.required_max)
+        remaining_min = max(0.0, float(needed.required_min))
+        remaining_max = max(0.0, float(needed.required_max))
         lots = (
             db.query(DBPantryItem)
             .filter(
@@ -179,7 +237,15 @@ def create_plan_reservations(
         for lot in lots:
             if lot.expires_at is not None and _as_utc(lot.expires_at) <= utcnow():
                 continue
-            held_min, held_max = reserved.get(lot.id, (0.0, 0.0))
+
+            # Recompute committed reservations only after the lot lock is held.
+            # A competing plan may have committed while this transaction waited.
+            committed_min, committed_max = _active_reserved_for_item(
+                db, household.id, lot.id
+            )
+            pending_min, pending_max = allocated_in_request[lot.id]
+            held_min = committed_min + pending_min
+            held_max = committed_max + pending_max
             available_min = max(0.0, float(lot.quantity_min) - held_max)
             available_max = max(0.0, float(lot.quantity_max) - held_min)
             if available_max <= 1e-12 or remaining_max <= 1e-12:
@@ -203,11 +269,28 @@ def create_plan_reservations(
             )
             db.add(value)
             created.append(value)
-            reserved[lot.id] = (held_min + allocate_min, held_max + allocate_max)
+            allocated_in_request[lot.id] = (
+                pending_min + allocate_min,
+                pending_max + allocate_max,
+            )
             remaining_min = max(0.0, remaining_min - allocate_min)
             remaining_max = max(0.0, remaining_max - allocate_max)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        # Treat a same-plan uniqueness race as an idempotent retry. Any other
+        # integrity failure still propagates.
+        existing = _rows_for_plan(
+            db,
+            household.id,
+            plan.id,
+            [ReservationStatus.ACTIVE],
+        )
+        if existing:
+            return existing
+        raise
     for value in created:
         db.refresh(value)
     return created
@@ -224,7 +307,9 @@ def list_reservations(
         DBStockReservation.household_id == household_id
     )
     if not include_closed:
-        query = query.filter(DBStockReservation.status == ReservationStatus.ACTIVE.value)
+        query = query.filter(
+            DBStockReservation.status == ReservationStatus.ACTIVE.value
+        )
     return query.order_by(
         DBStockReservation.expires_at,
         DBStockReservation.created_at,
@@ -245,12 +330,22 @@ def release_plan_reservations(
             DBStockReservation.plan_id == plan_id,
             DBStockReservation.status == ReservationStatus.ACTIVE.value,
         )
+        .order_by(DBStockReservation.id)
         .with_for_update()
         .all()
     )
     if not rows:
+        released = _rows_for_plan(
+            db,
+            household_id,
+            plan_id,
+            [ReservationStatus.RELEASED],
+        )
+        if released:
+            return released
         raise HTTPException(status_code=404, detail="No active reservations found")
-    now = utcnow()
+
+    # Validate every row before changing any row.
     for row in rows:
         if payload.expected_version is not None and row.version != payload.expected_version:
             raise HTTPException(
@@ -262,12 +357,59 @@ def release_plan_reservations(
                     "current_version": row.version,
                 },
             )
+
+    now = utcnow()
+    for row in rows:
         row.status = ReservationStatus.RELEASED.value
         row.version += 1
         row.updated_at = now
         db.add(row)
     db.commit()
     return rows
+
+
+def _terminal_plan_result_or_error(
+    db: Session, household_id: str, plan_id: int
+) -> List[DBStockReservation]:
+    consumed = _rows_for_plan(
+        db,
+        household_id,
+        plan_id,
+        [ReservationStatus.CONSUMED],
+    )
+    if consumed:
+        return consumed
+    expired = _rows_for_plan(
+        db,
+        household_id,
+        plan_id,
+        [ReservationStatus.EXPIRED],
+    )
+    if expired:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "reservation_expired",
+                "message": "Reservation expired before it was committed",
+                "reservation_id": expired[0].id,
+            },
+        )
+    released = _rows_for_plan(
+        db,
+        household_id,
+        plan_id,
+        [ReservationStatus.RELEASED],
+    )
+    if released:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "reservation_released",
+                "message": "Released reservations cannot be committed",
+                "reservation_id": released[0].id,
+            },
+        )
+    raise HTTPException(status_code=404, detail="No reservations found")
 
 
 def commit_plan_reservations(
@@ -288,9 +430,9 @@ def commit_plan_reservations(
         .all()
     )
     if not rows:
-        raise HTTPException(status_code=404, detail="No active reservations found")
+        return _terminal_plan_result_or_error(db, household_id, plan_id)
 
-    now = utcnow()
+    # Validate versions and expiry before locking or mutating pantry stock.
     for row in rows:
         if payload.expected_version is not None and row.version != payload.expected_version:
             raise HTTPException(
@@ -302,28 +444,46 @@ def commit_plan_reservations(
                     "current_version": row.version,
                 },
             )
-        if _as_utc(row.expires_at) <= now:
+
+    now = utcnow()
+    expired_rows = [row for row in rows if _as_utc(row.expires_at) <= now]
+    if expired_rows:
+        for row in expired_rows:
             row.status = ReservationStatus.EXPIRED.value
             row.version += 1
             row.updated_at = now
             db.add(row)
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "code": "reservation_expired",
-                    "message": "Reservation expired before it was committed",
-                    "reservation_id": row.id,
-                },
-            )
-        item = (
-            db.query(DBPantryItem)
-            .filter(
-                DBPantryItem.id == row.pantry_item_id,
-                DBPantryItem.household_id == household_id,
-            )
-            .with_for_update()
-            .first()
+        db.commit()
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "reservation_expired",
+                "message": "Reservation expired before it was committed",
+                "reservation_id": expired_rows[0].id,
+            },
         )
+
+    item_ids = sorted(
+        {row.pantry_item_id for row in rows if row.pantry_item_id is not None}
+    )
+    items = (
+        db.query(DBPantryItem)
+        .filter(
+            DBPantryItem.household_id == household_id,
+            DBPantryItem.id.in_(item_ids),
+        )
+        .order_by(DBPantryItem.id)
+        .with_for_update()
+        .all()
+        if item_ids
+        else []
+    )
+    item_by_id = {item.id: item for item in items}
+
+    # Validate every reservation against locked stock before applying any
+    # mutation, preventing partial in-memory effects from obscuring the error.
+    for row in rows:
+        item = item_by_id.get(row.pantry_item_id)
         if item is None or item.unit != row.unit:
             raise HTTPException(
                 status_code=409,
@@ -333,7 +493,7 @@ def commit_plan_reservations(
                     "reservation_id": row.id,
                 },
             )
-        if float(item.quantity_max) + 1e-9 < float(row.quantity_max):
+        if float(item.quantity_max) + _EPSILON < float(row.quantity_max):
             raise HTTPException(
                 status_code=409,
                 detail={
@@ -343,8 +503,14 @@ def commit_plan_reservations(
                 },
             )
 
-        item.quantity_min = max(0.0, float(item.quantity_min) - float(row.quantity_max))
-        item.quantity_max = max(0.0, float(item.quantity_max) - float(row.quantity_min))
+    for row in rows:
+        item = item_by_id[row.pantry_item_id]
+        item.quantity_min = max(
+            0.0, float(item.quantity_min) - float(row.quantity_max)
+        )
+        item.quantity_max = max(
+            0.0, float(item.quantity_max) - float(row.quantity_min)
+        )
         item.version += 1
         item.updated_at = now
         row.status = ReservationStatus.CONSUMED.value
@@ -360,8 +526,14 @@ def commit_plan_reservations(
                 quantity_min=row.quantity_min,
                 quantity_max=row.quantity_max,
                 unit=row.unit,
-                reason=payload.reason or f"Committed meal-plan reservation {plan_id}",
-                event_metadata={"plan_id": plan_id, "reservation_id": row.id},
+                reason=payload.reason
+                or f"Committed meal-plan reservation {plan_id}",
+                event_metadata={
+                    "plan_id": plan_id,
+                    "reservation_id": row.id,
+                    "reservation_version": row.version,
+                    "pantry_item_version": item.version,
+                },
                 idempotency_key=None,
                 created_at=now,
             )
