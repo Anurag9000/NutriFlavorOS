@@ -1,0 +1,51 @@
+"""Deployment-time database schema verification.
+
+Hosted instances must run the exact reviewed Alembic revision before serving
+requests. Table-presence checks alone cannot detect missing constraints, indexes,
+or column semantics from later migrations.
+"""
+
+from __future__ import annotations
+
+from typing import Iterable
+
+from sqlalchemy import Engine, inspect, text
+
+from backend.database import REQUIRED_RUNTIME_TABLES, engine
+
+
+CURRENT_ALEMBIC_REVISION = "20260731_0004"
+
+
+def verify_runtime_schema(
+    bind: Engine = engine,
+    *,
+    expected_revision: str = CURRENT_ALEMBIC_REVISION,
+    required_tables: Iterable[str] = REQUIRED_RUNTIME_TABLES,
+) -> None:
+    inspector = inspect(bind)
+    tables = set(inspector.get_table_names())
+    missing = set(required_tables) - tables
+    if missing:
+        raise RuntimeError(
+            "Database schema is incomplete; run `alembic upgrade head`. "
+            f"Missing tables: {', '.join(sorted(missing))}"
+        )
+    if "alembic_version" not in tables:
+        raise RuntimeError(
+            "Database has no Alembic revision record; run `alembic upgrade head` "
+            "instead of relying on ORM table creation"
+        )
+    with bind.connect() as connection:
+        revisions = [
+            str(row[0])
+            for row in connection.execute(
+                text("SELECT version_num FROM alembic_version ORDER BY version_num")
+            ).fetchall()
+        ]
+    if revisions != [expected_revision]:
+        observed = ", ".join(revisions) if revisions else "none"
+        raise RuntimeError(
+            "Database migration revision mismatch; run `alembic upgrade head`. "
+            f"Expected {expected_revision}; observed {observed}"
+        )
