@@ -6,18 +6,27 @@ const API_BASE = (configuredBase?.trim() || defaultBase).replace(/\/$/, "");
 const TOKEN_KEY = "nutriflavor_token";
 const USER_KEY = "nfos_user";
 
+function extractErrorMessage(detail: unknown, status: number): string {
+    if (typeof detail === "string") return detail;
+    if (!detail || typeof detail !== "object") return `Request failed with status ${status}`;
+
+    const body = detail as Record<string, unknown>;
+    const nested = body.detail;
+    if (typeof nested === "string") return nested;
+    if (nested && typeof nested === "object") {
+        const nestedBody = nested as Record<string, unknown>;
+        if (typeof nestedBody.message === "string") return nestedBody.message;
+    }
+    if (typeof body.message === "string") return body.message;
+    return `Request failed with status ${status}`;
+}
+
 export class ApiError extends Error {
     readonly status: number;
     readonly detail: unknown;
 
     constructor(status: number, detail: unknown) {
-        const message =
-            typeof detail === "string"
-                ? detail
-                : detail && typeof detail === "object" && "detail" in detail
-                  ? String((detail as { detail: unknown }).detail)
-                  : `Request failed with status ${status}`;
-        super(message);
+        super(extractErrorMessage(detail, status));
         this.name = "ApiError";
         this.status = status;
         this.detail = detail;
@@ -68,12 +77,26 @@ export interface UserProfile {
     target_fat_g?: number;
 }
 
+export interface IngredientLine {
+    raw: string;
+    name: string;
+    quantity_min?: number | null;
+    quantity_max?: number | null;
+    unit?: string | null;
+    canonical_quantity_min?: number | null;
+    canonical_quantity_max?: number | null;
+    canonical_unit?: string | null;
+    parse_status: "normalized" | "partial" | "unquantified";
+}
+
 export interface Recipe {
     id: string;
     name: string;
     description: string;
     image_url?: string;
     ingredients: string[];
+    ingredient_lines?: IngredientLine[];
+    servings?: number;
     calories: number;
     macros: { protein?: number; carbs?: number; fat?: number; [key: string]: number | undefined };
     flavor_profile?: Record<string, number>;
@@ -81,21 +104,58 @@ export interface Recipe {
     cuisine?: string;
     instructions?: string[];
     estimated_cost?: number;
+    source_name?: string | null;
+    source_url?: string | null;
+    source_version?: string | null;
+    nutrition_basis?: "per_serving" | "per_100g" | "per_recipe" | "unknown";
 }
 
 export interface DailyPlan {
     day: number;
     meals: Record<string, Recipe>;
+    portions: Record<string, number>;
     total_stats: Record<string, unknown>;
     scores: Record<string, number>;
+}
+
+export interface OptimizationSummary {
+    method: string;
+    deterministic: boolean;
+    objective_score: number;
+    beam_width: number;
+    candidate_count: number;
+    slot_count: number;
+    portion_options: number[];
+    repeat_window_slots: number;
+    max_recipe_occurrences: number;
+    relaxations: string[];
+    slot_candidate_counts: Record<string, number>;
+}
+
+export interface ShoppingQuantity {
+    quantity_min: number;
+    quantity_max: number;
+    unit: string;
+}
+
+export interface PlannedShoppingItem {
+    display_name: string;
+    quantity: string;
+    quantity_status: "normalized" | "mixed_or_partial" | "unquantified";
+    quantities: ShoppingQuantity[];
+    occurrences: number;
+    unquantified_occurrences: number;
+    source_recipe_ids: string[];
+    raw_examples: string[];
 }
 
 export interface PlanResponse {
     user_id: string;
     days: DailyPlan[];
-    shopping_list?: Record<string, Record<string, unknown>>;
+    shopping_list?: Record<string, Record<string, PlannedShoppingItem>>;
     prep_timeline?: Record<number, string[]>;
     overall_stats?: Record<string, unknown>;
+    optimization?: OptimizationSummary;
     warnings?: string[];
 }
 
