@@ -1,8 +1,8 @@
 """Explicit preparation-task and appliance-capacity contracts.
 
-The platform never infers duration, appliance requirements, or capacity from a
-recipe title. Callers must provide those values from reviewed recipe metadata or
-human input. Unschedulable tasks remain explicit in the response.
+The platform never infers duration, appliance requirements, dependencies, or
+capacity from a recipe title. Callers must provide those values from reviewed
+recipe metadata or human input. Unschedulable tasks remain explicit.
 """
 
 from __future__ import annotations
@@ -36,6 +36,7 @@ class PreparationTask(BaseModel):
     latest_finish_minute: Optional[int] = Field(default=None, ge=1, le=10080)
     priority: int = Field(default=0, ge=-1000, le=1000)
     resource_demands: Dict[str, int] = Field(default_factory=dict)
+    dependencies: List[str] = Field(default_factory=list, max_length=100)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -52,6 +53,14 @@ class PreparationTask(BaseModel):
         ]
         if invalid:
             raise ValueError("resource demands must use non-empty IDs and positive integers")
+        normalized_dependencies = [value.strip() for value in self.dependencies]
+        if any(not value for value in normalized_dependencies):
+            raise ValueError("dependency IDs cannot be blank")
+        if len(normalized_dependencies) != len(set(normalized_dependencies)):
+            raise ValueError("dependency IDs must be unique per task")
+        if self.task_id in normalized_dependencies:
+            raise ValueError("a task cannot depend on itself")
+        self.dependencies = normalized_dependencies
         return self
 
 
@@ -62,13 +71,14 @@ class PreparationScheduleRequest(BaseModel):
     tasks: List[PreparationTask] = Field(default_factory=list, max_length=1000)
 
     @model_validator(mode="after")
-    def validate_unique_identifiers(self):
+    def validate_request(self):
         resource_ids = [resource.resource_id for resource in self.resources]
         task_ids = [task.task_id for task in self.tasks]
         if len(resource_ids) != len(set(resource_ids)):
             raise ValueError("resource_id values must be unique")
         if len(task_ids) != len(set(task_ids)):
             raise ValueError("task_id values must be unique")
+        task_id_set = set(task_ids)
         for resource in self.resources:
             if resource.available_from_minute >= self.horizon_minutes:
                 raise ValueError(
@@ -79,6 +89,33 @@ class PreparationScheduleRequest(BaseModel):
                 raise ValueError(
                     f"task {task.task_id} starts outside the scheduling horizon"
                 )
+            unknown = sorted(set(task.dependencies) - task_id_set)
+            if unknown:
+                raise ValueError(
+                    f"task {task.task_id} references unknown dependencies: {', '.join(unknown)}"
+                )
+
+        graph = {task.task_id: tuple(task.dependencies) for task in self.tasks}
+        state: Dict[str, int] = {}
+        trail: List[str] = []
+
+        def visit(task_id: str) -> None:
+            marker = state.get(task_id, 0)
+            if marker == 2:
+                return
+            if marker == 1:
+                start = trail.index(task_id)
+                cycle = trail[start:] + [task_id]
+                raise ValueError("preparation dependency cycle: " + " -> ".join(cycle))
+            state[task_id] = 1
+            trail.append(task_id)
+            for dependency in graph[task_id]:
+                visit(dependency)
+            trail.pop()
+            state[task_id] = 2
+
+        for task_id in sorted(graph):
+            visit(task_id)
         return self
 
 
@@ -89,6 +126,7 @@ class ScheduledPreparationTask(BaseModel):
     duration_minutes: int
     priority: int
     resource_demands: Dict[str, int]
+    dependencies: List[str] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -97,12 +135,13 @@ class UnscheduledPreparationTask(BaseModel):
     reason_code: str
     message: str
     missing_resources: List[str] = Field(default_factory=list)
+    blocked_by: List[str] = Field(default_factory=list)
     capacity_violations: Dict[str, Dict[str, int]] = Field(default_factory=dict)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class PreparationScheduleResponse(BaseModel):
-    method: str = "deterministic_earliest_feasible_resource_scheduler_v1"
+    method: str = "deterministic_dependency_aware_resource_scheduler_v2"
     deterministic: bool = True
     horizon_minutes: int
     granularity_minutes: int
