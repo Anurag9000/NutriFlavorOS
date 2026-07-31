@@ -1,60 +1,10 @@
-/** NutriFlavorOS centralized API client. */
+/** NutriFlavorOS compatibility API surface backed by the shared transport. */
 
-const configuredBase = import.meta.env.VITE_API_BASE_URL as string | undefined;
-const defaultBase = import.meta.env.DEV ? "http://localhost:8000/api/v1" : "/api/v1";
-const API_BASE = (configuredBase?.trim() || defaultBase).replace(/\/$/, "");
-const TOKEN_KEY = "nutriflavor_token";
-const USER_KEY = "nfos_user";
+import { ApiClientError, apiRequest } from "@/lib/http";
 
-function extractErrorMessage(detail: unknown, status: number): string {
-    if (typeof detail === "string") return detail;
-    if (!detail || typeof detail !== "object") return `Request failed with status ${status}`;
+export { ApiClientError as ApiError };
 
-    const body = detail as Record<string, unknown>;
-    const nested = body.detail;
-    if (typeof nested === "string") return nested;
-    if (nested && typeof nested === "object") {
-        const nestedBody = nested as Record<string, unknown>;
-        if (typeof nestedBody.message === "string") return nestedBody.message;
-    }
-    if (typeof body.message === "string") return body.message;
-    return `Request failed with status ${status}`;
-}
-
-export class ApiError extends Error {
-    readonly status: number;
-    readonly detail: unknown;
-
-    constructor(status: number, detail: unknown) {
-        super(extractErrorMessage(detail, status));
-        this.name = "ApiError";
-        this.status = status;
-        this.detail = detail;
-    }
-}
-
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const token = localStorage.getItem(TOKEN_KEY);
-    const headers = new Headers(options.headers);
-    if (!(options.body instanceof FormData) && !headers.has("Content-Type")) {
-        headers.set("Content-Type", "application/json");
-    }
-    if (token) headers.set("Authorization", `Bearer ${token}`);
-
-    const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
-    if (response.status === 401) {
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
-        window.dispatchEvent(new CustomEvent("nutriflavor:unauthorized"));
-    }
-
-    const contentType = response.headers.get("content-type") || "";
-    const payload: unknown = contentType.includes("application/json")
-        ? await response.json()
-        : await response.text();
-    if (!response.ok) throw new ApiError(response.status, payload);
-    return payload as T;
-}
+const request = apiRequest;
 
 export interface UserProfile {
     id?: string;
@@ -239,10 +189,18 @@ export interface HealthInsightPoint {
     period?: string;
 }
 
-interface AuthResponse {
+export interface AuthUser {
+    id: string;
+    email: string;
+    name: string;
+    profile_complete: boolean;
+    missing_profile_fields: string[];
+}
+
+export interface AuthResponse {
     access_token: string;
     token_type: string;
-    user: Record<string, unknown>;
+    user: AuthUser;
 }
 
 interface AcceptedFeedback {
@@ -319,7 +277,7 @@ export const authApi = {
             method: "POST",
             body: JSON.stringify(data),
         }),
-    me: () => request<{ id: string; email: string; name: string }>("/auth/me"),
+    me: () => request<AuthUser>("/auth/me"),
 };
 
 export const recipeApi = {
