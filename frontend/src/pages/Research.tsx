@@ -27,15 +27,16 @@ function itemName(item: Record<string, unknown>): string {
   return String(item.name ?? item.title ?? item.id ?? "Unnamed catalog item");
 }
 
-function itemId(item: Record<string, unknown>): string {
-  return String(item.id ?? item.name ?? crypto.randomUUID());
+function itemId(item: Record<string, unknown>, index: number): string {
+  const stable = item.id ?? item.name ?? item.title;
+  return stable === undefined ? `catalog-item-${index}` : String(stable);
 }
 
 function statusVariant(value: unknown): "default" | "secondary" | "destructive" | "outline" {
   const normalized = String(value ?? "").toLowerCase();
-  if (normalized.includes("clinical") || normalized.includes("high")) return "destructive";
-  if (normalized.includes("executable") || normalized.includes("implemented")) return "default";
-  if (normalized.includes("research") || normalized.includes("optional")) return "secondary";
+  if (normalized.includes("broken") || normalized.includes("clinical") || normalized.includes("high")) return "destructive";
+  if (normalized.includes("available") || normalized.includes("executable") || normalized.includes("implemented")) return "default";
+  if (normalized.includes("research") || normalized.includes("optional") || normalized.includes("missing")) return "secondary";
   return "outline";
 }
 
@@ -162,8 +163,8 @@ export default function ResearchPage() {
             </Card>
 
             <div className="grid gap-3 lg:grid-cols-2">
-              {items.map((item) => (
-                <Card key={itemId(item)}>
+              {items.map((item, index) => (
+                <Card key={itemId(item, index)}>
                   <CardHeader className="pb-3">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
@@ -194,7 +195,7 @@ export default function ResearchPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base"><FlaskConical className="h-4 w-4" />Runtime capability registry</CardTitle>
-                <CardDescription>These entries describe code availability, not benchmark quality or production approval.</CardDescription>
+                <CardDescription>Importable code is not benchmark quality, production approval, or clinical validation.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {Object.entries(implemented).map(([id, value]) => {
@@ -205,8 +206,13 @@ export default function ResearchPage() {
                         <code className="font-medium">{id}</code>
                         <Badge variant={statusVariant(detail.status ?? detail.readiness)}>{label(detail.status ?? detail.readiness)}</Badge>
                       </div>
-                      {typeof detail.description === "string" && <p className="mt-2 text-muted-foreground">{detail.description}</p>}
-                      {typeof detail.production_enabled === "boolean" && <p className="mt-1 text-xs text-muted-foreground">Production enabled: {detail.production_enabled ? "yes" : "no"}</p>}
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Runtime available: {detail.runtime_available === true ? "yes" : "no"} · runtime enabled: {detail.runtime_enabled === true ? "yes" : "no"}
+                      </p>
+                      {typeof detail.implementation_error === "string" && detail.implementation_error && (
+                        <p className="mt-2 text-xs text-destructive">{detail.implementation_error}</p>
+                      )}
+                      {typeof detail.note === "string" && <p className="mt-2 text-xs text-muted-foreground">{detail.note}</p>}
                     </div>
                   );
                 })}
