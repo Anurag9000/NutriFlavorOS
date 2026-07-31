@@ -34,6 +34,28 @@ jobs:
           --repeats 2
           --max-objective-gap 1.0
           --output /tmp/planner_benchmark.json
+      - name: Rolling-origin forecasting benchmark gate
+        run: >-
+          python scripts/benchmark_forecasters.py
+          --generate-seed 17
+          --length 56
+          --season-length 7
+          --intermittent-probability 0.20
+          --minimum-train-size 28
+          --horizon 7
+          --step 7
+          --require-model seasonal_naive
+          --require-model tsb_intermittent_demand
+          --maximum-mae 10
+          --output /tmp/forecast_benchmark.json
+      - name: Perishable inventory replay gate
+        run: >-
+          python scripts/simulate_inventory.py
+          benchmarks/inventory_small.json
+          --minimum-fill-rate 1.0
+          --maximum-waste-units 1.0
+          --maximum-stockout-units 0.0
+          --output /tmp/inventory_simulation.json
       - name: Fresh SQLite migration
         env:
           DATABASE_URL: sqlite:///ci-fresh.db
