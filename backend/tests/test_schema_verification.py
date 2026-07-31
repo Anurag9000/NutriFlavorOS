@@ -8,6 +8,7 @@ from alembic.config import Config
 from sqlalchemy import create_engine
 
 from backend.database import Base
+from backend.preparation_models import DBRecipePreparationProfile  # noqa: F401
 from backend.schema_verification import verify_runtime_schema
 
 
@@ -33,9 +34,9 @@ def test_stale_alembic_revision_is_rejected(tmp_path, monkeypatch):
     database = tmp_path / "stale-head.db"
     url = f"sqlite:///{database}"
     monkeypatch.setenv("DATABASE_URL", url)
-    command.upgrade(_config(url), "20260731_0003")
+    command.upgrade(_config(url), "20260731_0004")
 
-    with pytest.raises(RuntimeError, match="Expected 20260731_0004; observed 20260731_0003"):
+    with pytest.raises(RuntimeError, match="Expected 20260731_0005; observed 20260731_0004"):
         verify_runtime_schema(create_engine(url))
 
 
