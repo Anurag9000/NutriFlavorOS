@@ -56,7 +56,7 @@ from backend.services.household_access_service import (
     revoke_invitation,
     update_member,
 )
-from backend.services.inventory_service import (
+from backend.services.inventory_service_v4 import (
     add_household_member,
     add_pantry_item,
     build_batch_prep_tasks,
