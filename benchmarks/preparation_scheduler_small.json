@@ -1,0 +1,79 @@
+{
+  "horizon_minutes": 120,
+  "granularity_minutes": 5,
+  "resources": [
+    {
+      "resource_id": "counter",
+      "capacity": 1,
+      "available_from_minute": 0,
+      "available_until_minute": 120,
+      "label": "Preparation counter"
+    },
+    {
+      "resource_id": "oven",
+      "capacity": 1,
+      "available_from_minute": 0,
+      "available_until_minute": 120,
+      "label": "Oven"
+    },
+    {
+      "resource_id": "burner",
+      "capacity": 2,
+      "available_from_minute": 0,
+      "available_until_minute": 120,
+      "label": "Stove burners"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "chop",
+      "duration_minutes": 10,
+      "earliest_start_minute": 0,
+      "latest_finish_minute": 60,
+      "priority": 5,
+      "resource_demands": {"counter": 1},
+      "dependencies": [],
+      "metadata": {"source": "canonical_fixture"}
+    },
+    {
+      "task_id": "mix",
+      "duration_minutes": 10,
+      "earliest_start_minute": 0,
+      "latest_finish_minute": 70,
+      "priority": 4,
+      "resource_demands": {"counter": 1},
+      "dependencies": ["chop"],
+      "metadata": {"source": "canonical_fixture"}
+    },
+    {
+      "task_id": "preheat",
+      "duration_minutes": 15,
+      "earliest_start_minute": 0,
+      "latest_finish_minute": 40,
+      "priority": 5,
+      "resource_demands": {"oven": 1},
+      "dependencies": [],
+      "metadata": {"source": "canonical_fixture"}
+    },
+    {
+      "task_id": "bake",
+      "duration_minutes": 20,
+      "earliest_start_minute": 0,
+      "latest_finish_minute": 90,
+      "priority": 5,
+      "resource_demands": {"oven": 1},
+      "dependencies": ["mix", "preheat"],
+      "metadata": {"source": "canonical_fixture"}
+    },
+    {
+      "task_id": "simmer",
+      "duration_minutes": 15,
+      "earliest_start_minute": 0,
+      "latest_finish_minute": 80,
+      "priority": 2,
+      "resource_demands": {"burner": 1},
+      "dependencies": ["chop"],
+      "metadata": {"source": "canonical_fixture"}
+    }
+  ]
+}
