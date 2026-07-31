@@ -86,6 +86,12 @@ IMPLEMENTED_COMPONENTS: Dict[str, dict] = {
         "status": "implemented",
         "dependency": "core",
     },
+    "preparation_resource_scheduler": {
+        "module": "backend.engines.prep_resource_scheduler",
+        "symbol": "build_preparation_schedule",
+        "status": "implemented",
+        "dependency": "core",
+    },
     "pareto_optimizer": {
         "module": "backend.research.solver_baselines",
         "symbol": "pareto_enumeration",
