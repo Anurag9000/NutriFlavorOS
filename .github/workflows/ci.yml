@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with: {python-version: '3.11', cache: pip, cache-dependency-path: backend/requirements.txt}
       - run: pip install -r backend/requirements.txt
       - run: python -m compileall -q backend scripts
@@ -30,7 +30,7 @@ jobs:
           --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with: {python-version: '3.11', cache: pip, cache-dependency-path: backend/requirements.txt}
       - run: pip install -r backend/requirements.txt psycopg[binary]
       - env: {DATABASE_URL: 'postgresql+psycopg://nutriflavos:nutriflavos@localhost:5432/nutriflavos'}
