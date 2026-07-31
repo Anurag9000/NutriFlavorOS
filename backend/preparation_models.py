@@ -7,6 +7,7 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     JSON,
@@ -29,6 +30,14 @@ class DBRecipePreparationProfile(Base):
             "schema_version <> ''",
             name="ck_recipe_preparation_profile_schema_version",
         ),
+        CheckConstraint(
+            "supported_servings_min > 0",
+            name="ck_recipe_preparation_profile_servings_min",
+        ),
+        CheckConstraint(
+            "supported_servings_max >= supported_servings_min",
+            name="ck_recipe_preparation_profile_servings_range",
+        ),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -39,6 +48,8 @@ class DBRecipePreparationProfile(Base):
         index=True,
     )
     schema_version = Column(String, nullable=False, default="1")
+    supported_servings_min = Column(Float, nullable=False)
+    supported_servings_max = Column(Float, nullable=False)
     task_templates = Column(JSON, nullable=False, default=list)
     source_name = Column(String, nullable=False)
     source_url = Column(String, nullable=False)
