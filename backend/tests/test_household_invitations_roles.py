@@ -1,5 +1,6 @@
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -68,6 +69,23 @@ def _users(db):
     db.add_all([owner, invitee, other])
     db.commit()
     return owner, invitee, other
+
+
+def test_household_creation_persists_explicit_owner_membership():
+    db = _db()
+    owner, _, _ = _users(db)
+    household = create_household(db, owner, HouseholdCreate(name="Home"))
+    membership = (
+        db.query(DBHouseholdMember)
+        .filter(
+            DBHouseholdMember.household_id == household.id,
+            DBHouseholdMember.linked_user_id == owner.id,
+        )
+        .one()
+    )
+    assert membership.role == HouseholdRole.OWNER.value
+    assert membership.active is True
+    assert membership.display_name == "Owner"
 
 
 def test_invitation_is_email_bound_retry_safe_and_role_limited():
@@ -155,7 +173,7 @@ def test_revocation_is_idempotent_and_token_cannot_be_accepted():
     assert error.value.status_code == 410
 
 
-def test_member_update_is_versioned_and_owner_role_cannot_be_assigned():
+def test_member_update_is_versioned_normalized_and_owner_role_cannot_be_assigned():
     db = _db()
     owner, invitee, _ = _users(db)
     household = create_household(db, owner, HouseholdCreate(name="Home"))
@@ -173,16 +191,27 @@ def test_member_update_is_versioned_and_owner_role_cannot_be_assigned():
         household,
         member.id,
         HouseholdMemberUpdate(
+            display_name="  Household   Member  ",
             role=HouseholdRole.EDITOR,
             servings_multiplier=1.5,
             allergies=["Peanut", " peanut "],
         ),
     )
+    assert updated.display_name == "Household Member"
     assert updated.role == HouseholdRole.EDITOR.value
     assert updated.servings_multiplier == 1.5
     assert updated.allergies == ["peanut"]
     db.expire_all()
     assert db.get(DBHousehold, household.id).version == version_before + 1
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError, match="Ownership transfer"):
         HouseholdMemberUpdate(role=HouseholdRole.OWNER)
+
+
+def test_empty_and_whitespace_member_updates_are_rejected():
+    with pytest.raises(ValidationError, match="At least one member field"):
+        HouseholdMemberUpdate()
+    with pytest.raises(ValidationError, match="display_name cannot be blank"):
+        HouseholdMemberUpdate(display_name="   ")
+    with pytest.raises(ValidationError):
+        HouseholdMemberUpdate(allergies=[f"allergen-{index}" for index in range(101)])
