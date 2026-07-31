@@ -1,55 +1,8 @@
-const configuredBase = import.meta.env.VITE_API_BASE_URL as string | undefined;
-const API_BASE = (configuredBase?.trim() || (import.meta.env.DEV ? "http://localhost:8000/api/v1" : "/api/v1")).replace(/\/$/, "");
-const TOKEN_KEY = "nutriflavor_token";
-const USER_KEY = "nfos_user";
+import { ApiClientError, apiRequest } from "@/lib/http";
 
-export class PlatformApiError extends Error {
-  readonly status: number;
-  readonly detail: unknown;
+export { ApiClientError as PlatformApiError };
 
-  constructor(status: number, detail: unknown) {
-    const message = extractMessage(detail, status);
-    super(message);
-    this.name = "PlatformApiError";
-    this.status = status;
-    this.detail = detail;
-  }
-}
-
-function extractMessage(payload: unknown, status: number): string {
-  if (typeof payload === "string" && payload.trim()) return payload;
-  if (payload && typeof payload === "object") {
-    const body = payload as Record<string, unknown>;
-    const detail = body.detail;
-    if (typeof detail === "string") return detail;
-    if (detail && typeof detail === "object") {
-      const nested = detail as Record<string, unknown>;
-      if (typeof nested.message === "string") return nested.message;
-    }
-    if (typeof body.message === "string") return body.message;
-  }
-  return `Request failed with status ${status}`;
-}
-
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const headers = new Headers(options.headers);
-  if (!(options.body instanceof FormData) && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-
-  const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
-  if (response.status === 401) {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    window.dispatchEvent(new CustomEvent("nutriflavor:unauthorized"));
-  }
-  const contentType = response.headers.get("content-type") || "";
-  const payload: unknown = contentType.includes("application/json") ? await response.json() : await response.text();
-  if (!response.ok) throw new PlatformApiError(response.status, payload);
-  return payload as T;
-}
+const request = apiRequest;
 
 export type HouseholdRole = "viewer" | "editor" | "owner";
 export type ReservationStatus = "active" | "released" | "consumed" | "expired";
