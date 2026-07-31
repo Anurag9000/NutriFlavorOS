@@ -1,4 +1,4 @@
-import { BarChart3, Beaker, Home, LayoutDashboard, LogOut, Settings, UtensilsCrossed } from "lucide-react";
+import { BarChart3, Beaker, Clock3, Home, LayoutDashboard, LogOut, Settings, UtensilsCrossed } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -10,6 +10,7 @@ const navItems = [
   { title: "Meal Planner", url: "/meals", icon: UtensilsCrossed },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
   { title: "Household & Pantry", url: "/household", icon: Home },
+  { title: "Preparation Resources", url: "/preparation", icon: Clock3 },
   { title: "Research Registry", url: "/research", icon: Beaker },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
