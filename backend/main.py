@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from backend.api import (
     analytics_routes,
     auth_routes,
+    conversion_routes,
     household_routes,
     meal_routes,
     nutrition_routes,
@@ -24,7 +25,8 @@ from backend.api import (
     user_routes,
     vision_routes,
 )
-from backend.database import DB_URL, init_db, verify_schema
+from backend.database import DB_URL, SessionLocal, init_db, verify_schema
+from backend.services.conversion_service import seed_official_storage_policies
 
 
 def _bool_env(name: str, default: bool) -> bool:
@@ -38,14 +40,20 @@ async def lifespan(_: FastAPI):
         init_db()
     else:
         verify_schema()
+    if _bool_env("SEED_REVIEWED_STORAGE_POLICIES", True):
+        db = SessionLocal()
+        try:
+            seed_official_storage_policies(db)
+        finally:
+            db.close()
     yield
 
 
 app = FastAPI(
     title="NutriFlavorOS API",
-    version="0.3.0",
+    version="0.4.0",
     description=(
-        "Experimental meal-planning, household-inventory, and offline-research API. "
+        "Experimental meal-planning, household-inventory, evidence, and offline-research API. "
         "Outputs are not medical advice and must not be represented as clinically validated."
     ),
     lifespan=lifespan,
@@ -73,6 +81,7 @@ def read_root():
         "message": "NutriFlavorOS API",
         "status": "experimental",
         "medical_use": "not_clinically_validated",
+        "food_safety_use": "reviewed_general_guidance_only",
         "version": app.version,
     }
 
@@ -86,6 +95,7 @@ app.include_router(auth_routes.router)
 app.include_router(user_routes.router)
 app.include_router(meal_routes.router)
 app.include_router(household_routes.router)
+app.include_router(conversion_routes.router)
 app.include_router(analytics_routes.router)
 app.include_router(recipe_routes.router)
 app.include_router(substitution_routes.router)
