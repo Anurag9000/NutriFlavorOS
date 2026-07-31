@@ -1,13 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import PreparationPage from "@/pages/Preparation";
 
 const mocks = vi.hoisted(() => ({
-  profiles: vi.fn(),
-  buildTasks: vi.fn(),
   schedule: vi.fn(),
   toast: vi.fn(),
 }));
@@ -21,11 +20,7 @@ vi.mock("@/hooks/use-toast", () => ({
 }));
 
 vi.mock("@/lib/preparationApi", () => ({
-  preparationApi: {
-    profiles: mocks.profiles,
-    buildTasks: mocks.buildTasks,
-    schedule: mocks.schedule,
-  },
+  preparationApi: { schedule: mocks.schedule },
 }));
 
 function renderPage() {
@@ -36,19 +31,20 @@ function renderPage() {
     },
   });
   return render(
-    <QueryClientProvider client={client}>
-      <PreparationPage />
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider client={client}>
+        <PreparationPage />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 
 beforeEach(() => {
   vi.resetAllMocks();
-  mocks.profiles.mockResolvedValue([]);
 });
 
-describe("Preparation workspace", () => {
-  it("builds an explicit dependency-aware resource schedule request", async () => {
+describe("Manual preparation editor", () => {
+  it("builds an explicit dependency-aware schedule request", async () => {
     mocks.schedule.mockResolvedValue({
       method: "deterministic_dependency_aware_resource_scheduler_v2",
       deterministic: true,
@@ -63,7 +59,7 @@ describe("Preparation workspace", () => {
           priority: 2,
           resource_demands: { oven: 1 },
           dependencies: ["mix"],
-          metadata: {},
+          metadata: { source: "manual_user_declaration" },
         },
       ],
       unscheduled: [],
@@ -77,6 +73,9 @@ describe("Preparation workspace", () => {
     });
 
     renderPage();
+    expect(
+      screen.getByRole("link", { name: /Use reviewed evidence pipeline/ }),
+    ).toHaveAttribute("href", "/preparation/pipeline");
     fireEvent.change(screen.getByLabelText("Horizon minutes"), {
       target: { value: "120" },
     });
@@ -107,7 +106,9 @@ describe("Preparation workspace", () => {
     fireEvent.change(screen.getByLabelText("Dependencies"), {
       target: { value: "mix" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Create schedule" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create manual schedule" }),
+    );
 
     expect(await screen.findByText("bake")).toBeInTheDocument();
     expect(mocks.schedule).toHaveBeenCalledWith({
@@ -131,7 +132,7 @@ describe("Preparation workspace", () => {
           priority: 2,
           resource_demands: { oven: 1 },
           dependencies: ["mix"],
-          metadata: {},
+          metadata: { source: "manual_user_declaration" },
         },
       ],
     });
@@ -139,83 +140,7 @@ describe("Preparation workspace", () => {
     expect(screen.getByText("After: mix")).toBeInTheDocument();
   });
 
-  it("compiles a reviewed profile into namespaced task drafts", async () => {
-    mocks.profiles.mockResolvedValue([
-      {
-        id: 1,
-        recipe_id: "soup",
-        schema_version: "1",
-        supported_servings_min: 2,
-        supported_servings_max: 6,
-        task_templates: [],
-        source_name: "Reviewed protocol",
-        source_url: "https://example.test/soup",
-        source_version: "2026-07",
-        evidence_status: "reviewed",
-        reviewed_at: "2026-07-31T00:00:00Z",
-        reviewed_by: "Reviewer",
-        active: true,
-        created_at: "2026-07-31T00:00:00Z",
-        updated_at: "2026-07-31T00:00:00Z",
-      },
-    ]);
-    mocks.buildTasks.mockResolvedValue({
-      tasks: [
-        {
-          task_id: "day1.dinner.simmer",
-          duration_minutes: 35,
-          earliest_start_minute: 0,
-          latest_finish_minute: 120,
-          priority: 3,
-          resource_demands: { burner: 1 },
-          dependencies: ["day1.dinner.chop"],
-          metadata: { evidence_status: "reviewed" },
-        },
-      ],
-      unresolved: [],
-      profile_versions: { soup: "profile:1/schema:1/source:2026-07" },
-      duration_policy: "conservative_max",
-      warnings: [],
-    });
-
-    renderPage();
-    expect(await screen.findByText(/Reviewed protocol/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add occurrence" }));
-    fireEvent.change(screen.getByLabelText("Occurrence ID"), {
-      target: { value: "day1.dinner" },
-    });
-    fireEvent.change(screen.getByLabelText("Recipe profile"), {
-      target: { value: "soup" },
-    });
-    fireEvent.change(screen.getByLabelText("Required finish"), {
-      target: { value: "120" },
-    });
-    fireEvent.change(screen.getByLabelText("Servings"), {
-      target: { value: "4" },
-    });
-    fireEvent.change(screen.getByLabelText("Priority"), {
-      target: { value: "3" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Compile reviewed tasks" }));
-
-    expect(await screen.findByDisplayValue("day1.dinner.simmer")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("day1.dinner.chop")).toBeInTheDocument();
-    expect(mocks.buildTasks).toHaveBeenCalledWith(
-      [
-        {
-          occurrence_id: "day1.dinner",
-          recipe_id: "soup",
-          required_finish_minute: 120,
-          servings: 4,
-          priority: 3,
-        },
-      ],
-      "conservative_max",
-      true,
-    );
-  });
-
-  it("renders dependency and resource failures without inventing a fallback", async () => {
+  it("renders blocked dependencies and missing resources explicitly", async () => {
     mocks.schedule.mockResolvedValue({
       method: "deterministic_dependency_aware_resource_scheduler_v2",
       deterministic: true,
@@ -230,7 +155,7 @@ describe("Preparation workspace", () => {
           missing_resources: [],
           blocked_by: ["freeze"],
           capacity_violations: {},
-          metadata: {},
+          metadata: { source: "manual_user_declaration" },
         },
       ],
       resource_utilization: {},
@@ -253,10 +178,13 @@ describe("Preparation workspace", () => {
     fireEvent.change(screen.getByLabelText("Dependencies"), {
       target: { value: "freeze" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Create schedule" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create manual schedule" }),
+    );
 
-    expect(await screen.findByText(/pack: blocked by dependency/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/pack: blocked by dependency/i),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Blocked by: freeze/)).toBeInTheDocument();
-    expect(screen.getByText("No task could be scheduled.")).toBeInTheDocument();
   });
 });
