@@ -17,12 +17,17 @@ from backend.domain.preparation_evidence import (
     BuildPreparationTasksResponse,
     RecipePreparationProfileView,
 )
+from backend.domain.preparation_pipeline import (
+    CompileAndScheduleRequest,
+    CompileAndScheduleResponse,
+)
 from backend.engines.prep_resource_scheduler import build_preparation_schedule
 from backend.services.preparation_evidence_service import (
     build_tasks_from_profiles,
     get_profile,
     list_profiles,
 )
+from backend.services.preparation_pipeline_service import compile_and_schedule
 from backend.utils.security import get_current_user
 
 
@@ -79,3 +84,17 @@ def compile_preparation_tasks(
     """Compile reviewed recipe profiles into namespaced scheduling tasks."""
 
     return build_tasks_from_profiles(db, payload)
+
+
+@router.post(
+    "/compile-and-schedule",
+    response_model=CompileAndScheduleResponse,
+)
+def compile_and_schedule_preparation(
+    payload: CompileAndScheduleRequest,
+    db: Session = Depends(get_db),
+    _: DBUser = Depends(get_current_user),
+) -> CompileAndScheduleResponse:
+    """Compile evidence and fail closed unless partial scheduling is explicit."""
+
+    return compile_and_schedule(db, payload)
