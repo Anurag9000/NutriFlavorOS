@@ -1,294 +1,177 @@
+import { useQuery } from "@tanstack/react-query";
 import AppLayout from "@/components/AppLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Heart, Palette, Sparkles, Leaf, Flame, Zap, TrendingUp, Brain, TreePine, Droplets, Award } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
-import { useHealthInsights, useSustainabilityData, useGamificationAchievements, useImpactSummary, useGetMealPlan, useTasteInsights, useVarietyInsights, useAIInsights } from "@/hooks/useApi";
+import { useGetMealPlan, useUserProfile } from "@/hooks/useApi";
+import { householdApi } from "@/lib/platformApi";
+import type { PlanResponse, Recipe } from "@/lib/api";
+import { AlertCircle, CalendarDays, Home, PackageOpen, Target, UtensilsCrossed } from "lucide-react";
+import { Link } from "react-router-dom";
 
-const pillarConfig = [
-  { key: "health" as const, label: "Health", icon: Heart, color: "text-health", bg: "bg-health/10" },
-  { key: "taste" as const, label: "Taste", icon: Palette, color: "text-taste", bg: "bg-taste/10" },
-  { key: "variety" as const, label: "Variety", icon: Sparkles, color: "text-variety", bg: "bg-variety/10" },
-  { key: "sustainability" as const, label: "Sustain.", icon: Leaf, color: "text-sustainability", bg: "bg-sustainability/10" },
-];
+function numberValue(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
 
-const mealTypeLabels: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack" };
+function sumPlan(plan?: PlanResponse) {
+  if (!plan?.days?.length) {
+    return { meals: 0, calories: 0, protein: 0, carbs: 0, fat: 0, cost: null as number | null };
+  }
+  let meals = 0;
+  let calories = 0;
+  let protein = 0;
+  let carbs = 0;
+  let fat = 0;
+  let recipeCost = 0;
+  let costObservations = 0;
+  for (const day of plan.days) {
+    for (const recipe of Object.values(day.meals ?? {}) as Recipe[]) {
+      meals += 1;
+      calories += recipe.calories || 0;
+      protein += recipe.macros?.protein || 0;
+      carbs += recipe.macros?.carbs || 0;
+      fat += recipe.macros?.fat || 0;
+      if (typeof recipe.estimated_cost === "number") {
+        recipeCost += recipe.estimated_cost;
+        costObservations += 1;
+      }
+    }
+  }
+  const reportedCost = numberValue(plan.overall_stats?.total_plan_cost);
+  return {
+    meals,
+    calories,
+    protein,
+    carbs,
+    fat,
+    cost: reportedCost ?? (costObservations === meals && meals > 0 ? recipeCost : null),
+  };
+}
+
+function formatNumber(value: number, maximumFractionDigits = 0): string {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits }).format(value);
+}
+
+function targetProgress(current: number, target?: number): number {
+  if (!target || target <= 0) return 0;
+  return Math.min(100, Math.round((current / target) * 100));
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const userId = user?.id ?? "usr_1";
+  const userId = user?.id ?? "";
+  const planQ = useGetMealPlan(userId);
+  const profileQ = useUserProfile(user?.profileComplete ? userId : "");
+  const householdsQ = useQuery({ queryKey: ["households"], queryFn: householdApi.list, enabled: Boolean(userId) });
 
-  // API calls — NO FALLBACKS, 100% backend data
-  const healthQ = useHealthInsights(userId);
-  const sustainQ = useSustainabilityData(userId);
-  const achieveQ = useGamificationAchievements(userId);
-  const impactQ = useImpactSummary(userId);
-  const tasteQ = useTasteInsights(userId);
-  const varietyQ = useVarietyInsights(userId);
-  const insightsQ = useAIInsights(userId);
-
-  // Sustainability impact - declare early
-  const sustain = sustainQ.data;
-  const impact = impactQ.data;
-
-  // Derive pillar scores from API data only - NO FALLBACKS
-  const healthAvg = healthQ.data && healthQ.data.length > 0
-    ? Math.round(healthQ.data.reduce((s, d) => s + d.score, 0) / healthQ.data.length)
-    : 0;
-
-  // Calculate taste score from API data (average of taste profile values)
-  const tasteScore = tasteQ.data && tasteQ.data.length > 0
-    ? Math.round(tasteQ.data.reduce((sum, d) => sum + d.A, 0) / (tasteQ.data.length * 1.5))
-    : 0;
-
-  // Calculate variety score from API data (sum of variety percentages)
-  const varietyScore = varietyQ.data && varietyQ.data.length > 0
-    ? Math.round(varietyQ.data.reduce((sum, d) => sum + d.value, 0))
-    : 0;
-
-  const pillarScores = {
-    health: healthAvg,
-    taste: tasteScore,
-    variety: varietyScore,
-    sustainability: sustain ? Math.round((sustain.carbon_saved_kg / 100) * 100) : 0,
+  const plan = planQ.data;
+  const totals = sumPlan(plan);
+  const dayCount = plan?.days?.length ?? 0;
+  const daily = {
+    calories: dayCount ? totals.calories / dayCount : 0,
+    protein: dayCount ? totals.protein / dayCount : 0,
+    carbs: dayCount ? totals.carbs / dayCount : 0,
+    fat: dayCount ? totals.fat / dayCount : 0,
   };
-
-  // Get today's meals from existing meal plan - NO GENERATION
-  const mealPlanQ = useGetMealPlan(userId);
-  const todayMeals = mealPlanQ.data?.days?.[0]?.meals
-    ? Object.entries(mealPlanQ.data.days[0].meals).map(([type, meal]: [string, {id: string, name: string, calories: number, macros?: {protein: number, carbs: number, fat: number}}]) => {
-      let normalizedType = type.toLowerCase();
-      if (normalizedType.includes("snack")) normalizedType = "snack";
-
-      return {
-        id: meal.id,
-        type: normalizedType,
-        name: meal.name,
-        calories: meal.calories,
-        protein: meal.macros?.protein || 0,
-        carbs: meal.macros?.carbs || 0,
-        fat: meal.macros?.fat || 0,
-      };
-    })
-    : [];
-
-  // Calculate dashboard metrics from today's meals - NO HARDCODED VALUES
-  const dashboardMetrics = {
-    calories: {
-      current: todayMeals.reduce((sum, m) => sum + m.calories, 0),
-      target: 2000,
-    },
-    protein: {
-      current: todayMeals.reduce((sum, m) => sum + m.protein, 0),
-      target: 130,
-    },
-    streak: impact?.total_meals_logged ? Math.min(impact.total_meals_logged, 30) : 0,
-    weeklyScore: healthAvg,
-  };
-
-  // Achievements — use API data only
-  const displayAchievements = achieveQ.data?.achievements
-    ? achieveQ.data.achievements.filter((a: {id?: string, name?: string, title?: string, icon?: string, xp?: number, points?: number, unlocked?: boolean}) => a.unlocked !== false).slice(0, 3).map((a: {id?: string, name?: string, title?: string, icon?: string, xp?: number, points?: number}, i: number) => ({
-      id: a.id ?? `ach_${i}`,
-      title: a.name ?? a.title ?? "Achievement",
-      icon: a.icon ?? "🏆",
-      xp: a.xp ?? a.points ?? 100,
-    }))
-    : [];
-
-  const caloriePercent = Math.round((dashboardMetrics.calories.current / dashboardMetrics.calories.target) * 100);
+  const today = plan?.days?.[0];
+  const warnings = plan?.warnings ?? [];
+  const optimization = plan?.optimization;
 
   return (
     <AppLayout>
-      <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="mx-auto max-w-6xl space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground text-sm">Your nutrition overview for today</p>
+          <p className="text-sm text-muted-foreground">Persisted plan and household state for {user?.name ?? "your account"}.</p>
         </div>
 
-        {/* Pillar Scores */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {pillarConfig.map((p) => (
-            <Card key={p.key}>
-              <CardContent className="p-5">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={`p-2 rounded-lg ${p.bg}`}>
-                    <p.icon className={`h-4 w-4 ${p.color}`} />
-                  </div>
-                  <span className="text-sm font-medium">{p.label}</span>
-                </div>
-                <div className="text-3xl font-bold mb-2">{pillarScores[p.key]}%</div>
-                <Progress value={pillarScores[p.key]} className="h-1.5" />
+        {!user?.profileComplete && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Complete your nutrition profile</AlertTitle>
+            <AlertDescription className="space-y-3">
+              <p>Planning is blocked until the required profile fields are supplied. NutriFlavorOS will not invent age, weight, height, sex, activity, or goal values.</p>
+              {user?.missingProfileFields.length ? <p>Missing: {user.missingProfileFields.join(", ")}</p> : null}
+              <Button asChild size="sm"><Link to="/settings?completeProfile=1">Complete profile</Link></Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Card><CardContent className="p-5"><div className="flex items-center gap-2 text-sm text-muted-foreground"><CalendarDays className="h-4 w-4" />Plan horizon</div><p className="mt-2 text-2xl font-bold">{dayCount} day{dayCount === 1 ? "" : "s"}</p><p className="text-xs text-muted-foreground">{totals.meals} persisted meal slots</p></CardContent></Card>
+          <Card><CardContent className="p-5"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Target className="h-4 w-4" />Average planned energy</div><p className="mt-2 text-2xl font-bold">{dayCount ? formatNumber(daily.calories) : "—"}</p><p className="text-xs text-muted-foreground">kcal per planned day</p></CardContent></Card>
+          <Card><CardContent className="p-5"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Home className="h-4 w-4" />Households</div><p className="mt-2 text-2xl font-bold">{householdsQ.data?.length ?? 0}</p><p className="text-xs text-muted-foreground">accessible household workspaces</p></CardContent></Card>
+          <Card><CardContent className="p-5"><div className="flex items-center gap-2 text-sm text-muted-foreground"><PackageOpen className="h-4 w-4" />Plan cost evidence</div><p className="mt-2 text-2xl font-bold">{totals.cost === null ? "—" : formatNumber(totals.cost, 2)}</p><p className="text-xs text-muted-foreground">shown only when all required cost data exists</p></CardContent></Card>
+        </div>
+
+        {planQ.isError && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>No compatible persisted plan</AlertTitle>
+            <AlertDescription className="space-y-3">
+              <p>{planQ.error instanceof Error ? planQ.error.message : "A plan has not been generated yet."}</p>
+              {user?.profileComplete && <Button asChild size="sm"><Link to="/meals">Open meal planner</Link></Button>}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {plan && (
+          <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><UtensilsCrossed className="h-4 w-4" />First planned day</CardTitle><CardDescription>Selections are planned quantities, not logged consumption.</CardDescription></CardHeader>
+              <CardContent className="grid gap-3 sm:grid-cols-2">
+                {Object.entries(today?.meals ?? {}).map(([slot, recipe]) => {
+                  const portion = today?.portions?.[slot] ?? 1;
+                  return (
+                    <div key={slot} className="rounded-md border p-3">
+                      <div className="flex items-start justify-between gap-2"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">{slot.replaceAll("_", " ")}</p><p className="font-medium">{recipe.name}</p></div><Badge variant="outline">{portion}×</Badge></div>
+                      <p className="mt-2 text-xs text-muted-foreground">{formatNumber(recipe.calories * portion)} kcal · P {formatNumber((recipe.macros?.protein ?? 0) * portion, 1)} g · C {formatNumber((recipe.macros?.carbs ?? 0) * portion, 1)} g · F {formatNumber((recipe.macros?.fat ?? 0) * portion, 1)} g</p>
+                    </div>
+                  );
+                })}
               </CardContent>
             </Card>
-          ))}
-        </div>
 
-        {/* Metrics Row */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-5 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-taste/10"><Flame className="h-4 w-4 text-taste" /></div>
-              <div>
-                <p className="text-sm text-muted-foreground">Calories</p>
-                <p className="text-xl font-bold">{dashboardMetrics.calories.current}<span className="text-sm font-normal text-muted-foreground">/{dashboardMetrics.calories.target}</span></p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-5 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-health/10"><Zap className="h-4 w-4 text-health" /></div>
-              <div>
-                <p className="text-sm text-muted-foreground">Protein</p>
-                <p className="text-xl font-bold">{dashboardMetrics.protein.current}g<span className="text-sm font-normal text-muted-foreground">/{dashboardMetrics.protein.target}g</span></p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-5 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-variety/10"><TrendingUp className="h-4 w-4 text-variety" /></div>
-              <div>
-                <p className="text-sm text-muted-foreground">Streak</p>
-                <p className="text-xl font-bold">{dashboardMetrics.streak} days</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-5 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-emerald-500/10"><TrendingUp className="h-4 w-4 text-emerald-500" /></div>
-              <div>
-                <p className="text-sm text-muted-foreground">Weekly Cost</p>
-                <p className="text-xl font-bold">${mealPlanQ.data?.overall_stats?.total_plan_cost ?? "0.00"}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            <div className="space-y-4">
+              <Card>
+                <CardHeader><CardTitle className="text-base">Average daily targets</CardTitle><CardDescription>Targets come from your persisted profile.</CardDescription></CardHeader>
+                <CardContent className="space-y-4">
+                  {[
+                    ["Calories", daily.calories, profileQ.data?.target_calories, "kcal"],
+                    ["Protein", daily.protein, profileQ.data?.target_protein_g, "g"],
+                    ["Carbohydrate", daily.carbs, profileQ.data?.target_carbs_g, "g"],
+                    ["Fat", daily.fat, profileQ.data?.target_fat_g, "g"],
+                  ].map(([name, current, target, unit]) => (
+                    <div key={String(name)}>
+                      <div className="mb-1 flex justify-between gap-2 text-sm"><span>{name}</span><span className="text-muted-foreground">{formatNumber(Number(current), 1)}{unit} / {target ? `${formatNumber(Number(target))}${unit}` : "target unavailable"}</span></div>
+                      <Progress value={targetProgress(Number(current), typeof target === "number" ? target : undefined)} />
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Today's Meals */}
-          <div className="lg:col-span-2 space-y-4">
-            <h2 className="text-lg font-semibold">Today's Meals</h2>
-            <div className="grid sm:grid-cols-2 gap-4">
-              {todayMeals.map((meal) => (
-                <Card key={meal.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{mealTypeLabels[meal.type]}</span>
-                      <span className="text-xs text-muted-foreground">{meal.calories} cal</span>
-                    </div>
-                    <h3 className="font-medium mb-3">{meal.name}</h3>
-                    <div className="flex gap-3 text-xs text-muted-foreground">
-                      <span>P {meal.protein}g</span>
-                      <span>C {meal.carbs}g</span>
-                      <span>F {meal.fat}g</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              <Card>
+                <CardHeader><CardTitle className="text-base">Optimizer provenance</CardTitle></CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <p><span className="text-muted-foreground">Method:</span> {optimization?.method ?? "not reported"}</p>
+                  <p><span className="text-muted-foreground">Deterministic:</span> {optimization ? (optimization.deterministic ? "yes" : "no") : "not reported"}</p>
+                  <p><span className="text-muted-foreground">Objective score:</span> {optimization ? formatNumber(optimization.objective_score, 4) : "not reported"}</p>
+                  {(optimization?.relaxations.length ?? 0) > 0 && <p><span className="text-muted-foreground">Disclosed relaxations:</span> {optimization?.relaxations.join(", ")}</p>}
+                </CardContent>
+              </Card>
             </div>
           </div>
+        )}
 
-          {/* AI Insight + Achievements + Sustainability */}
-          <div className="space-y-4">
-            <Card className="border-primary/20">
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <Brain className="h-4 w-4 text-primary" />
-                  <CardTitle className="text-sm">AI Insight</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  {insightsQ.isLoading
-                    ? "Generating insights..."
-                    : insightsQ.data?.insight || "No insights available yet."}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Sustainability Impact Card */}
-            {sustain && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Sustainability Impact</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-sustainability/10"><Leaf className="h-4 w-4 text-sustainability" /></div>
-                    <div>
-                      <p className="text-sm font-medium">{sustain.carbon_saved_kg} kg CO₂ saved</p>
-                      <p className="text-xs text-muted-foreground">This month</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-blue-500/10"><Droplets className="h-4 w-4 text-blue-400" /></div>
-                    <div>
-                      <p className="text-sm font-medium">{sustain.water_saved_l}L water saved</p>
-                      <p className="text-xs text-muted-foreground">{sustain.sustainable_meals_count} sustainable meals</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-health/10"><TreePine className="h-4 w-4 text-health" /></div>
-                    <div>
-                      <p className="text-sm font-medium">{sustain.trees_planted_equivalent} trees equivalent</p>
-                      <p className="text-xs text-muted-foreground">Carbon offset</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Recent Achievements</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {displayAchievements.map((a: {id: string, title: string, icon: string, xp: number}) => (
-                  <div key={a.id} className="flex items-center gap-3">
-                    <span className="text-lg">{a.icon}</span>
-                    <div>
-                      <p className="text-sm font-medium">{a.title}</p>
-                      <p className="text-xs text-muted-foreground">{a.xp} XP</p>
-                    </div>
-                  </div>
-                ))}
-                <Button variant="ghost" size="sm" className="w-full" asChild>
-                  <Link to="/achievements">View All</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Gamification Impact Summary */}
-            {impact && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-2">
-                    <Award className="h-4 w-4 text-taste" />
-                    <CardTitle className="text-sm">Monthly Impact</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-3 text-center">
-                    <div>
-                      <p className="text-lg font-bold">{impact.total_meals_logged}</p>
-                      <p className="text-xs text-muted-foreground">Meals Logged</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold">{impact.average_health_score?.toFixed?.(0) ?? "—"}</p>
-                      <p className="text-xs text-muted-foreground">Avg Health</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold">{impact.total_carbon_saved?.toFixed?.(1) ?? "—"}</p>
-                      <p className="text-xs text-muted-foreground">kg CO₂ Saved</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </div>
+        {warnings.length > 0 && (
+          <Card>
+            <CardHeader><CardTitle className="text-base">Plan warnings</CardTitle></CardHeader>
+            <CardContent><ul className="list-disc space-y-1 pl-5 text-sm">{warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></CardContent>
+          </Card>
+        )}
       </div>
     </AppLayout>
   );
