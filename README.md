@@ -99,17 +99,21 @@ Development defaults to `http://localhost:8000/api/v1`; set `VITE_API_BASE_URL` 
 
 ```bash
 docker build -t nutriflavos .
+docker volume create nutriflavos-data
+
 docker run --rm \
+  -v nutriflavos-data:/app/data \
   -e DATABASE_URL="sqlite:////app/data/nutriflavor.db" \
   nutriflavos alembic upgrade head
 
 docker run --rm -p 8000:8000 \
+  -v nutriflavos-data:/app/data \
   -e SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')" \
   -e DATABASE_URL="sqlite:////app/data/nutriflavor.db" \
   nutriflavos
 ```
 
-Use a persistent volume for SQLite, or a managed PostgreSQL database in hosted deployments. Run migrations as a separate deployment step before starting multiple application replicas.
+The migration and application containers must share the same named volume. PostgreSQL is recommended for hosted or multi-replica deployments. Run migrations as a separate deployment step before starting application replicas.
 
 ## Validation
 
