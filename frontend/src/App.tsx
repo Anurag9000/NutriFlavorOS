@@ -15,6 +15,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const MealPlanner = lazy(() => import("./pages/MealPlanner"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const Household = lazy(() => import("./pages/Household"));
+const Preparation = lazy(() => import("./pages/Preparation"));
 const Research = lazy(() => import("./pages/Research"));
 const SettingsPage = lazy(() => import("./pages/Settings"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -46,6 +47,7 @@ function AppRoutes() {
           <Route path="/meals" element={<ProtectedRoute><ProfileRoute><PageTransition><MealPlanner /></PageTransition></ProfileRoute></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute><ProfileRoute><PageTransition><Analytics /></PageTransition></ProfileRoute></ProtectedRoute>} />
           <Route path="/household" element={<ProtectedRoute><PageTransition><Household /></PageTransition></ProtectedRoute>} />
+          <Route path="/preparation" element={<ProtectedRoute><PageTransition><Preparation /></PageTransition></ProtectedRoute>} />
           <Route path="/research" element={<ProtectedRoute><PageTransition><Research /></PageTransition></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><PageTransition><SettingsPage /></PageTransition></ProtectedRoute>} />
           <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
