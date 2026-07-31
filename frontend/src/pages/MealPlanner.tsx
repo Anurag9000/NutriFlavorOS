@@ -1,420 +1,188 @@
-
-import { useState, useCallback, useEffect } from "react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import AppLayout from "@/components/AppLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Sparkles, Clock, ChefHat, AlertCircle } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
-import { useGetMealPlan, useGenerateMealPlan, useRegenerateDay, useSwapMeal } from "@/hooks/useApi";
-import type { PlanResponse } from "@/lib/api";
+import { useGenerateMealPlan, useGetMealPlan, useUserProfile } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
-import { RecipeDetailModal } from "@/components/RecipeDetailModal";
-import { MealCard } from "@/components/MealCard";
-import { AnimatePresence, motion } from "framer-motion";
-import { Skeleton } from "@/components/ui/skeleton";
+import type { PlanResponse, Recipe } from "@/lib/api";
+import { AlertCircle, ChefHat, RefreshCw, ShoppingBasket } from "lucide-react";
 
-const mealTypeLabels: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack" };
-const mealTypes = ["breakfast", "lunch", "dinner", "snack"] as const;
-const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : "The request could not be completed";
+}
 
-// Convert API plan to the display format
-function apiPlanToDisplay(plan: PlanResponse) {
-  return plan.days.map((d, i) => ({
-    day: dayNames[i] ?? `Day ${d.day}`,
-    meals: Object.entries(d.meals).map(([type, recipe]) => {
-      // Normalize backend key to frontend expected key
-      let normalizedType = type.toLowerCase();
-      if (normalizedType.includes("snack")) normalizedType = "snack";
+function format(value: number, digits = 0): string {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: digits }).format(value);
+}
 
-      return {
-        id: recipe.id,
-        name: recipe.name,
-        type: normalizedType as "breakfast" | "lunch" | "dinner" | "snack",
-        calories: recipe.calories,
-        protein: recipe.macros?.protein ?? 0,
-        carbs: recipe.macros?.carbs ?? 0,
-        fat: recipe.macros?.fat ?? 0,
-        estimated_cost: recipe.estimated_cost ?? 5.00, // Budget optimizer
-        sustainabilityScore: 7, // Placeholder until backend provides this in recipe object
-      };
-    }),
-    scores: d.scores,
-    total_stats: d.total_stats,
-    prepTimeline: plan.prep_timeline?.[d.day] ?? [],
-  }));
+function dayLabel(day: number): string {
+  return `Day ${day}`;
 }
 
 export default function MealPlanner() {
   const { user } = useAuth();
-  const userId = user?.id ?? "usr_1";
+  const userId = user?.id ?? "";
   const { toast } = useToast();
-
+  const queryClient = useQueryClient();
   const [selectedDay, setSelectedDay] = useState(0);
-  const [displayPlan, setDisplayPlan] = useState<unknown[]>([]);
-  const [prepTimeline, setPrepTimeline] = useState<Record<number, string[]>>({});
-  const [ratings, setRatings] = useState<Record<string, number>>({});
-  const [isApiPlan, setIsApiPlan] = useState(false);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  // Modal state
-  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const profileQ = useUserProfile(userId);
+  const planQ = useGetMealPlan(userId);
+  const generatePlan = useGenerateMealPlan();
 
-  // API hooks
-  const getMealPlanQ = useGetMealPlan(userId);
-  const generateMutation = useGenerateMealPlan();
-  const regenerateMutation = useRegenerateDay();
-  const swapMutation = useSwapMeal();
+  const plan = planQ.data;
+  const day = plan?.days?.[selectedDay];
 
-  const plan = displayPlan[selectedDay];
-
-  // Generate AI plan
-  const handleGenerate = useCallback(async () => {
+  const handleGenerate = async () => {
+    if (!profileQ.data) {
+      toast({ title: "Profile unavailable", description: "Complete and save the required profile fields before generating a plan.", variant: "destructive" });
+      return;
+    }
     try {
-      const result = await generateMutation.mutateAsync({
-        age: 30,
-        weight_kg: 70,
-        height_cm: 175,
-        gender: "male",
-        activity_level: 1.5,
-        goal: "maintenance",
-      });
-      const converted = apiPlanToDisplay(result);
-      setDisplayPlan(converted as unknown[]);      setPrepTimeline(result.prep_timeline ?? {});
-      setIsApiPlan(true);
-      toast({ title: "✨ AI Plan Generated", description: "Real recipes from your backend!" });
+      const generated = await generatePlan.mutateAsync(profileQ.data);
+      queryClient.setQueryData<PlanResponse>(["mealPlan", userId], generated);
+      setSelectedDay(0);
+      toast({ title: "Plan generated", description: `${generated.days.length} planned day(s) persisted by the backend.` });
     } catch (error) {
-      toast({ title: "Backend Error", description: "Failed to generate meal plan. Please ensure backend is running.", variant: "destructive" });
-      console.error("Meal plan generation failed:", error);
+      toast({ title: "Plan generation failed", description: messageOf(error), variant: "destructive" });
     }
-  }, [generateMutation, toast]);
-
-  // Load from localStorage on mount (offline persistence)
-  useEffect(() => {
-    const cached = localStorage.getItem(`mealPlan_${userId}`);
-    if (cached) {
-      try {
-        const { plan, prepTimeline, timestamp } = JSON.parse(cached);
-        // Only use if less than 24 hours old
-        if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
-          setDisplayPlan(plan);
-          setPrepTimeline(prepTimeline || {});
-          setIsApiPlan(true);
-          console.log("Loaded meal plan from localStorage");
-        }
-      } catch (e) {
-        console.error("Failed to load cached plan:", e);
-      }
-    }
-  }, [userId]);
-
-  // Save to localStorage when plan changes
-  useEffect(() => {
-    if (displayPlan.length > 0 && isApiPlan) {
-      localStorage.setItem(`mealPlan_${userId}`, JSON.stringify({
-        plan: displayPlan,
-        prepTimeline,
-        timestamp: Date.now(),
-      }));
-    }
-  }, [displayPlan, prepTimeline, isApiPlan, userId]);
-
-  // Fetch existing plan first, only generate if none exists
-  useEffect(() => {
-    if (isInitialLoad) {
-      setIsInitialLoad(false);
-
-      // Try to load existing plan from API first
-      if (getMealPlanQ.data) {
-        const converted = apiPlanToDisplay(getMealPlanQ.data);
-        setDisplayPlan(converted as unknown[]);
-        setPrepTimeline(getMealPlanQ.data.prep_timeline ?? {});
-        setIsApiPlan(true);
-        console.log("Loaded existing meal plan from backend");
-      } else if (!getMealPlanQ.isLoading && !getMealPlanQ.data && displayPlan.length === 0) {
-        // No existing plan and no cached plan, generate new one
-        console.log("No existing plan found, generating new one...");
-        handleGenerate().catch(() => {
-          console.log("Auto-generation skipped - user can manually generate");
-        });
-      }
-    }
-  }, [isInitialLoad, getMealPlanQ.data, getMealPlanQ.isLoading, handleGenerate, displayPlan.length]);
-
-  // Regenerate a specific day
-  const handleRegenerateDay = useCallback(async () => {
-    try {
-      await regenerateMutation.mutateAsync({ userId, dayIndex: selectedDay });
-      toast({ title: "Day regenerated", description: `${displayPlan[selectedDay].day} meals refreshed` });
-    } catch {
-      toast({ title: "Regeneration unavailable", description: "Backend not connected", variant: "destructive" });
-    }
-  }, [regenerateMutation, userId, selectedDay, displayPlan, toast]);
-
-  // Swap a specific meal
-  const handleSwap = useCallback(async (mealSlot: string) => {
-    try {
-      const newRecipe = await swapMutation.mutateAsync({ userId, mealSlot });
-      // Update local state with swapped meal
-      setDisplayPlan((prev) => {
-        const updated = [...prev];
-        const dayMeals = [...updated[selectedDay].meals];
-        const idx = dayMeals.findIndex((m) => m.type === mealSlot);
-        if (idx >= 0) {
-          dayMeals[idx] = {
-            ...dayMeals[idx],
-            id: newRecipe.id,
-            name: newRecipe.name,
-            calories: newRecipe.calories,
-            protein: newRecipe.macros?.protein ?? dayMeals[idx].protein,
-            carbs: newRecipe.macros?.carbs ?? dayMeals[idx].carbs,
-            fat: newRecipe.macros?.fat ?? dayMeals[idx].fat,
-          };
-        }
-        updated[selectedDay] = { ...updated[selectedDay], meals: dayMeals };
-        return updated;
-      });
-      toast({ title: "Meal swapped", description: `Replaced with ${newRecipe.name}` });
-    } catch {
-      toast({ title: "Swap unavailable", description: "Backend not connected", variant: "destructive" });
-    }
-  }, [swapMutation, userId, selectedDay, toast]);
-
-  // Rate a meal
-  const handleRate = (mealId: string, rating: number) => {
-    setRatings((prev) => ({ ...prev, [mealId]: rating }));
-    toast({ title: "Rating saved", description: `Rated ${rating}/5 — helps AI learn your preferences` });
   };
 
-  const openRecipeDetails = (id: string) => {
-    setSelectedRecipeId(id);
-    setIsModalOpen(true);
-  };
+  const shoppingGroups = Object.entries(plan?.shopping_list ?? {});
 
   return (
     <AppLayout>
-      <div className="space-y-6 max-w-5xl mx-auto">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">Meal Planner</h1>
-            <p className="text-muted-foreground text-sm">Your personalized AI usage plan</p>
-          </motion.div>
-          <div className="flex gap-2">
-            <Button
-              onClick={handleGenerate}
-              disabled={generateMutation.isPending}
-              size="sm"
-              className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white shadow-md transition-all hover:scale-105"
-            >
-              {generateMutation.isPending ? (
-                <Sparkles className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4 mr-2" />
-              )}
-              {generateMutation.isPending ? "Generating..." : "Generate AI Plan"}
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleRegenerateDay} disabled={regenerateMutation.isPending}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${regenerateMutation.isPending ? "animate-spin" : ""}`} />
-              Regenerate Day
-            </Button>
+      <div className="mx-auto max-w-6xl space-y-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Meal planner</h1>
+            <p className="text-sm text-muted-foreground">Deterministic, persisted planning using your saved profile and explicit recipe evidence.</p>
           </div>
+          <Button type="button" onClick={handleGenerate} disabled={generatePlan.isPending || profileQ.isLoading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${generatePlan.isPending ? "animate-spin" : ""}`} />
+            {generatePlan.isPending ? "Generating…" : plan ? "Regenerate plan" : "Generate plan"}
+          </Button>
         </div>
 
-        {/* Day selector */}
-        {displayPlan.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">
-            {displayPlan.map((d, i) => (
-              <motion.button
-                key={d.day}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setSelectedDay(i)}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all shadow-sm ${i === selectedDay
-                  ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/20"
-                  : "bg-card hover:bg-accent border border-border"
-                  }`}
-              >
-                {d.day}
-              </motion.button>
-            ))}
-          </div>
+        {profileQ.error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Profile is incomplete or unavailable</AlertTitle>
+            <AlertDescription>{messageOf(profileQ.error)}</AlertDescription>
+          </Alert>
         )}
 
-        {/* Meals by type */}
-        <div className="space-y-4 min-h-[400px]">
-          <AnimatePresence mode="wait">
-            {generateMutation.isPending ? (
-              <motion.div
-                key="loading"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="space-y-4"
-              >
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center space-x-4 p-4 border rounded-lg bg-card/50">
-                    <Skeleton className="h-12 w-12 rounded-full" />
-                    <div className="space-y-2 flex-1">
-                      <Skeleton className="h-4 w-[250px]" />
-                      <Skeleton className="h-4 w-[200px]" />
-                    </div>
-                  </div>
-                ))}
-              </motion.div>
-            ) : displayPlan.length === 0 ? (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="flex items-center justify-center min-h-[400px]"
-              >
-                <Card className="max-w-md w-full border-dashed">
-                  <CardContent className="p-8 text-center">
-                    <ChefHat className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                    <h3 className="text-lg font-semibold mb-2">No Meal Plan Yet</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Click "Generate AI Plan" above to create your personalized weekly meal plan using real recipes from the backend.
-                    </p>
-                    <Button
-                      onClick={handleGenerate}
-                      disabled={generateMutation.isPending}
-                      className="bg-gradient-to-r from-primary to-purple-600"
-                    >
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      Generate Your First Plan
-                    </Button>
+        {planQ.isLoading && <p className="text-sm text-muted-foreground" aria-live="polite">Loading persisted plan…</p>}
+        {planQ.error && !plan && (
+          <Alert>
+            <ChefHat className="h-4 w-4" />
+            <AlertTitle>No compatible plan is stored</AlertTitle>
+            <AlertDescription>{messageOf(planQ.error)} Generate a plan only after reviewing your profile inputs.</AlertDescription>
+          </Alert>
+        )}
+
+        {plan && (
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Planning provenance</CardTitle>
+                <CardDescription>Plan selections are planned intake, not observed consumption or clinical outcomes.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div><p className="text-xs text-muted-foreground">Method</p><p className="font-medium">{plan.optimization?.method ?? "not reported"}</p></div>
+                <div><p className="text-xs text-muted-foreground">Objective score</p><p className="font-medium">{plan.optimization ? format(plan.optimization.objective_score, 4) : "not reported"}</p></div>
+                <div><p className="text-xs text-muted-foreground">Candidate recipes</p><p className="font-medium">{plan.optimization?.candidate_count ?? "not reported"}</p></div>
+                <div><p className="text-xs text-muted-foreground">Deterministic</p><p className="font-medium">{plan.optimization ? (plan.optimization.deterministic ? "yes" : "no") : "not reported"}</p></div>
+              </CardContent>
+            </Card>
+
+            <div className="flex gap-2 overflow-x-auto pb-2" role="tablist" aria-label="Plan days">
+              {plan.days.map((value, index) => (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={selectedDay === index}
+                  key={value.day}
+                  onClick={() => setSelectedDay(index)}
+                  className={`whitespace-nowrap rounded-md border px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selectedDay === index ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card"}`}
+                >
+                  {dayLabel(value.day)}
+                </button>
+              ))}
+            </div>
+
+            {day && (
+              <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+                <Card>
+                  <CardHeader><CardTitle className="text-base">{dayLabel(day.day)} selections</CardTitle><CardDescription>Portion multipliers are applied to the source recipe's declared nutrition basis.</CardDescription></CardHeader>
+                  <CardContent className="grid gap-3 sm:grid-cols-2">
+                    {Object.entries(day.meals).map(([slot, recipe]: [string, Recipe]) => {
+                      const portion = day.portions?.[slot] ?? 1;
+                      return (
+                        <article key={slot} className="rounded-md border p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div><p className="text-xs uppercase tracking-wide text-muted-foreground">{slot.replaceAll("_", " ")}</p><h2 className="font-semibold">{recipe.name}</h2></div>
+                            <Badge variant="outline">{portion}× portion</Badge>
+                          </div>
+                          <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                            <div><dt className="text-xs text-muted-foreground">Energy</dt><dd>{format(recipe.calories * portion)} kcal</dd></div>
+                            <div><dt className="text-xs text-muted-foreground">Protein</dt><dd>{format((recipe.macros?.protein ?? 0) * portion, 1)} g</dd></div>
+                            <div><dt className="text-xs text-muted-foreground">Carbohydrate</dt><dd>{format((recipe.macros?.carbs ?? 0) * portion, 1)} g</dd></div>
+                            <div><dt className="text-xs text-muted-foreground">Fat</dt><dd>{format((recipe.macros?.fat ?? 0) * portion, 1)} g</dd></div>
+                          </dl>
+                          <p className="mt-3 text-xs text-muted-foreground">Basis: {recipe.nutrition_basis ?? "unknown"}{recipe.source_name ? ` · source ${recipe.source_name}` : ""}</p>
+                        </article>
+                      );
+                    })}
                   </CardContent>
                 </Card>
-              </motion.div>
-            ) : (
-              <motion.div
-                key={selectedDay}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-4"
-              >
-                {mealTypes.map((type) => {
-                  const meal = plan.meals.find((m) => m.type === type);
-                  if (!meal) return null;
-                  const currentRating = ratings[meal.id] ?? 0;
-                  return (
-                    <MealCard
-                      key={`${selectedDay}-${type}`}
-                      meal={meal}
-                      label={mealTypeLabels[type]}
-                      currentRating={currentRating}
-                      onRate={handleRate}
-                      onSwap={handleSwap}
-                      onClick={openRecipeDetails}
-                      isSwapping={swapMutation.isPending}
-                    />
-                  );
-                })}
-              </motion.div>
+
+                <Card>
+                  <CardHeader><CardTitle className="text-base">Daily totals</CardTitle></CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    {Object.entries(day.total_stats ?? {}).map(([key, value]) => (
+                      <div key={key} className="flex justify-between gap-3 border-b pb-2 last:border-0"><span className="capitalize text-muted-foreground">{key.replaceAll("_", " ")}</span><span>{typeof value === "number" ? format(value, 2) : String(value)}</span></div>
+                    ))}
+                    {Object.keys(day.total_stats ?? {}).length === 0 && <p className="text-muted-foreground">No aggregate statistics were reported.</p>}
+                  </CardContent>
+                </Card>
+              </div>
             )}
-          </AnimatePresence>
-        </div>
 
-        {/* Prep Timeline - Daily Only */}
-        {plan && plan.prepTimeline && plan.prepTimeline.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Card className="border-primary/20 bg-gradient-to-br from-card via-card to-primary/5">
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <ChefHat className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">Daily Prep Tasks</CardTitle>
-                    <p className="text-xs text-muted-foreground mt-0.5">Tasks for {plan.day}</p>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {plan.prepTimeline.map((task: string, i: number) => {
-                    // Parse time and task from string like "8:00 AM - Prepare B'stilla"
-                    const match = task.match(/^(\d{1,2}:\d{2}\s*(?:AM|PM)?)\s*-\s*(.+)$/i);
-                    const time = match ? match[1] : "";
-                    const taskText = match ? match[2] : task;
-
-                    return (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.05 }}
-                        className="flex items-start gap-3 p-3 rounded-md bg-background/50 hover:bg-background transition-colors border border-transparent hover:border-border/50"
-                      >
-                        <Clock className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          {time && (
-                            <p className="text-xs font-medium text-primary mb-0.5">{time}</p>
-                          )}
-                          <p className="text-sm text-foreground leading-relaxed">{taskText}</p>
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><ShoppingBasket className="h-4 w-4" />Serving-scaled shopping requirements</CardTitle><CardDescription>Only compatible units are combined. Partial and unquantified items remain explicit.</CardDescription></CardHeader>
+              <CardContent className="space-y-5">
+                {shoppingGroups.map(([group, items]) => (
+                  <section key={group}>
+                    <h2 className="mb-2 font-medium capitalize">{group.replaceAll("_", " ")}</h2>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {Object.entries(items).map(([key, item]) => (
+                        <div key={key} className="rounded-md border p-3 text-sm">
+                          <div className="flex items-start justify-between gap-2"><span className="font-medium">{item.display_name}</span><Badge variant="outline">{item.quantity_status}</Badge></div>
+                          <p className="mt-1">{item.quantity}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{item.occurrences} occurrence(s); {item.source_recipe_ids.length} source recipe(s)</p>
                         </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+                {shoppingGroups.length === 0 && <p className="text-sm text-muted-foreground">No shopping requirements were returned.</p>}
               </CardContent>
             </Card>
-          </motion.div>
-        )}
 
-        {/* Day summary */}
-        {plan && displayPlan.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3 }}
-          >
-            <Card className="bg-gradient-to-br from-card to-secondary/20 border-border/60">
-              <CardContent className="p-5">
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-purple-500" />
-                  Daily Nutrition Summary
-                </h3>
-                <div className="grid grid-cols-5 gap-4 text-center divide-x divide-border/40">
-                  <div>
-                    <p className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-orange-400 to-red-600">
-                      {plan.meals.reduce((s, m) => s + m.calories, 0)}
-                    </p>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Calories</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-blue-500">{plan.meals.reduce((s, m) => s + m.protein, 0)}g</p>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Protein</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-amber-500">{plan.meals.reduce((s, m) => s + m.carbs, 0)}g</p>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Carbs</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-rose-500">{plan.meals.reduce((s, m) => s + m.fat, 0)}g</p>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Fat</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-emerald-500">${plan.total_stats?.total_cost?.toFixed(2) ?? "0.00"}</p>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">Cost</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+            {(plan.warnings?.length ?? 0) > 0 && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Plan warnings</AlertTitle>
+                <AlertDescription><ul className="list-disc space-y-1 pl-5">{plan.warnings?.map((warning) => <li key={warning}>{warning}</li>)}</ul></AlertDescription>
+              </Alert>
+            )}
+          </>
         )}
-
-        <RecipeDetailModal
-          recipeId={selectedRecipeId}
-          open={isModalOpen}
-          onOpenChange={setIsModalOpen}
-        />
       </div>
     </AppLayout>
   );
