@@ -75,6 +75,7 @@ export interface PreparationTaskTemplate {
 export interface RecipePreparationProfile {
   id: number;
   recipe_id: string;
+  profile_version: string;
   schema_version: string;
   supported_servings_min: number;
   supported_servings_max: number;
@@ -86,6 +87,8 @@ export interface RecipePreparationProfile {
   reviewed_at?: string | null;
   reviewed_by?: string | null;
   notes?: string | null;
+  content_hash: string;
+  supersedes_profile_id?: number | null;
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -112,6 +115,23 @@ export interface BuildPreparationTasksResponse {
   profile_versions: Record<string, string>;
   duration_policy: "conservative_max" | "optimistic_min";
   warnings: string[];
+}
+
+export interface CompileAndScheduleRequest {
+  occurrences: PreparationOccurrenceInput[];
+  duration_policy: "conservative_max" | "optimistic_min";
+  reviewed_only: boolean;
+  allow_partial: boolean;
+  horizon_minutes: number;
+  granularity_minutes: number;
+  resources: PreparationResourceInput[];
+}
+
+export interface CompileAndScheduleResponse {
+  compilation: BuildPreparationTasksResponse;
+  schedule: PreparationScheduleResponse | null;
+  partial: boolean;
+  execution_status: "scheduled" | "blocked_unresolved" | "no_compilable_tasks";
 }
 
 export const preparationApi = {
@@ -141,4 +161,12 @@ export const preparationApi = {
         reviewed_only: reviewedOnly,
       }),
     }),
+  compileAndSchedule: (payload: CompileAndScheduleRequest) =>
+    apiRequest<CompileAndScheduleResponse>(
+      "/preparation/compile-and-schedule",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    ),
 };
