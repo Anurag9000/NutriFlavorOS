@@ -9,19 +9,40 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from backend.database import DBRecipe, get_db
-from backend.models import Recipe
+from backend.domain.ingredients import parse_ingredient_lines
+from backend.models import IngredientLine, Recipe
 
 
 router = APIRouter(prefix="/api/v1/recipes", tags=["recipes"])
 
 
+def _ingredient_lines(row: DBRecipe) -> List[IngredientLine]:
+    stored = list(row.ingredient_data or [])
+    values = stored or list(row.ingredients or [])
+    result: List[IngredientLine] = []
+    for value in values:
+        try:
+            if isinstance(value, IngredientLine):
+                result.append(value)
+            elif isinstance(value, dict):
+                result.append(IngredientLine.model_validate(value))
+            else:
+                result.extend(parse_ingredient_lines([str(value)]))
+        except (TypeError, ValueError):
+            result.extend(parse_ingredient_lines([str(value)]))
+    return result
+
+
 def _to_recipe(row: DBRecipe) -> Recipe:
+    ingredients = [str(value) for value in list(row.ingredients or [])]
     return Recipe(
         id=row.id,
         name=row.name or "Unnamed recipe",
         description=row.description or "",
         image_url=row.image_url,
-        ingredients=list(row.ingredients or []),
+        ingredients=ingredients,
+        ingredient_lines=_ingredient_lines(row),
+        servings=max(0.01, float(row.servings or 1.0)),
         calories=max(0, int(row.calories or 0)),
         macros=dict(row.macros or {}),
         flavor_profile=dict(row.flavor_profile or {}),
@@ -29,6 +50,10 @@ def _to_recipe(row: DBRecipe) -> Recipe:
         cuisine=row.cuisine,
         instructions=list(row.instructions or []),
         estimated_cost=max(0.0, float(row.estimated_cost or 0.0)),
+        source_name=row.source_name,
+        source_url=row.source_url,
+        source_version=row.source_version,
+        nutrition_basis=row.nutrition_basis or "per_serving",
     )
 
 
