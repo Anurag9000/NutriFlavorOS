@@ -15,7 +15,7 @@ from sqlalchemy.engine import Engine
 from backend.database import REQUIRED_RUNTIME_TABLES, engine
 
 
-CURRENT_ALEMBIC_REVISION = "20260731_0005"
+CURRENT_ALEMBIC_REVISION = "20260801_0006"
 CURRENT_REQUIRED_TABLES = REQUIRED_RUNTIME_TABLES | {"recipe_preparation_profiles"}
 
 
