@@ -9,6 +9,7 @@ from typing import List, Tuple
 from uuid import uuid4
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import (
@@ -31,7 +32,11 @@ def utcnow() -> datetime:
 
 
 def _as_utc(value: datetime) -> datetime:
-    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+    return (
+        value.replace(tzinfo=timezone.utc)
+        if value.tzinfo is None
+        else value.astimezone(timezone.utc)
+    )
 
 
 def normalize_email(value: str) -> str:
@@ -44,6 +49,18 @@ def _token_hash(token: str) -> str:
 
 def _not_found() -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Resource not found")
+
+
+def _locked_household(db: Session, household_id: str) -> DBHousehold:
+    household = (
+        db.query(DBHousehold)
+        .filter(DBHousehold.id == household_id)
+        .with_for_update()
+        .first()
+    )
+    if household is None:
+        raise _not_found()
+    return household
 
 
 def _membership(
@@ -70,7 +87,10 @@ def _membership(
     except ValueError as exc:
         raise HTTPException(
             status_code=500,
-            detail={"code": "invalid_household_role", "message": "Stored member role is invalid"},
+            detail={
+                "code": "invalid_household_role",
+                "message": "Stored member role is invalid",
+            },
         ) from exc
 
 
@@ -123,29 +143,41 @@ def create_invitation(
     current_user: DBUser,
     payload: InvitationCreate,
 ) -> InvitationView:
+    # Serialise invitation changes per household. This prevents two concurrent
+    # requests for the same email from both creating active invitations.
+    locked_household = _locked_household(db, household.id)
+    if locked_household.owner_user_id != current_user.id:
+        raise _not_found()
+
     email = normalize_email(str(payload.email))
     if email == current_user.id:
-        raise HTTPException(status_code=422, detail="The household owner is already a member")
+        raise HTTPException(
+            status_code=422, detail="The household owner is already a member"
+        )
     if (
         db.query(DBHouseholdMember)
         .filter(
-            DBHouseholdMember.household_id == household.id,
+            DBHouseholdMember.household_id == locked_household.id,
             DBHouseholdMember.linked_user_id == email,
         )
         .first()
         is not None
     ):
-        raise HTTPException(status_code=409, detail="That account is already a household member")
+        raise HTTPException(
+            status_code=409, detail="That account is already a household member"
+        )
 
     now = utcnow()
     duplicates = (
         db.query(DBHouseholdInvitation)
         .filter(
-            DBHouseholdInvitation.household_id == household.id,
+            DBHouseholdInvitation.household_id == locked_household.id,
             DBHouseholdInvitation.invited_email == email,
             DBHouseholdInvitation.accepted_at.is_(None),
             DBHouseholdInvitation.revoked_at.is_(None),
         )
+        .order_by(DBHouseholdInvitation.id)
+        .with_for_update()
         .all()
     )
     for invitation in duplicates:
@@ -155,7 +187,7 @@ def create_invitation(
     token = secrets.token_urlsafe(48)
     invitation = DBHouseholdInvitation(
         id=str(uuid4()),
-        household_id=household.id,
+        household_id=locked_household.id,
         invited_email=email,
         role=payload.role.value,
         token_hash=_token_hash(token),
@@ -163,7 +195,9 @@ def create_invitation(
         created_by_user_id=current_user.id,
         created_at=now,
     )
-    db.add(invitation)
+    locked_household.version += 1
+    locked_household.updated_at = now
+    db.add_all([invitation, locked_household])
     db.commit()
     db.refresh(invitation)
     return InvitationView.model_validate(invitation).model_copy(
@@ -188,40 +222,63 @@ def list_invitations(
     ).all()
 
 
-def revoke_invitation(db: Session, household_id: str, invitation_id: str) -> DBHouseholdInvitation:
+def revoke_invitation(
+    db: Session, household_id: str, invitation_id: str
+) -> DBHouseholdInvitation:
+    locked_household = _locked_household(db, household_id)
     invitation = (
         db.query(DBHouseholdInvitation)
         .filter(
             DBHouseholdInvitation.id == invitation_id,
             DBHouseholdInvitation.household_id == household_id,
         )
+        .with_for_update()
         .first()
     )
     if invitation is None:
         raise _not_found()
     if invitation.accepted_at is not None:
-        raise HTTPException(status_code=409, detail="Accepted invitations cannot be revoked")
-    invitation.revoked_at = utcnow()
-    db.add(invitation)
+        raise HTTPException(
+            status_code=409, detail="Accepted invitations cannot be revoked"
+        )
+    if invitation.revoked_at is not None:
+        return invitation
+
+    now = utcnow()
+    invitation.revoked_at = now
+    locked_household.version += 1
+    locked_household.updated_at = now
+    db.add_all([invitation, locked_household])
     db.commit()
     db.refresh(invitation)
     return invitation
 
 
-def accept_invitation(db: Session, token: str, current_user: DBUser) -> DBHouseholdMember:
+def accept_invitation(
+    db: Session, token: str, current_user: DBUser
+) -> DBHouseholdMember:
+    token_hash = _token_hash(token)
+    preliminary = (
+        db.query(DBHouseholdInvitation)
+        .filter(DBHouseholdInvitation.token_hash == token_hash)
+        .first()
+    )
+    if preliminary is None:
+        raise HTTPException(status_code=410, detail="Invitation is invalid or expired")
+
+    # Lock in the same household -> invitation order used by create/revoke.
+    household = _locked_household(db, preliminary.household_id)
     invitation = (
         db.query(DBHouseholdInvitation)
-        .filter(DBHouseholdInvitation.token_hash == _token_hash(token))
+        .filter(
+            DBHouseholdInvitation.id == preliminary.id,
+            DBHouseholdInvitation.token_hash == token_hash,
+        )
         .with_for_update()
         .first()
     )
     now = utcnow()
-    if (
-        invitation is None
-        or invitation.revoked_at is not None
-        or invitation.accepted_at is not None
-        or _as_utc(invitation.expires_at) <= now
-    ):
+    if invitation is None or invitation.revoked_at is not None:
         raise HTTPException(status_code=410, detail="Invitation is invalid or expired")
     if normalize_email(current_user.id) != invitation.invited_email:
         raise HTTPException(
@@ -235,8 +292,16 @@ def accept_invitation(db: Session, token: str, current_user: DBUser) -> DBHouseh
             DBHouseholdMember.household_id == invitation.household_id,
             DBHouseholdMember.linked_user_id == current_user.id,
         )
+        .with_for_update()
         .first()
     )
+    if invitation.accepted_at is not None:
+        if existing is not None:
+            return existing
+        raise HTTPException(status_code=410, detail="Invitation is invalid or expired")
+    if _as_utc(invitation.expires_at) <= now:
+        raise HTTPException(status_code=410, detail="Invitation is invalid or expired")
+
     if existing is None:
         member = DBHouseholdMember(
             household_id=invitation.household_id,
@@ -262,13 +327,30 @@ def accept_invitation(db: Session, token: str, current_user: DBUser) -> DBHouseh
         db.add(member)
 
     invitation.accepted_at = now
-    household = db.get(DBHousehold, invitation.household_id)
-    if household is None:
-        raise _not_found()
     household.version += 1
     household.updated_at = now
     db.add_all([invitation, household])
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        # A concurrent acceptance can win the unique linked-membership race.
+        invitation = (
+            db.query(DBHouseholdInvitation)
+            .filter(DBHouseholdInvitation.token_hash == token_hash)
+            .first()
+        )
+        existing = (
+            db.query(DBHouseholdMember)
+            .filter(
+                DBHouseholdMember.household_id == preliminary.household_id,
+                DBHouseholdMember.linked_user_id == current_user.id,
+            )
+            .first()
+        )
+        if invitation is not None and invitation.accepted_at is not None and existing is not None:
+            return existing
+        raise
     db.refresh(member)
     return member
 
@@ -279,37 +361,46 @@ def update_member(
     member_id: int,
     payload: HouseholdMemberUpdate,
 ) -> DBHouseholdMember:
+    locked_household = _locked_household(db, household.id)
     member = (
         db.query(DBHouseholdMember)
         .filter(
             DBHouseholdMember.id == member_id,
-            DBHouseholdMember.household_id == household.id,
+            DBHouseholdMember.household_id == locked_household.id,
         )
         .with_for_update()
         .first()
     )
     if member is None:
         raise _not_found()
-    if member.linked_user_id == household.owner_user_id:
+    if member.linked_user_id == locked_household.owner_user_id:
         raise HTTPException(
             status_code=409,
             detail="The household owner's membership cannot be edited through this endpoint",
         )
 
     values = payload.model_dump(exclude_unset=True)
-    for field in ("allergies", "dietary_restrictions", "disliked_ingredients"):
+    for field in (
+        "allergies",
+        "dietary_restrictions",
+        "disliked_ingredients",
+    ):
         if field in values:
             values[field] = sorted(
-                {str(item).strip().lower() for item in values[field] if str(item).strip()}
+                {
+                    str(item).strip().lower()
+                    for item in values[field]
+                    if str(item).strip()
+                }
             )
     if "role" in values:
         values["role"] = values["role"].value
     for key, value in values.items():
         setattr(member, key, value)
 
-    household.version += 1
-    household.updated_at = utcnow()
-    db.add_all([member, household])
+    locked_household.version += 1
+    locked_household.updated_at = utcnow()
+    db.add_all([member, locked_household])
     db.commit()
     db.refresh(member)
     return member
