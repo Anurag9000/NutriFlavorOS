@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import HouseholdPage from "@/pages/Household";
@@ -34,7 +35,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/components/AppLayout", () => ({
-  default: ({ children }: { children: React.ReactNode }) => <main>{children}</main>,
+  default: ({ children }: { children: ReactNode }) => <main>{children}</main>,
 }));
 
 vi.mock("@/hooks/use-toast", () => ({
@@ -109,9 +110,7 @@ function renderPage() {
 }
 
 beforeEach(() => {
-  for (const value of Object.values(mocks)) {
-    if (typeof value === "function" && "mockReset" in value) value.mockReset();
-  }
+  vi.resetAllMocks();
   mocks.list.mockResolvedValue([household]);
   mocks.get.mockResolvedValue(detail("owner"));
   mocks.pantry.mockResolvedValue([]);
