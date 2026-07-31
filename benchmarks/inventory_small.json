@@ -1,0 +1,47 @@
+{
+  "horizon_days": 7,
+  "initial_lots": [
+    {
+      "lot_id": "rice-open",
+      "sku": "rice",
+      "quantity": 3.0,
+      "expires_day": 4
+    },
+    {
+      "lot_id": "rice-sealed",
+      "sku": "rice",
+      "quantity": 4.0,
+      "expires_day": 10
+    },
+    {
+      "lot_id": "yogurt-near-expiry",
+      "sku": "yogurt",
+      "quantity": 2.0,
+      "expires_day": 2
+    }
+  ],
+  "demand_events": [
+    {"day": 0, "sku": "rice", "quantity": 2.0},
+    {"day": 1, "sku": "yogurt", "quantity": 1.0},
+    {"day": 2, "sku": "rice", "quantity": 3.0},
+    {"day": 3, "sku": "rice", "quantity": 2.0},
+    {"day": 4, "sku": "yogurt", "quantity": 1.0},
+    {"day": 5, "sku": "rice", "quantity": 2.0}
+  ],
+  "policies": [
+    {
+      "sku": "rice",
+      "reorder_point": 2.0,
+      "order_up_to": 6.0,
+      "lead_time_days": 2,
+      "shelf_life_days": 14
+    },
+    {
+      "sku": "yogurt",
+      "reorder_point": 0.0,
+      "order_up_to": 2.0,
+      "lead_time_days": 1,
+      "shelf_life_days": 5
+    }
+  ]
+}
