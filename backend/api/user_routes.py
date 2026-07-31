@@ -9,7 +9,11 @@ from backend.engines.health_engine import HealthEngine
 from backend.models import UserProfile
 from backend.services.dietrxdb_service import DietRxDBService
 from backend.utils.security import get_current_user, require_self
-from backend.utils.user_profiles import apply_profile, db_user_to_profile
+from backend.utils.user_profiles import (
+    IncompleteProfileError,
+    apply_profile,
+    db_user_to_profile,
+)
 
 
 router = APIRouter(prefix="/api/v1/user", tags=["user"])
@@ -32,13 +36,20 @@ def _clean_label(value: str) -> str:
     return cleaned
 
 
+def _validated_profile(user: DBUser) -> UserProfile:
+    try:
+        return db_user_to_profile(user)
+    except IncompleteProfileError as exc:
+        raise HTTPException(status_code=409, detail=exc.to_detail()) from exc
+
+
 @router.get("/{user_id}", response_model=UserProfile)
 def get_user_profile(
     user_id: str,
     current_user: DBUser = Depends(get_current_user),
 ) -> UserProfile:
     require_self(user_id, current_user)
-    return db_user_to_profile(current_user)
+    return _validated_profile(current_user)
 
 
 @router.put("/{user_id}", response_model=UserProfile)
@@ -50,18 +61,21 @@ def update_user_profile(
 ) -> UserProfile:
     require_self(user_id, current_user)
 
+    targets = health_engine.calculate_targets(profile)
     if profile.target_calories is None:
-        targets = health_engine.calculate_targets(profile)
         profile.target_calories = targets.calories
+    if profile.target_protein_g is None:
         profile.target_protein_g = targets.protein_g
+    if profile.target_carbs_g is None:
         profile.target_carbs_g = targets.carbs_g
+    if profile.target_fat_g is None:
         profile.target_fat_g = targets.fat_g
 
     apply_profile(current_user, profile)
     db.add(current_user)
     db.commit()
     db.refresh(current_user)
-    return db_user_to_profile(current_user)
+    return _validated_profile(current_user)
 
 
 @router.post("/{user_id}/health_condition")
@@ -73,7 +87,6 @@ def add_health_condition(
 ):
     require_self(user_id, current_user)
     condition = _clean_label(payload.condition)
-
     try:
         disease_info = dietrx_service.get_disease_info(condition)
         reference_data_found = bool(disease_info)
@@ -86,11 +99,11 @@ def add_health_condition(
         current_user.health_conditions = conditions
         db.add(current_user)
         db.commit()
-
     return {
         "status": "success",
         "message": f"Added condition: {condition}",
         "dataset_verified": reference_data_found,
+        "clinical_validation": False,
     }
 
 
@@ -103,12 +116,14 @@ def add_medication(
 ):
     require_self(user_id, current_user)
     medication = _clean_label(payload.medication)
-
     medications = list(current_user.medications or [])
     if medication not in medications:
         medications.append(medication)
         current_user.medications = medications
         db.add(current_user)
         db.commit()
-
-    return {"status": "success", "message": f"Added medication: {medication}"}
+    return {
+        "status": "success",
+        "message": f"Added medication: {medication}",
+        "interaction_validation": "not_clinically_validated",
+    }
