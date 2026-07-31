@@ -1,72 +1,86 @@
-import pytest
-from fastapi.testclient import TestClient
-from backend.main import app
-import json
+from __future__ import annotations
+
 import io
+from uuid import uuid4
+
+from fastapi.testclient import TestClient
 from PIL import Image
+
+from backend.main import app
+
 
 client = TestClient(app)
 
-def test_signup_and_login():
-    # Test Signup
-    signup_data = {"email": "test@foodscope.ai", "password": "securepassword", "name": "Test User"}
-    response = client.post("/api/v1/auth/signup", json=signup_data)
-    if response.status_code == 400 and "already exists" in response.text.lower():
-        print("User already exists, proceeding to login.")
-    else:
-        assert response.status_code == 200
-        assert "access_token" in response.json()
-    
-    # Test Login (OAuth2 form data)
-    login_data = {"username": "test@foodscope.ai", "password": "securepassword"}
-    response = client.post("/api/v1/auth/token", data=login_data)
-    assert response.status_code == 200
-    token = response.json()["access_token"]
-    return token
 
-def test_online_learning_taste():
-    # We don't need auth for this endpoint currently, but we test the payload
+def _create_account() -> tuple[str, str]:
+    email = f"contract-{uuid4().hex}@example.test"
+    password = "correct-horse-battery-staple"
+    response = client.post(
+        "/api/v1/auth/signup",
+        json={"email": email, "password": password, "name": "Contract Test"},
+    )
+    assert response.status_code == 201, response.text
+    payload = response.json()
+    assert payload["user"]["id"] == email
+    assert payload["user"]["profile_complete"] is False
+    assert payload["user"]["missing_profile_fields"]
+    return email, payload["access_token"]
+
+
+def test_signup_and_login_contract() -> None:
+    email, signup_token = _create_account()
+    assert signup_token
+
+    response = client.post(
+        "/api/v1/auth/token",
+        data={"username": email, "password": "correct-horse-battery-staple"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["access_token"]
+
+
+def test_taste_feedback_requires_authentication_and_never_mutates_models() -> None:
+    email, token = _create_account()
     payload = {
-        "user_id": "test@foodscope.ai",
+        "user_id": email,
         "recipe_id": "rec_123",
         "rating": 0.8,
-        "user_genome": [0.1] * 512,
-        "recipe_profile": [0.2] * 512
+        "user_genome": [0.1] * 32,
+        "recipe_profile": [0.2] * 32,
     }
-    response = client.post("/api/v1/feedback/taste", json=payload)
-    assert response.status_code == 200
-    assert response.json()["status"] == "success"
 
-def test_vision_endpoint():
-    # Create a dummy image
-    img = Image.new('RGB', (224, 224), color = 'red')
-    img_byte_arr = io.BytesIO()
-    img.save(img_byte_arr, format='JPEG')
-    img_byte_arr.seek(0)
-    
+    unauthenticated = client.post("/api/v1/feedback/taste", json=payload)
+    assert unauthenticated.status_code == 401
+
+    response = client.post(
+        "/api/v1/feedback/taste",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 202, response.text
+    result = response.json()
+    assert result["status"] == "accepted"
+    assert result["model_updated"] is False
+    assert result["event_id"] > 0
+
+
+def test_vision_endpoint_is_authenticated_and_explicitly_disabled() -> None:
+    _, token = _create_account()
+    image = Image.new("RGB", (32, 32), color="red")
+    image_bytes = io.BytesIO()
+    image.save(image_bytes, format="JPEG")
+    image_bytes.seek(0)
+
+    unauthenticated = client.post(
+        "/api/v1/vision/analyze",
+        files={"image": ("test.jpg", image_bytes.getvalue(), "image/jpeg")},
+    )
+    assert unauthenticated.status_code == 401
+
     response = client.post(
         "/api/v1/vision/analyze",
-        files={"image": ("test.jpg", img_byte_arr, "image/jpeg")}
+        files={"image": ("test.jpg", image_bytes.getvalue(), "image/jpeg")},
+        headers={"Authorization": f"Bearer {token}"},
     )
-    if response.status_code != 200:
-        print(f"DEBUG: Vision Response Status: {response.status_code}")
-        print(f"DEBUG: Vision Response Body: {response.text}")
-        raise Exception(f"Vision endpoint failed with status {response.status_code}: {response.text}")
-    
-    assert response.status_code == 200
-    res_json = response.json()
-    assert res_json["success"] == True
-    assert "calories" in res_json["data"]
-
-if __name__ == "__main__":
-    print("Running Tests...")
-    try:
-        tok = test_signup_and_login()
-        print("Auth OK. Token:", tok[:10] + "...")
-        test_online_learning_taste()
-        print("Online Learning OK.")
-        test_vision_endpoint()
-        print("Vision Endpoint OK.")
-        print("ALL TESTS PASSED.")
-    except Exception as e:
-        print(f"TEST FAILED: {e}")
+    assert response.status_code == 501, response.text
+    assert "validated checkpoint" in response.json()["detail"].lower()
