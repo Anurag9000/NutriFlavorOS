@@ -6,6 +6,7 @@ requests>=2.31,<3.0
 numpy>=1.24,<3.0
 python-dotenv>=1.0,<2.0
 SQLAlchemy>=2.0,<3.0
+Alembic>=1.13,<2.0
 PyJWT[crypto]>=2.8,<3.0
 argon2-cffi>=23.1,<26.0
 pytest>=7.4,<10.0
