@@ -1,9 +1,9 @@
-"""Deterministic preparation-resource scheduling.
+"""Deterministic dependency- and capacity-aware preparation scheduling.
 
 This is an interval-capacity scheduler, not a duration estimator. Every task
-must carry explicit duration and resource demands. The algorithm schedules
-higher-urgency work at the earliest feasible aligned start and reports every
-rejection with machine-readable diagnostics.
+must carry explicit duration, dependencies, and resource demands. The algorithm
+processes a validated DAG, schedules urgent ready work at the earliest feasible
+aligned start, and reports every rejection with machine-readable diagnostics.
 """
 
 from __future__ import annotations
@@ -78,115 +78,185 @@ def _task_order(task: PreparationTask, horizon: int) -> tuple[int, int, int, str
     return (deadline, -task.priority, task.earliest_start_minute, task.task_id)
 
 
+def _critical_path_lower_bound(tasks: Dict[str, PreparationTask]) -> int:
+    memo: Dict[str, int] = {}
+
+    def finish(task_id: str) -> int:
+        if task_id in memo:
+            return memo[task_id]
+        task = tasks[task_id]
+        dependency_finish = max((finish(value) for value in task.dependencies), default=0)
+        memo[task_id] = dependency_finish + task.duration_minutes
+        return memo[task_id]
+
+    return max((finish(task_id) for task_id in tasks), default=0)
+
+
 def build_preparation_schedule(
     request: PreparationScheduleRequest,
 ) -> PreparationScheduleResponse:
     resources = {resource.resource_id: resource for resource in request.resources}
+    tasks = {task.task_id: task for task in request.tasks}
     reservations: DefaultDict[str, List[_Reservation]] = defaultdict(list)
     scheduled: List[ScheduledPreparationTask] = []
     unscheduled: List[UnscheduledPreparationTask] = []
+    scheduled_by_id: Dict[str, ScheduledPreparationTask] = {}
+    unscheduled_by_id: Dict[str, UnscheduledPreparationTask] = {}
     candidate_starts_inspected = 0
+    pending = set(tasks)
 
-    for task in sorted(request.tasks, key=lambda value: _task_order(value, request.horizon_minutes)):
-        missing = sorted(set(task.resource_demands) - set(resources))
-        if missing:
-            unscheduled.append(
-                UnscheduledPreparationTask(
+    while pending:
+        ready = [
+            tasks[task_id]
+            for task_id in pending
+            if all(dependency not in pending for dependency in tasks[task_id].dependencies)
+        ]
+        if not ready:
+            raise RuntimeError("Validated preparation dependency DAG became unschedulable")
+
+        for task in sorted(ready, key=lambda value: _task_order(value, request.horizon_minutes)):
+            pending.remove(task.task_id)
+            blocked_by = sorted(
+                dependency
+                for dependency in task.dependencies
+                if dependency in unscheduled_by_id
+            )
+            if blocked_by:
+                value = UnscheduledPreparationTask(
+                    task_id=task.task_id,
+                    reason_code="blocked_by_dependency",
+                    message="One or more prerequisite tasks were not scheduled",
+                    blocked_by=blocked_by,
+                    metadata=task.metadata,
+                )
+                unscheduled.append(value)
+                unscheduled_by_id[task.task_id] = value
+                continue
+
+            missing = sorted(set(task.resource_demands) - set(resources))
+            if missing:
+                value = UnscheduledPreparationTask(
                     task_id=task.task_id,
                     reason_code="missing_resource",
                     message="One or more declared resources are not present in the capacity request",
                     missing_resources=missing,
                     metadata=task.metadata,
                 )
-            )
-            continue
+                unscheduled.append(value)
+                unscheduled_by_id[task.task_id] = value
+                continue
 
-        capacity_violations = {
-            resource_id: {
-                "requested": demand,
-                "capacity": resources[resource_id].capacity,
+            capacity_violations = {
+                resource_id: {
+                    "requested": demand,
+                    "capacity": resources[resource_id].capacity,
+                }
+                for resource_id, demand in sorted(task.resource_demands.items())
+                if demand > resources[resource_id].capacity
             }
-            for resource_id, demand in sorted(task.resource_demands.items())
-            if demand > resources[resource_id].capacity
-        }
-        if capacity_violations:
-            unscheduled.append(
-                UnscheduledPreparationTask(
+            if capacity_violations:
+                value = UnscheduledPreparationTask(
                     task_id=task.task_id,
                     reason_code="capacity_exceeded",
                     message="A task demand exceeds declared resource capacity",
                     capacity_violations=capacity_violations,
                     metadata=task.metadata,
                 )
-            )
-            continue
+                unscheduled.append(value)
+                unscheduled_by_id[task.task_id] = value
+                continue
 
-        latest_finish = min(task.latest_finish_minute or request.horizon_minutes, request.horizon_minutes)
-        earliest = _align_up(task.earliest_start_minute, request.granularity_minutes)
-        latest_start = latest_finish - task.duration_minutes
-        if earliest > latest_start:
-            unscheduled.append(
-                UnscheduledPreparationTask(
+            dependency_finish = max(
+                (
+                    scheduled_by_id[dependency].finish_minute
+                    for dependency in task.dependencies
+                ),
+                default=0,
+            )
+            latest_finish = min(
+                task.latest_finish_minute or request.horizon_minutes,
+                request.horizon_minutes,
+            )
+            earliest = _align_up(
+                max(task.earliest_start_minute, dependency_finish),
+                request.granularity_minutes,
+            )
+            latest_start = latest_finish - task.duration_minutes
+            if earliest > latest_start:
+                reason = (
+                    "dependency_window_too_short"
+                    if dependency_finish > task.earliest_start_minute
+                    else "window_too_short"
+                )
+                value = UnscheduledPreparationTask(
                     task_id=task.task_id,
-                    reason_code="window_too_short",
-                    message="The declared duration does not fit inside the task window",
+                    reason_code=reason,
+                    message=(
+                        "The task cannot fit after its dependencies and before its deadline"
+                        if reason == "dependency_window_too_short"
+                        else "The declared duration does not fit inside the task window"
+                    ),
+                    blocked_by=list(task.dependencies) if reason == "dependency_window_too_short" else [],
                     metadata=task.metadata,
                 )
-            )
-            continue
+                unscheduled.append(value)
+                unscheduled_by_id[task.task_id] = value
+                continue
 
-        chosen_start = None
-        for start in range(earliest, latest_start + 1, request.granularity_minutes):
-            candidate_starts_inspected += 1
-            finish = start + task.duration_minutes
-            feasible = True
-            for resource_id, demand in task.resource_demands.items():
-                resource = resources[resource_id]
-                if (
-                    start < resource.available_from_minute
-                    or finish > _resource_end(resource, request.horizon_minutes)
-                ):
-                    feasible = False
+            chosen_start = None
+            for start in range(earliest, latest_start + 1, request.granularity_minutes):
+                candidate_starts_inspected += 1
+                finish = start + task.duration_minutes
+                feasible = True
+                for resource_id, demand in task.resource_demands.items():
+                    resource = resources[resource_id]
+                    if (
+                        start < resource.available_from_minute
+                        or finish > _resource_end(resource, request.horizon_minutes)
+                    ):
+                        feasible = False
+                        break
+                    if not _fits_capacity(
+                        reservations[resource_id],
+                        start=start,
+                        finish=finish,
+                        demand=demand,
+                        capacity=resource.capacity,
+                    ):
+                        feasible = False
+                        break
+                if feasible:
+                    chosen_start = start
                     break
-                if not _fits_capacity(
-                    reservations[resource_id],
-                    start=start,
-                    finish=finish,
-                    demand=demand,
-                    capacity=resource.capacity,
-                ):
-                    feasible = False
-                    break
-            if feasible:
-                chosen_start = start
-                break
 
-        if chosen_start is None:
-            unscheduled.append(
-                UnscheduledPreparationTask(
+            if chosen_start is None:
+                value = UnscheduledPreparationTask(
                     task_id=task.task_id,
                     reason_code="no_feasible_resource_window",
-                    message="No aligned interval satisfies all declared capacities and availability windows",
+                    message="No aligned interval satisfies dependencies, capacities, and availability windows",
                     metadata=task.metadata,
                 )
-            )
-            continue
+                unscheduled.append(value)
+                unscheduled_by_id[task.task_id] = value
+                continue
 
-        finish = chosen_start + task.duration_minutes
-        scheduled_task = ScheduledPreparationTask(
-            task_id=task.task_id,
-            start_minute=chosen_start,
-            finish_minute=finish,
-            duration_minutes=task.duration_minutes,
-            priority=task.priority,
-            resource_demands=dict(sorted(task.resource_demands.items())),
-            metadata=task.metadata,
-        )
-        scheduled.append(scheduled_task)
-        for resource_id, demand in task.resource_demands.items():
-            reservations[resource_id].append(
-                _Reservation(chosen_start, finish, demand, task.task_id)
+            finish = chosen_start + task.duration_minutes
+            scheduled_task = ScheduledPreparationTask(
+                task_id=task.task_id,
+                start_minute=chosen_start,
+                finish_minute=finish,
+                duration_minutes=task.duration_minutes,
+                priority=task.priority,
+                resource_demands=dict(sorted(task.resource_demands.items())),
+                dependencies=list(task.dependencies),
+                metadata=task.metadata,
             )
+            scheduled.append(scheduled_task)
+            scheduled_by_id[task.task_id] = scheduled_task
+            for resource_id, demand in task.resource_demands.items():
+                reservations[resource_id].append(
+                    _Reservation(chosen_start, finish, demand, task.task_id)
+                )
 
     utilization: Dict[str, float] = {}
     peaks: Dict[str, int] = {}
@@ -220,7 +290,9 @@ def build_preparation_schedule(
             "scheduled_count": len(scheduled),
             "unscheduled_count": len(unscheduled),
             "resource_count": len(request.resources),
+            "dependency_edge_count": sum(len(task.dependencies) for task in request.tasks),
+            "critical_path_lower_bound_minutes": _critical_path_lower_bound(tasks),
             "candidate_starts_inspected": candidate_starts_inspected,
-            "ordering": "deadline_then_priority_then_earliest_start_then_task_id",
+            "ordering": "topological_ready_set_then_deadline_priority_earliest_start_task_id",
         },
     )
