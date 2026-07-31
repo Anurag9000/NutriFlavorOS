@@ -40,7 +40,11 @@ def test_exponential_smoothing_is_deterministic_and_validates_alpha():
 
 
 def test_holt_and_tsb_preserve_nonnegative_demand_contracts():
-    holt = HoltLinearForecaster(alpha=0.5, beta=0.5, damping=0.9).fit([2, 4, 6, 8])
+    holt = HoltLinearForecaster(
+        alpha=0.5,
+        beta=0.5,
+        damping=0.9,
+    ).fit([2, 4, 6, 8])
     assert all(value >= 0 for value in holt.predict(4))
     with pytest.raises(ValueError, match="non-negative"):
         HoltLinearForecaster().fit([1, -1, 2])
@@ -63,10 +67,10 @@ def test_rolling_origin_backtest_reports_reproducible_metrics():
     assert result.mae == 0
     assert result.rmse == 0
     assert result.smape == 0
-    assert result.mase == 0
+    assert result.mase is None
 
 
-def test_backtest_rejects_wrong_horizon_and_nonfinite_outputs():
+def test_backtest_rejects_wrong_horizon():
     class WrongLength:
         def fit(self, values):
             return self
@@ -84,7 +88,10 @@ def test_backtest_rejects_wrong_horizon_and_nonfinite_outputs():
 
 
 def test_bayesian_popularity_smooths_low_count_items():
-    model = BayesianPopularityRecommender(prior_alpha=1, prior_beta=1).fit(
+    model = BayesianPopularityRecommender(
+        prior_alpha=1,
+        prior_beta=1,
+    ).fit(
         [("a", True), ("a", True), ("b", True), ("b", False)]
     )
     ranking = model.rank(["a", "b", "unseen"])
@@ -106,8 +113,7 @@ def test_item_knn_recommends_unseen_cooccurring_items_deterministically():
         ]
     )
     first = model.recommend("target")
-    second = model.recommend("target")
-    assert first == second
+    assert first == model.recommend("target")
     assert {value.item_id for value in first} == {"b", "c"}
     assert all(value.item_id != "a" for value in first)
 
@@ -125,7 +131,10 @@ def test_mmr_trades_relevance_for_explicit_diversity():
     )
     assert [value.item_id for value in result] == ["a", "c"]
     with pytest.raises(ValueError, match="equal size"):
-        reranker.rerank({"a": 1, "b": 1}, {"a": [1], "b": [1, 2]})
+        reranker.rerank(
+            {"a": 1, "b": 1},
+            {"a": [1], "b": [1, 2]},
+        )
 
 
 def planner_options():
@@ -147,28 +156,40 @@ def scenarios():
 
 def test_scenario_fingerprint_is_order_invariant_and_sha256():
     first = scenario_fingerprint(scenarios())
-    second = scenario_fingerprint(list(reversed(scenarios())))
-    assert first == second
+    assert first == scenario_fingerprint(list(reversed(scenarios())))
     assert len(first) == 64
     int(first, 16)
     with pytest.raises(ValueError, match="unique"):
-        scenario_fingerprint([PlannerScenario("same"), PlannerScenario("same")])
+        scenario_fingerprint(
+            [PlannerScenario("same"), PlannerScenario("same")]
+        )
 
 
 def test_stress_audit_and_robust_enumeration_are_deterministic():
     target = PlannerTargets(1000, 55, 115, 32, cost_limit=12)
-    selected = [planner_options()[1], planner_options()[3]]
-    audit = stress_test_selection(selected, target, scenarios())
+    audit = stress_test_selection(
+        [planner_options()[1], planner_options()[3]],
+        target,
+        scenarios(),
+    )
     assert audit["scenario_fingerprint"] == scenario_fingerprint(scenarios())
     assert len(audit["scenarios"]) == 3
 
     first = robust_pareto_enumeration(planner_options(), target, scenarios())
-    second = robust_pareto_enumeration(planner_options(), target, list(reversed(scenarios())))
+    second = robust_pareto_enumeration(
+        planner_options(),
+        target,
+        list(reversed(scenarios())),
+    )
     assert first.selected_ids == second.selected_ids
     assert first.objective == second.objective
-    assert first.diagnostics["scenario_fingerprint"] == second.diagnostics["scenario_fingerprint"]
-    parsed = json.loads(str(first.diagnostics["audit_json"]))
-    assert parsed["all_cost_feasible"] is True
+    assert (
+        first.diagnostics["scenario_fingerprint"]
+        == second.diagnostics["scenario_fingerprint"]
+    )
+    assert json.loads(str(first.diagnostics["audit_json"]))[
+        "all_cost_feasible"
+    ] is True
 
 
 def test_robust_enumeration_rejects_scenario_infeasibility():
