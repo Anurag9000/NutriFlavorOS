@@ -25,6 +25,15 @@ jobs:
       - run: pip install -r backend/requirements.txt
       - run: python -m compileall -q backend scripts
       - run: pytest -q backend/tests
+      - name: Deterministic planner benchmark gate
+        run: >-
+          python scripts/benchmark_planners.py
+          --generate-seed 17
+          --slots 4
+          --options-per-slot 3
+          --repeats 2
+          --max-objective-gap 1.0
+          --output /tmp/planner_benchmark.json
       - name: Fresh SQLite migration
         env:
           DATABASE_URL: sqlite:///ci-fresh.db
