@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Sequence, Union
 
 import sqlalchemy as sa
@@ -53,8 +53,16 @@ def _iso(value: Any) -> str | None:
     if value is None:
         return None
     if isinstance(value, datetime):
-        return value.isoformat()
-    return str(value)
+        parsed = value
+    else:
+        text_value = str(value).strip().replace("Z", "+00:00")
+        try:
+            parsed = datetime.fromisoformat(text_value)
+        except ValueError:
+            return text_value
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).isoformat()
 
 
 def _json_value(value: Any) -> Any:
