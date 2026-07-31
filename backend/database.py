@@ -129,6 +129,9 @@ class DBFeedback(Base):
 
 class DBHousehold(Base):
     __tablename__ = "households"
+    __table_args__ = (
+        CheckConstraint("version >= 1", name="ck_household_version_positive"),
+    )
 
     id = Column(String, primary_key=True)
     owner_user_id = Column(
@@ -162,6 +165,23 @@ class DBHouseholdMember(Base):
     __table_args__ = (
         UniqueConstraint("household_id", "linked_user_id", name="uq_household_linked_user"),
         CheckConstraint("servings_multiplier > 0", name="ck_member_positive_servings"),
+        CheckConstraint("role IN ('viewer','editor','owner')", name="ck_member_valid_role"),
+        CheckConstraint(
+            "target_calories IS NULL OR (target_calories > 0 AND target_calories <= 20000)",
+            name="ck_member_target_calories",
+        ),
+        CheckConstraint(
+            "target_protein_g IS NULL OR (target_protein_g >= 0 AND target_protein_g <= 2000)",
+            name="ck_member_target_protein",
+        ),
+        CheckConstraint(
+            "target_carbs_g IS NULL OR (target_carbs_g >= 0 AND target_carbs_g <= 4000)",
+            name="ck_member_target_carbs",
+        ),
+        CheckConstraint(
+            "target_fat_g IS NULL OR (target_fat_g >= 0 AND target_fat_g <= 2000)",
+            name="ck_member_target_fat",
+        ),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -189,6 +209,11 @@ class DBHouseholdInvitation(Base):
     __tablename__ = "household_invitations"
     __table_args__ = (
         UniqueConstraint("token_hash", name="uq_household_invitation_token_hash"),
+        CheckConstraint("role IN ('viewer','editor')", name="ck_invitation_valid_role"),
+        CheckConstraint(
+            "accepted_at IS NULL OR revoked_at IS NULL",
+            name="ck_invitation_single_terminal_state",
+        ),
     )
 
     id = Column(String, primary_key=True)
@@ -212,6 +237,7 @@ class DBPantryItem(Base):
     __table_args__ = (
         CheckConstraint("quantity_min >= 0", name="ck_pantry_min_nonnegative"),
         CheckConstraint("quantity_max >= quantity_min", name="ck_pantry_valid_range"),
+        CheckConstraint("version >= 1", name="ck_pantry_version_positive"),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -236,6 +262,7 @@ class DBLeftoverBatch(Base):
     __tablename__ = "leftover_batches"
     __table_args__ = (
         CheckConstraint("portions_available >= 0", name="ck_leftover_nonnegative"),
+        CheckConstraint("version >= 1", name="ck_leftover_version_positive"),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -253,7 +280,12 @@ class DBLeftoverBatch(Base):
     expires_at = Column(DateTime(timezone=True), nullable=True, index=True)
     frozen = Column(Boolean, nullable=False, default=False)
     notes = Column(String, nullable=True)
-    storage_policy_key = Column(String, ForeignKey("storage_policies.policy_key", ondelete="SET NULL"), nullable=True, index=True)
+    storage_policy_key = Column(
+        String,
+        ForeignKey("storage_policies.policy_key", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     version = Column(Integer, nullable=False, default=1)
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
@@ -265,6 +297,10 @@ class DBInventoryEvent(Base):
         UniqueConstraint("household_id", "idempotency_key", name="uq_inventory_event_idempotency"),
         CheckConstraint("quantity_min >= 0", name="ck_inventory_event_min_nonnegative"),
         CheckConstraint("quantity_max >= quantity_min", name="ck_inventory_event_valid_range"),
+        CheckConstraint(
+            "event_type IN ('purchase','consume','adjust','discard','leftover_create','leftover_consume','reservation_commit')",
+            name="ck_inventory_event_valid_type",
+        ),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -293,6 +329,11 @@ class DBStockReservation(Base):
         UniqueConstraint("plan_id", "pantry_item_id", name="uq_plan_pantry_reservation"),
         CheckConstraint("quantity_min >= 0", name="ck_reservation_min_nonnegative"),
         CheckConstraint("quantity_max >= quantity_min", name="ck_reservation_valid_range"),
+        CheckConstraint(
+            "status IN ('active','released','consumed','expired')",
+            name="ck_reservation_valid_status",
+        ),
+        CheckConstraint("version >= 1", name="ck_reservation_version_positive"),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -354,6 +395,14 @@ class DBStoragePolicy(Base):
             "duration_max_hours IS NULL OR duration_min_hours IS NULL OR "
             "duration_max_hours >= duration_min_hours",
             name="ck_storage_policy_valid_duration",
+        ),
+        CheckConstraint(
+            "duration_min_hours IS NULL OR duration_min_hours >= 0",
+            name="ck_storage_policy_min_nonnegative",
+        ),
+        CheckConstraint(
+            "duration_max_hours IS NULL OR duration_max_hours >= 0",
+            name="ck_storage_policy_max_nonnegative",
         ),
     )
 
