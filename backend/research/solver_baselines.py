@@ -96,7 +96,11 @@ def evaluate_selection(
 
 def _group(options: Iterable[PlannerOption]) -> List[Tuple[str, List[PlannerOption]]]:
     grouped: Dict[str, List[PlannerOption]] = {}
+    seen_ids: set[str] = set()
     for value in options:
+        if value.option_id in seen_ids:
+            raise ValueError(f"duplicate option_id: {value.option_id}")
+        seen_ids.add(value.option_id)
         grouped.setdefault(value.slot, []).append(value)
     if not grouped:
         raise ValueError("at least one option is required")
@@ -115,7 +119,7 @@ def pareto_enumeration(
     *,
     maximum_combinations: int = 250_000,
 ) -> SolverResult:
-    """Enumerate small benchmark problems and retain the best Pareto candidate."""
+    """Enumerate bounded problems under the same hard budget as exact solvers."""
 
     grouped = _group(options)
     combinations = 1
@@ -129,9 +133,18 @@ def pareto_enumeration(
 
     frontier: List[Tuple[Tuple[float, float, float, float], Tuple[PlannerOption, ...]]] = []
     inspected = 0
+    feasible = 0
+    skipped_budget = 0
     for selection in product(*(values for _, values in grouped)):
         inspected += 1
         objective, metrics = evaluate_selection(selection, targets)
+        if (
+            targets.cost_limit is not None
+            and metrics["cost"] > targets.cost_limit + 1e-9
+        ):
+            skipped_budget += 1
+            continue
+        feasible += 1
         vector = (
             metrics["nutrition_match"],
             metrics["taste"],
@@ -156,6 +169,14 @@ def pareto_enumeration(
             survivors.append((vector, selection))
             frontier = survivors
 
+    if not frontier:
+        budget = (
+            f" under cost limit {targets.cost_limit}"
+            if targets.cost_limit is not None
+            else ""
+        )
+        raise ValueError(f"No complete slot selection is feasible{budget}")
+
     scored = []
     for _, selection in frontier:
         objective, metrics = evaluate_selection(selection, targets)
@@ -165,12 +186,14 @@ def pareto_enumeration(
         scored, key=lambda item: (item[0], tuple(reversed(item[1])))
     )
     return SolverResult(
-        method="pure_python_pareto_enumeration_v1",
+        method="pure_python_pareto_enumeration_v2",
         selected_ids=signature,
         objective=round(objective, 8),
         diagnostics={
             **{key: round(value, 8) for key, value in metrics.items()},
             "combinations_inspected": inspected,
+            "feasible_combinations": feasible,
+            "budget_infeasible_combinations": skipped_budget,
             "pareto_frontier_size": len(frontier),
         },
     )
