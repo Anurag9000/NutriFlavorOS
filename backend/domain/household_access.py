@@ -34,6 +34,7 @@ class InvitationCreate(BaseModel):
         if "@" not in normalized or normalized.startswith("@") or normalized.endswith("@"):
             raise ValueError("A valid email address is required")
         return normalized
+
     role: HouseholdRole = HouseholdRole.VIEWER
     expires_in_hours: int = Field(default=72, ge=1, le=24 * 30)
 
@@ -67,17 +68,29 @@ class HouseholdMemberUpdate(BaseModel):
     display_name: Optional[str] = Field(default=None, min_length=1, max_length=120)
     role: Optional[HouseholdRole] = None
     servings_multiplier: Optional[float] = Field(default=None, gt=0, le=20)
-    allergies: Optional[List[str]] = None
-    dietary_restrictions: Optional[List[str]] = None
-    disliked_ingredients: Optional[List[str]] = None
+    allergies: Optional[List[str]] = Field(default=None, max_length=100)
+    dietary_restrictions: Optional[List[str]] = Field(default=None, max_length=100)
+    disliked_ingredients: Optional[List[str]] = Field(default=None, max_length=200)
     target_calories: Optional[int] = Field(default=None, gt=0, le=20000)
     target_protein_g: Optional[int] = Field(default=None, ge=0, le=2000)
     target_carbs_g: Optional[int] = Field(default=None, ge=0, le=4000)
     target_fat_g: Optional[int] = Field(default=None, ge=0, le=2000)
     active: Optional[bool] = None
 
+    @field_validator("display_name")
+    @classmethod
+    def normalize_display_name(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = " ".join(value.split())
+        if not normalized:
+            raise ValueError("display_name cannot be blank")
+        return normalized
+
     @model_validator(mode="after")
-    def owner_role_not_assignable(self):
+    def validate_update(self):
+        if not self.model_fields_set:
+            raise ValueError("At least one member field must be supplied")
         if self.role == HouseholdRole.OWNER:
             raise ValueError("Ownership transfer requires a separate reviewed workflow")
         return self
