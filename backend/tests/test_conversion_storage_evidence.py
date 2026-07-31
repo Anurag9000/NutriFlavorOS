@@ -6,13 +6,20 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from backend.database import Base, DBInventoryEvent, DBRecipe, DBUser
-from backend.domain.conversions import ConversionRequest
+from backend.database import (
+    Base,
+    DBIngredientConversion,
+    DBInventoryEvent,
+    DBRecipe,
+    DBUser,
+)
+from backend.domain.conversions import ConversionRequest, IngredientConversionCreate
 from backend.domain.inventory import HouseholdCreate, LeftoverCreate
 from backend.services.conversion_service import (
     convert_quantity,
     import_fdc_portions,
     list_storage_policies,
+    register_conversion,
     seed_official_storage_policies,
 )
 from backend.services.inventory_service_v4 import create_household, create_leftover
@@ -61,6 +68,38 @@ def _household_fixture(db):
     return household
 
 
+def test_conversion_registration_is_idempotent_but_rejects_contradictory_evidence():
+    db = _db()
+    payload = IngredientConversionCreate(
+        canonical_name="rolled oats",
+        from_unit="cup",
+        to_unit="g",
+        multiplier_min=80,
+        multiplier_max=80,
+        source_name="Reviewed Portion Study",
+        source_url="https://example.test/portion-study",
+        source_version="v1",
+        evidence_status="reviewed_external",
+        reviewed_at=None,
+        notes="Exact study fixture",
+    )
+    first = register_conversion(db, payload)
+    repeated = register_conversion(db, payload)
+    assert repeated.id == first.id
+    assert db.query(DBIngredientConversion).count() == 1
+
+    with pytest.raises(HTTPException) as conflict:
+        register_conversion(
+            db,
+            payload.model_copy(
+                update={"multiplier_min": 82, "multiplier_max": 82}
+            ),
+        )
+    assert conflict.value.status_code == 409
+    assert conflict.value.detail["code"] == "conversion_evidence_conflict"
+    assert db.query(DBIngredientConversion).count() == 1
+
+
 def test_fdc_conversion_is_food_specific_and_preserves_missing_evidence():
     db = _db()
     count = import_fdc_portions(
@@ -82,6 +121,40 @@ def test_fdc_conversion_is_food_specific_and_preserves_missing_evidence():
         source_version="2026-04",
     )
     assert count == 1
+    assert (
+        import_fdc_portions(
+            db,
+            canonical_name="rolled oats",
+            fdc_id=123,
+            portions=[
+                {
+                    "amount": 0.5,
+                    "gramWeight": 40,
+                    "measureUnit": {"name": "cup"},
+                }
+            ],
+            source_version="2026-04",
+        )
+        == 0
+    )
+    assert (
+        import_fdc_portions(
+            db,
+            canonical_name="rolled oats",
+            fdc_id=124,
+            portions=[
+                {
+                    "amount": 0.5,
+                    "gramWeight": 42,
+                    "measureUnit": {"name": "cup"},
+                }
+            ],
+            source_version="2026-04",
+        )
+        == 1
+    )
+    assert db.query(DBIngredientConversion).count() == 2
+
     result = convert_quantity(
         db,
         ConversionRequest(
