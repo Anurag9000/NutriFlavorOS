@@ -25,6 +25,9 @@ checkpoints/
 runs/
 mlruns/
 reports/generated/
+reports/experiments/
+reports/registry/
+reports/recipe_data_quality.json
 
 # Node
 node_modules/

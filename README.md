@@ -1,34 +1,75 @@
 # NutriFlavorOS
 
-NutriFlavorOS is an **experimental meal-planning and food-preference research prototype**. It explores personalized meal planning, recipe discovery, quantity-aware grocery support, variety, and sustainability-oriented interfaces.
+NutriFlavorOS is an **experimental meal-planning, household-food-state, and food-research platform**. It explores personalized planning, recipe discovery, quantity-aware grocery support, pantry and leftover workflows, reproducible offline experiments, and sustainability-oriented interfaces.
 
-> **Safety status:** this repository is not clinically validated, is not a medical device, and must not be used to diagnose, treat, or manage allergies, diseases, or medication interactions. Experimental ML components remain disabled until validated data, evaluations, and versioned artifacts exist.
+> **Safety status:** this repository is not clinically validated, is not a medical device, and must not be used to diagnose, treat, or autonomously manage allergies, diseases, medication interactions, food safety, or health outcomes. Experimental ML components remain disabled until validated data, evaluations, versioned artifacts, and the declared promotion gates exist.
 
-## Current implementation status
+## Implemented foundations
 
-### Implemented foundations
+### Identity, persistence, and safety
 
-- React/Vite user interface and FastAPI backend.
-- Password-hashed accounts, signed bearer-token authentication, and self-only authorization for user-owned resources.
+- Password-hashed accounts, signed bearer tokens, and self-only authorization for user-owned resources.
 - SQLAlchemy persistence with versioned Alembic migrations for fresh and legacy databases.
-- Deterministic horizon-level planning across the complete requested period rather than independent greedy meal selection.
-- Portion multipliers evaluated jointly with daily calorie, protein, carbohydrate, fat, taste, cost, cuisine, ingredient-variety, and repeat objectives.
-- Hard dietary/allergen keyword filtering that fails explicitly when no compliant recipe exists.
-- Structured infeasibility diagnostics and disclosed relaxation of non-safety variety preferences when the recipe pool is too small.
-- Conservative ingredient parsing that preserves quantity ranges and converts only dimensionally compatible units.
-- Serving-scaled shopping aggregation with normalized, mixed-unit, and unquantified status labels.
-- Recipe provenance fields, nutrition-basis metadata, plan schema versions, and a dry-run data-quality/backfill command.
-- Optional external service adapters for recipe, flavor, diet-reference, and sustainability data.
+- Explicit failures instead of silent demo-data, random-model, or unsafe recipe fallbacks.
+- Append-only feedback and inventory events.
+- Structured API contracts, plan schema versions, provenance fields, and explicit data-status warnings.
 
-### Experimental or incomplete
+### Quantity-aware planning
 
-- Medical-condition and medication guidance is **not clinically validated**.
-- Micronutrients are not yet hard optimization constraints because much of the repository data lacks verified quantity-normalized nutrient provenance.
-- Sustainability values are disabled by default because geography, production method, source provenance, and uncertainty are not fully modeled.
-- Vision, NLP recipe generation, health-outcome prediction, RL, and online learning require real training data, validated checkpoints, calibration, and controlled deployment before product use.
-- Package, bunch, slice, clove, and other non-convertible culinary units are preserved rather than converted using fabricated density assumptions.
-- Pantry, expiry, leftovers, batch-prep, family portions, transactional purchasing, and consumption logging remain incomplete.
+- Deterministic horizon-level meal planning rather than independent greedy slot selection.
+- Joint portion, calorie, protein, carbohydrate, fat, taste, cost, cuisine, ingredient-variety, and repeat objectives.
+- Hard dietary and allergen filtering before optimization.
+- Structured infeasibility diagnostics and disclosed relaxation of non-safety variety preferences.
+- Conservative ingredient parsing that preserves ranges and converts only dimensionally compatible units.
+- Serving-scaled shopping aggregation with normalized, mixed-unit, and unquantified statuses.
+
+### Household inventory and leftovers
+
+- User-owned households and household-member planning constraints.
+- Transactional pantry lots with quantity intervals, expiry timestamps, source metadata, and optimistic versions.
+- Idempotent purchase, consume, adjust, and discard events.
+- Leftover creation and consumption with source-recipe and source-plan checks.
+- Expired-stock exclusion and near-expiry annotations.
+- Conservative shopping-list subtraction using pantry uncertainty intervals.
+- Deterministic batch-preparation grouping for repeated recipes.
+
+See [Household Inventory, Leftovers and Batch Preparation](docs/HOUSEHOLD_INVENTORY.md).
+
+### Research and experimentation
+
+The versioned research catalog defines:
+
+- 28 tasks;
+- 24 dataset families;
+- 57 model and algorithm families;
+- 21 experiment contracts;
+- 26 feature contracts.
+
+Implemented research infrastructure includes:
+
+- deterministic TF-IDF retrieval, popularity/content recommendation, moving-average, Croston, and ridge-regression baselines;
+- retrieval, forecasting, regression, calibration, segmentation, uncertainty, and offline-policy metrics;
+- deterministic group-aware and temporal dataset splits;
+- versioned dataset and model cards;
+- SHA-256 artifact integrity checks;
+- registered, candidate, champion, archived, and rejected model stages;
+- risk-dependent promotion gates that block unvalidated high-risk and clinical-risk deployment;
+- numerical and categorical drift diagnostics;
+- reproducible offline manifests, fingerprints, seeds, artifacts, and environment snapshots;
+- explicit USDA FoodData Central adapter with no silent missing-value or mock fallback;
+- rule-based culinary substitution baseline with hard restriction filtering.
+
+See [Research Platform](docs/RESEARCH_PLATFORM.md).
+
+## Experimental or incomplete
+
+- Medical-condition, medication, allergy, storage-duration, and health guidance are not clinically validated.
+- Micronutrients are not hard optimization constraints until quantity-normalized nutrient provenance is sufficiently complete.
+- Sustainability remains disabled by default because geography, production method, source provenance, functional units, and uncertainty are incomplete.
+- Household invitations, member-specific nutritional optimization, verified shelf-life policies, appliance capacity, and stock reservations remain future work.
+- Vision, multimodal nutrition estimation, recipe generation, contextual bandits, continual personalization, causal analyses, and online learning are catalogued but remain disabled until their data and validation gates pass.
 - Social and achievement surfaces remain disabled until backed by transactional data.
+- Obsolete duplicate frontend code and several hardcoded or accessibility-deficient UI surfaces still require removal.
 
 ## Architecture
 
@@ -37,12 +78,12 @@ NutriFlavorOS is an **experimental meal-planning and food-preference research pr
 - **Frontend:** React, TypeScript, Vite, Tailwind CSS, Framer Motion, Recharts.
 - **Backend:** FastAPI, Pydantic, SQLAlchemy, Alembic.
 - **Optimization:** deterministic bounded beam search over the complete planning horizon.
-- **Optional research stack:** PyTorch and Transformers modules under `backend/ml/`.
+- **Household domain:** transactional inventory, leftovers, audit events, and versioned writes.
+- **Research:** catalog, baselines, evaluation, splits, cards, registry, drift, and offline manifests.
+- **Optional research stack:** PyTorch and Transformers modules under `backend/ml/`; these are not evidence of trained or validated behavior.
 - **Persistence:** SQLite for local development; PostgreSQL is recommended for deployment.
 
 ## Local setup
-
-### 1. Configure the backend
 
 ```bash
 cp .env.example .env
@@ -51,19 +92,23 @@ python -m venv .venv
 source .venv/bin/activate        # Linux/macOS
 # .venv\Scripts\activate         # Windows PowerShell
 pip install -r backend/requirements.txt
+alembic upgrade head
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 2. Upgrade the database
+In a separate terminal:
 
 ```bash
-alembic upgrade head
+cd frontend
+npm ci
+npm run dev
 ```
 
-The first migration creates a fresh schema or upgrades the earlier prototype schema by adding authenticated profiles, canonical ingredient metadata, plan schema versions, and feedback-event storage.
+Open `http://localhost:5173`.
 
-### 3. Audit and optionally backfill recipe ingredients
+## Data-quality and ingredient backfill
 
-Dry-run and review the report first:
+Dry-run first:
 
 ```bash
 python scripts/backfill_recipe_ingredients.py
@@ -75,25 +120,36 @@ After reviewing `reports/recipe_data_quality.json`:
 python scripts/backfill_recipe_ingredients.py --apply
 ```
 
-This command populates canonical ingredient structures. It does **not** automatically rewrite calories or macros; suspicious energy relationships are reported because serving basis and source provenance must be resolved first.
+This populates canonical ingredient structures. It does not automatically rewrite calories or macros because serving basis and source provenance must be reviewed.
 
-### 4. Start the API
+## Offline experiments
 
-```bash
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### 5. Start the frontend
+Validate the catalog or run a whitelisted baseline:
 
 ```bash
-cd frontend
-npm ci
-npm run dev
+python scripts/run_offline_experiment.py --config experiment.json
 ```
 
-Open `http://localhost:5173`.
+Manage versioned artifacts:
 
-Development defaults to `http://localhost:8000/api/v1`; set `VITE_API_BASE_URL` to override it. Production defaults to same-origin `/api/v1`.
+```bash
+python scripts/manage_artifact_registry.py register-dataset usda_fdc_foundation 2026-04
+python scripts/manage_artifact_registry.py register-model tfidf_retriever 1.0 reports/model.bin
+python scripts/manage_artifact_registry.py verify model tfidf_retriever 1.0
+```
+
+The API validates experiment configurations and exposes catalog/cards/drift diagnostics, but deliberately does not execute arbitrary experiment code.
+
+## USDA FoodData Central
+
+Set both:
+
+```bash
+ENABLE_FOODDATA_CENTRAL=true
+FOODDATA_CENTRAL_API_KEY=your-key
+```
+
+The adapter preserves source identifiers and missing values and marks imported mappings as externally sourced but not independently verified.
 
 ## Container build
 
@@ -110,10 +166,11 @@ docker run --rm -p 8000:8000 \
   -v nutriflavos-data:/app/data \
   -e SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')" \
   -e DATABASE_URL="sqlite:////app/data/nutriflavor.db" \
+  -e AUTO_CREATE_SCHEMA=false \
   nutriflavos
 ```
 
-The migration and application containers must share the same named volume. PostgreSQL is recommended for hosted or multi-replica deployments. Run migrations as a separate deployment step before starting application replicas.
+The migration and application containers must share the same volume. PostgreSQL is recommended for hosted or multi-replica deployments.
 
 ## Validation
 
@@ -122,14 +179,14 @@ pytest backend/tests
 cd frontend && npm test && npm run lint && npm run build
 ```
 
-Do not interpret shape checks, synthetic-data training, or a successful import as evidence of model accuracy or clinical safety. New model claims must include dataset provenance, train/validation/test splits, calibration, subgroup analysis, reproducibility settings, and a versioned artifact.
+A successful import, synthetic training run, shape check, or catalog entry is not evidence of accuracy or safety. New model claims require dataset provenance, leakage-safe splits, reproducibility, calibrated uncertainty, subgroup and OOD evaluation appropriate to risk, a versioned artifact, and a rollback path.
 
-## Development priorities
+## Next priorities
 
-1. Replace the remaining JSON/pickle stores and purge historical committed runtime/user artifacts.
-2. Add verified ingredient densities, package-size catalogs, serving provenance, allergens, and quantity-normalized micronutrients.
-3. Add pantry, expiry, leftovers, batch-prep, family planning, and transactional grocery state.
-4. Remove obsolete duplicate frontend code, unsafe rich-text rendering, hardcoded dashboards, and accessibility defects.
-5. Extend authorization, migration, concurrency, property, contract, and end-to-end tests.
-6. Build real ingestion, evaluation, model-registry, drift, and rollback pipelines before enabling ML-assisted decisions.
-7. Evaluate a CP-SAT/MILP optimizer against the deterministic beam-search baseline when the canonical dataset is sufficiently complete.
+1. Run full repository and container validation in a normal checkout and add repository-native CI.
+2. Remove obsolete duplicate frontend code, unsafe rich-text rendering, hardcoded dashboards, and accessibility defects.
+3. Add accepted household invitations, roles, member-specific planning, verified densities/package sizes, storage policies, and stock reservation.
+4. Add pantry-aware optimization rather than only post-plan shopping reconciliation.
+5. Replace remaining JSON/pickle stores and purge historical committed runtime artifacts.
+6. Implement additional catalogued datasets and models only through the card, split, evaluation, integrity, and promotion-gate pipeline.
+7. Benchmark CP-SAT/MILP and Pareto planners against the deterministic beam-search baseline when canonical data coverage is sufficient.

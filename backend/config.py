@@ -1,7 +1,7 @@
-"""Configuration for optional external data services.
+"""Configuration for optional external data and research services.
 
-External services are opt-in. Missing credentials or network failures must not
-silently turn into fabricated data that is indistinguishable from a live result.
+External services and experimental behavior are opt-in. Missing credentials or
+network failures never silently become fabricated data.
 """
 
 from __future__ import annotations
@@ -34,6 +34,9 @@ class APIConfig:
     DIETRXDB_BASE_URL: str = os.getenv("DIETRXDB_BASE_URL", "https://cosylab.iiitd.edu.in/dietrxdb")
     DIETRXDB_API_KEY: Optional[str] = os.getenv("DIETRXDB_API_KEY")
 
+    FOODDATA_CENTRAL_API_KEY: Optional[str] = os.getenv("FOODDATA_CENTRAL_API_KEY")
+    ENABLE_FOODDATA_CENTRAL: bool = _bool_env("ENABLE_FOODDATA_CENTRAL", False)
+
     CACHE_TTL: int = max(0, int(os.getenv("CACHE_TTL", "300")))
     CACHE_ENABLED: bool = _bool_env("CACHE_ENABLED", True)
     CACHE_MAX_ENTRIES: int = max(1, int(os.getenv("CACHE_MAX_ENTRIES", "512")))
@@ -44,6 +47,9 @@ class APIConfig:
     REQUEST_TIMEOUT_SECONDS: float = max(0.1, float(os.getenv("REQUEST_TIMEOUT_SECONDS", "10")))
 
     MOCK_MODE: bool = _bool_env("MOCK_MODE", False)
+    ENABLE_EXPERIMENTAL_RL: bool = _bool_env("ENABLE_EXPERIMENTAL_RL", False)
+    ENABLE_SUSTAINABILITY_ESTIMATES: bool = _bool_env("ENABLE_SUSTAINABILITY_ESTIMATES", False)
+    ENABLE_REQUEST_TIME_MODEL_UPDATES: bool = False
 
     DATA_DIR: str = os.path.join(os.path.dirname(__file__), "data")
     MOCK_RECIPES_FILE: str = os.path.join(DATA_DIR, "recipes.json")
