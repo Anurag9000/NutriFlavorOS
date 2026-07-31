@@ -175,7 +175,7 @@ describe("Household workspace", () => {
     mocks.get.mockResolvedValue(detail("viewer"));
 
     renderPage();
-    await screen.findByText("Home");
+    expect((await screen.findAllByText("Home")).length).toBeGreaterThan(0);
 
     expect(screen.queryByText("Record a pantry lot")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Members" }));
