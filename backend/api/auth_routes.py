@@ -9,14 +9,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import DBUser, get_db
-from backend.models import Gender, Goal, UserProfile
 from backend.utils.security import (
     create_access_token,
     get_current_user,
     get_password_hash,
     verify_password,
 )
-from backend.utils.user_profiles import apply_profile
+from backend.utils.user_profiles import missing_profile_fields, profile_is_complete
 
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -31,18 +30,14 @@ class UserSignup(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=12, max_length=256)
     name: Optional[str] = Field(default=None, max_length=120)
-    age: int = Field(default=30, ge=18, le=120)
-    weight_kg: float = Field(default=70.0, gt=0, le=500)
-    height_cm: float = Field(default=170.0, gt=0, le=300)
-    gender: Gender = Gender.OTHER
-    activity_level: float = Field(default=1.4, ge=1.0, le=3.0)
-    goal: Goal = Goal.MAINTENANCE
 
 
 class AuthUser(BaseModel):
     id: str
     email: str
     name: str
+    profile_complete: bool
+    missing_profile_fields: list[str]
 
 
 class Token(BaseModel):
@@ -56,7 +51,11 @@ class AuthResponse(Token):
 
 def _normalize_email(email: str) -> str:
     normalized = email.strip().lower()
-    if "@" not in normalized or normalized.startswith("@") or normalized.endswith("@"):
+    if (
+        "@" not in normalized
+        or normalized.startswith("@")
+        or normalized.endswith("@")
+    ):
         raise HTTPException(status_code=422, detail="A valid email address is required")
     return normalized
 
@@ -73,10 +72,20 @@ def _authenticate(db: Session, email: str, password: str) -> DBUser:
     return user
 
 
+def _public_user(user: DBUser) -> AuthUser:
+    return AuthUser(
+        id=user.id,
+        email=user.id,
+        name=user.name or "User",
+        profile_complete=profile_is_complete(user),
+        missing_profile_fields=missing_profile_fields(user),
+    )
+
+
 def _auth_response(user: DBUser) -> AuthResponse:
     return AuthResponse(
         access_token=create_access_token(data={"sub": user.id}),
-        user=AuthUser(id=user.id, email=user.id, name=user.name or "User"),
+        user=_public_user(user),
     )
 
 
@@ -104,35 +113,26 @@ def signup(user_data: UserSignup, db: Session = Depends(get_db)) -> AuthResponse
         id=email,
         name=(user_data.name or "New User").strip() or "New User",
         hashed_password=get_password_hash(user_data.password),
+        liked_ingredients=[],
+        disliked_ingredients=[],
+        allergies=[],
+        dietary_restrictions=[],
+        health_conditions=[],
+        medications=[],
     )
-    apply_profile(
-        new_user,
-        UserProfile(
-            name=new_user.name,
-            age=user_data.age,
-            weight_kg=user_data.weight_kg,
-            height_cm=user_data.height_cm,
-            gender=user_data.gender,
-            activity_level=user_data.activity_level,
-            goal=user_data.goal,
-        ),
-    )
-
     db.add(new_user)
     try:
         db.commit()
         db.refresh(new_user)
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=409, detail="An account with this email already exists") from exc
-
+        raise HTTPException(
+            status_code=409,
+            detail="An account with this email already exists",
+        ) from exc
     return _auth_response(new_user)
 
 
 @router.get("/me", response_model=AuthUser)
 def me(current_user: DBUser = Depends(get_current_user)) -> AuthUser:
-    return AuthUser(
-        id=current_user.id,
-        email=current_user.id,
-        name=current_user.name or "User",
-    )
+    return _public_user(current_user)
