@@ -1,17 +1,13 @@
 """Full-request idempotency for public household inventory mutations.
 
-The inventory ledger already enforces a unique ``(household_id,
-idempotency_key)`` pair. This coordinator adds two missing guarantees:
+The inventory ledger enforces a unique ``(household_id, idempotency_key)`` pair.
+This coordinator additionally fingerprints the complete normalized request and
+serializes concurrent use of the same key.
 
-* the *complete normalized request* is fingerprinted, rather than only the
-  quantity and target row; and
-* concurrent requests are serialized before the service performs its own
-  transaction and commit.
-
-PostgreSQL uses a dedicated connection and session-level advisory lock so the
-lock survives commits performed by the underlying service. SQLite and other
-local engines use a process-local keyed lock; SQLite still supplies its normal
-file/transaction serialization across processes.
+Fingerprint metadata is attached by a SQLAlchemy ``before_flush`` listener, so
+the inventory effect and its request identity are committed atomically by the
+underlying service. PostgreSQL uses a dedicated session-level advisory lock;
+local engines use a bounded process-local keyed-lock registry.
 """
 
 from __future__ import annotations
@@ -21,11 +17,12 @@ import json
 import threading
 import time
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterator, Optional, TypeVar
 
 from fastapi import HTTPException
 from pydantic import BaseModel
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
@@ -34,7 +31,16 @@ from backend.database import DBInventoryEvent
 
 T = TypeVar("T")
 _LOCK_TIMEOUT_SECONDS = 15.0
-_PROCESS_LOCKS: Dict[str, threading.RLock] = {}
+_SESSION_CONTEXT_KEY = "nutriflavos_inventory_idempotency"
+
+
+@dataclass
+class _ProcessLockEntry:
+    lock: Any
+    users: int = 0
+
+
+_PROCESS_LOCKS: Dict[str, _ProcessLockEntry] = {}
 _PROCESS_LOCKS_GUARD = threading.Lock()
 
 
@@ -49,7 +55,11 @@ def _canonical_payload(payload: BaseModel | Dict[str, Any] | Any) -> Any:
     if isinstance(payload, BaseModel):
         return payload.model_dump(mode="json", exclude={"idempotency_key"})
     if isinstance(payload, dict):
-        return payload
+        return {
+            key: value
+            for key, value in payload.items()
+            if key != "idempotency_key"
+        }
     return payload
 
 
@@ -83,9 +93,54 @@ def _advisory_key(identity: str) -> int:
     return int.from_bytes(digest[:8], byteorder="big", signed=True)
 
 
-def _process_lock(identity: str) -> threading.RLock:
+def _reserve_process_lock(identity: str) -> _ProcessLockEntry:
     with _PROCESS_LOCKS_GUARD:
-        return _PROCESS_LOCKS.setdefault(identity, threading.RLock())
+        entry = _PROCESS_LOCKS.get(identity)
+        if entry is None:
+            entry = _ProcessLockEntry(lock=threading.RLock())
+            _PROCESS_LOCKS[identity] = entry
+        entry.users += 1
+        return entry
+
+
+def _release_process_lock(identity: str, entry: _ProcessLockEntry) -> None:
+    with _PROCESS_LOCKS_GUARD:
+        entry.users -= 1
+        if entry.users == 0 and _PROCESS_LOCKS.get(identity) is entry:
+            _PROCESS_LOCKS.pop(identity, None)
+
+
+@event.listens_for(Session, "before_flush")
+def _attach_inventory_request_fingerprint(
+    session: Session,
+    _flush_context: Any,
+    _instances: Any,
+) -> None:
+    context = session.info.get(_SESSION_CONTEXT_KEY)
+    if not isinstance(context, dict):
+        return
+    for value in session.new:
+        if not isinstance(value, DBInventoryEvent):
+            continue
+        if (
+            value.household_id != context["household_id"]
+            or value.idempotency_key != context["key"]
+        ):
+            continue
+        metadata = dict(value.event_metadata or {})
+        stored = metadata.get("request_fingerprint")
+        if stored is not None and stored != context["fingerprint"]:
+            raise _conflict(
+                "The pending ledger event contains a different request fingerprint"
+            )
+        metadata.update(
+            {
+                "request_fingerprint": context["fingerprint"],
+                "idempotency_operation": context["operation"],
+                "idempotency_context": context["context"],
+            }
+        )
+        value.event_metadata = metadata
 
 
 @contextmanager
@@ -135,9 +190,10 @@ def idempotency_lock(db: Session, household_id: str, key: str) -> Iterator[None]
             yield
         return
 
-    lock = _process_lock(identity)
-    acquired = lock.acquire(timeout=_LOCK_TIMEOUT_SECONDS)
+    entry = _reserve_process_lock(identity)
+    acquired = entry.lock.acquire(timeout=_LOCK_TIMEOUT_SECONDS)
     if not acquired:
+        _release_process_lock(identity, entry)
         raise HTTPException(
             status_code=409,
             detail={
@@ -148,7 +204,8 @@ def idempotency_lock(db: Session, household_id: str, key: str) -> Iterator[None]
     try:
         yield
     finally:
-        lock.release()
+        entry.lock.release()
+        _release_process_lock(identity, entry)
 
 
 def _event_for_key(
@@ -164,6 +221,22 @@ def _event_for_key(
     )
 
 
+def _verify_existing_event(
+    event_value: DBInventoryEvent,
+    fingerprint: str,
+) -> None:
+    metadata = dict(event_value.event_metadata or {})
+    stored = metadata.get("request_fingerprint")
+    if stored is None:
+        raise _conflict(
+            "This key belongs to a legacy event without a complete request fingerprint; use a new key"
+        )
+    if stored != fingerprint:
+        raise _conflict(
+            "This idempotency key was already used for a different operation or request body"
+        )
+
+
 def run_idempotent_inventory_operation(
     db: Session,
     *,
@@ -174,13 +247,7 @@ def run_idempotent_inventory_operation(
     handler: Callable[[], T],
     context: Optional[Dict[str, Any]] = None,
 ) -> T:
-    """Run and annotate one public inventory mutation.
-
-    Requests without an idempotency key retain the underlying service behavior.
-    For keyed requests, any pre-existing event must contain the same complete
-    request fingerprint. Events created before fingerprints were introduced are
-    deliberately treated as ambiguous and require a new key.
-    """
+    """Run one public inventory mutation with complete-request idempotency."""
 
     if not key:
         return handler()
@@ -193,20 +260,26 @@ def run_idempotent_inventory_operation(
     with idempotency_lock(db, household_id, key):
         prior = _event_for_key(db, household_id, key)
         if prior is not None:
-            metadata = dict(prior.event_metadata or {})
-            stored = metadata.get("request_fingerprint")
-            if stored is None:
-                raise _conflict(
-                    "This key belongs to a legacy event without a complete request fingerprint; use a new key"
-                )
-            if stored != fingerprint:
-                raise _conflict(
-                    "This idempotency key was already used for a different operation or request body"
-                )
+            _verify_existing_event(prior, fingerprint)
 
-        result = handler()
-        event = _event_for_key(db, household_id, key)
-        if event is None:
+        previous_context = db.info.get(_SESSION_CONTEXT_KEY)
+        db.info[_SESSION_CONTEXT_KEY] = {
+            "household_id": household_id,
+            "key": key,
+            "fingerprint": fingerprint,
+            "operation": operation,
+            "context": context or {},
+        }
+        try:
+            result = handler()
+        finally:
+            if previous_context is None:
+                db.info.pop(_SESSION_CONTEXT_KEY, None)
+            else:
+                db.info[_SESSION_CONTEXT_KEY] = previous_context
+
+        event_value = _event_for_key(db, household_id, key)
+        if event_value is None:
             raise HTTPException(
                 status_code=500,
                 detail={
@@ -214,22 +287,5 @@ def run_idempotent_inventory_operation(
                     "message": "The mutation completed without its required audit event",
                 },
             )
-
-        metadata = dict(event.event_metadata or {})
-        stored = metadata.get("request_fingerprint")
-        if stored is not None and stored != fingerprint:
-            db.rollback()
-            raise _conflict(
-                "This idempotency key was already used for a different operation or request body"
-            )
-        metadata.update(
-            {
-                "request_fingerprint": fingerprint,
-                "idempotency_operation": operation,
-                "idempotency_context": context or {},
-            }
-        )
-        event.event_metadata = metadata
-        db.add(event)
-        db.commit()
+        _verify_existing_event(event_value, fingerprint)
         return result
