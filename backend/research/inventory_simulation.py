@@ -420,15 +420,5 @@ def simulate_perishable_inventory(
         stockout_event_count=stockout_events,
         order_count=sum(value.order_count for value in per_sku),
         per_sku=tuple(per_sku),
-        events=tuple(
-            sorted(
-                events,
-                key=lambda value: (
-                    value.day,
-                    value.event_type,
-                    value.sku,
-                    value.lot_id or "",
-                ),
-            )
-        ),
+        events=tuple(events),
     )
