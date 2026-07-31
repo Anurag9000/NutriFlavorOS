@@ -91,6 +91,24 @@ class HouseholdMemberUpdate(BaseModel):
     def validate_update(self):
         if not self.model_fields_set:
             raise ValueError("At least one member field must be supplied")
+        non_clearable = {
+            "display_name",
+            "role",
+            "servings_multiplier",
+            "allergies",
+            "dietary_restrictions",
+            "disliked_ingredients",
+            "active",
+        }
+        null_fields = sorted(
+            field
+            for field in self.model_fields_set & non_clearable
+            if getattr(self, field) is None
+        )
+        if null_fields:
+            raise ValueError(
+                "These member fields cannot be null: " + ", ".join(null_fields)
+            )
         if self.role == HouseholdRole.OWNER:
             raise ValueError("Ownership transfer requires a separate reviewed workflow")
         return self
