@@ -58,6 +58,10 @@ jobs:
         env:
           DATABASE_URL: postgresql+psycopg://nutriflavos:nutriflavos@localhost:5432/nutriflavos
         run: alembic upgrade head
+      - name: Concurrent inventory and idempotency probe
+        env:
+          DATABASE_URL: postgresql+psycopg://nutriflavos:nutriflavos@localhost:5432/nutriflavos
+        run: python scripts/check_inventory_concurrency.py
 
   frontend:
     runs-on: ubuntu-latest
