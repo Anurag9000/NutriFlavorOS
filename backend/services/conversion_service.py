@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import DBIngredientConversion, DBStoragePolicy
@@ -17,6 +18,8 @@ from backend.domain.conversions import (
 )
 from backend.domain.ingredients import canonicalize_ingredient_name
 
+
+_EPSILON = 1e-12
 
 OFFICIAL_STORAGE_POLICIES: tuple[dict[str, Any], ...] = (
     {
@@ -100,23 +103,44 @@ OFFICIAL_STORAGE_POLICIES: tuple[dict[str, Any], ...] = (
 )
 
 
+def _apply_storage_policy(value: DBStoragePolicy, raw: Dict[str, Any]) -> None:
+    for key, item in raw.items():
+        setattr(value, key, item)
+    value.active = True
+
+
 def seed_official_storage_policies(db: Session) -> int:
     created = 0
     for raw in OFFICIAL_STORAGE_POLICIES:
         existing = (
             db.query(DBStoragePolicy)
             .filter(DBStoragePolicy.policy_key == raw["policy_key"])
+            .with_for_update()
             .first()
         )
         if existing is None:
             db.add(DBStoragePolicy(**raw))
             created += 1
         else:
-            for key, value in raw.items():
-                setattr(existing, key, value)
-            existing.active = True
+            _apply_storage_policy(existing, raw)
             db.add(existing)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Another process may have inserted a policy after our non-existent-row
+        # check. Resolve every row by its database-enforced policy key.
+        db.rollback()
+        created = 0
+        for raw in OFFICIAL_STORAGE_POLICIES:
+            existing = (
+                db.query(DBStoragePolicy)
+                .filter(DBStoragePolicy.policy_key == raw["policy_key"])
+                .with_for_update()
+                .one()
+            )
+            _apply_storage_policy(existing, raw)
+            db.add(existing)
+        db.commit()
     return created
 
 
@@ -134,39 +158,114 @@ def list_storage_policies(
     if storage_state:
         query = query.filter(DBStoragePolicy.storage_state == storage_state.strip().lower())
     return query.order_by(
-        DBStoragePolicy.food_category, DBStoragePolicy.storage_state, DBStoragePolicy.policy_key
+        DBStoragePolicy.food_category,
+        DBStoragePolicy.storage_state,
+        DBStoragePolicy.policy_key,
     ).all()
+
+
+def _conversion_query(
+    db: Session,
+    *,
+    canonical_name: str,
+    from_unit: str,
+    to_unit: str,
+    source_name: str,
+    source_version: str,
+):
+    return db.query(DBIngredientConversion).filter(
+        DBIngredientConversion.canonical_name == canonical_name,
+        DBIngredientConversion.from_unit == from_unit,
+        DBIngredientConversion.to_unit == to_unit,
+        DBIngredientConversion.source_name == source_name,
+        DBIngredientConversion.source_version == source_version,
+    )
+
+
+def _normalized_conversion_payload(
+    payload: IngredientConversionCreate,
+) -> Dict[str, Any]:
+    canonical_name = canonicalize_ingredient_name(payload.canonical_name)
+    if not canonical_name:
+        raise HTTPException(
+            status_code=422, detail="Ingredient name could not be normalized"
+        )
+    raw = payload.model_dump()
+    raw["canonical_name"] = canonical_name
+    raw["from_unit"] = payload.from_unit.strip().lower()
+    raw["to_unit"] = payload.to_unit.strip().lower()
+    raw["source_name"] = payload.source_name.strip()
+    raw["source_url"] = payload.source_url.strip()
+    raw["source_version"] = payload.source_version.strip()
+    return raw
+
+
+def _same_conversion_evidence(
+    value: DBIngredientConversion, raw: Dict[str, Any]
+) -> bool:
+    return (
+        abs(float(value.multiplier_min) - float(raw["multiplier_min"])) <= _EPSILON
+        and abs(float(value.multiplier_max) - float(raw["multiplier_max"]))
+        <= _EPSILON
+        and value.source_url == raw["source_url"]
+        and value.evidence_status == raw["evidence_status"]
+        and value.reviewed_at == raw["reviewed_at"]
+        and value.notes == raw["notes"]
+    )
+
+
+def _conversion_conflict(value: DBIngredientConversion) -> HTTPException:
+    return HTTPException(
+        status_code=409,
+        detail={
+            "code": "conversion_evidence_conflict",
+            "message": (
+                "The same ingredient/unit/source/version key already contains "
+                "different evidence. Register a new source version after review."
+            ),
+            "existing_conversion_id": value.id,
+        },
+    )
+
+
+def _resolve_existing_conversion(
+    value: DBIngredientConversion, raw: Dict[str, Any]
+) -> DBIngredientConversion:
+    if not _same_conversion_evidence(value, raw):
+        raise _conversion_conflict(value)
+    return value
 
 
 def register_conversion(
     db: Session, payload: IngredientConversionCreate
 ) -> DBIngredientConversion:
-    canonical_name = canonicalize_ingredient_name(payload.canonical_name)
-    if not canonical_name:
-        raise HTTPException(status_code=422, detail="Ingredient name could not be normalized")
-    value = (
-        db.query(DBIngredientConversion)
-        .filter(
-            DBIngredientConversion.canonical_name == canonical_name,
-            DBIngredientConversion.from_unit == payload.from_unit.strip().lower(),
-            DBIngredientConversion.to_unit == payload.to_unit.strip().lower(),
-            DBIngredientConversion.source_name == payload.source_name.strip(),
-            DBIngredientConversion.source_version == payload.source_version.strip(),
-        )
-        .first()
+    raw = _normalized_conversion_payload(payload)
+    query = _conversion_query(
+        db,
+        canonical_name=raw["canonical_name"],
+        from_unit=raw["from_unit"],
+        to_unit=raw["to_unit"],
+        source_name=raw["source_name"],
+        source_version=raw["source_version"],
     )
-    raw = payload.model_dump()
-    raw["canonical_name"] = canonical_name
-    raw["from_unit"] = payload.from_unit.strip().lower()
-    raw["to_unit"] = payload.to_unit.strip().lower()
-    if value is None:
-        value = DBIngredientConversion(**raw, active=True)
-    else:
-        for key, item in raw.items():
-            setattr(value, key, item)
-        value.active = True
+    value = query.with_for_update().first()
+    if value is not None:
+        value = _resolve_existing_conversion(value, raw)
+        if not value.active:
+            value.active = True
+            db.add(value)
+            db.commit()
+            db.refresh(value)
+        return value
+
+    value = DBIngredientConversion(**raw, active=True)
     db.add(value)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing = query.with_for_update().one()
+        return _resolve_existing_conversion(existing, raw)
     db.refresh(value)
     return value
 
@@ -174,7 +273,9 @@ def register_conversion(
 def list_conversions(
     db: Session, canonical_name: Optional[str] = None
 ) -> List[DBIngredientConversion]:
-    query = db.query(DBIngredientConversion).filter(DBIngredientConversion.active.is_(True))
+    query = db.query(DBIngredientConversion).filter(
+        DBIngredientConversion.active.is_(True)
+    )
     if canonical_name:
         query = query.filter(
             DBIngredientConversion.canonical_name
@@ -250,38 +351,42 @@ def import_fdc_portions(
     portions: Iterable[Dict[str, Any]],
     source_version: str,
 ) -> int:
-    """Import exact FoodData Central gram weights as ingredient-specific rules."""
+    """Import exact FoodData Central gram weights as food-specific rules."""
 
     canonical = canonicalize_ingredient_name(canonical_name)
     if not canonical:
         raise ValueError("canonical_name could not be normalized")
+    evidence_version = f"{source_version.strip()}:fdc:{fdc_id}"
     created = 0
     for portion in portions:
         amount = portion.get("amount")
         gram_weight = portion.get("gramWeight")
         measure = portion.get("measureUnit") or {}
-        unit_name = (
-            measure.get("abbreviation")
-            or measure.get("name")
-            or portion.get("modifier")
-        )
+        modifier = str(portion.get("modifier") or "").strip()
+        measure_name = str(
+            measure.get("abbreviation") or measure.get("name") or ""
+        ).strip()
+        unit_name = modifier or measure_name
         try:
             amount_value = float(amount)
             grams_value = float(gram_weight)
         except (TypeError, ValueError):
             continue
-        if amount_value <= 0 or grams_value <= 0 or not str(unit_name or "").strip():
+        if amount_value <= 0 or grams_value <= 0 or not unit_name:
             continue
         multiplier = grams_value / amount_value
         payload = IngredientConversionCreate(
             canonical_name=canonical,
-            from_unit=str(unit_name).strip().lower(),
+            from_unit=unit_name.lower(),
             to_unit="g",
             multiplier_min=multiplier,
             multiplier_max=multiplier,
             source_name="USDA FoodData Central",
-            source_url=f"https://fdc.nal.usda.gov/fdc-app.html#/food-details/{fdc_id}/nutrients",
-            source_version=source_version,
+            source_url=(
+                f"https://fdc.nal.usda.gov/fdc-app.html#/food-details/"
+                f"{fdc_id}/nutrients"
+            ),
+            source_version=evidence_version,
             evidence_status="external_unverified",
             reviewed_at=None,
             notes=(
@@ -290,13 +395,13 @@ def import_fdc_portions(
             ),
         )
         before = (
-            db.query(DBIngredientConversion)
-            .filter(
-                DBIngredientConversion.canonical_name == canonical,
-                DBIngredientConversion.from_unit == payload.from_unit,
-                DBIngredientConversion.to_unit == "g",
-                DBIngredientConversion.source_name == "USDA FoodData Central",
-                DBIngredientConversion.source_version == source_version,
+            _conversion_query(
+                db,
+                canonical_name=canonical,
+                from_unit=payload.from_unit,
+                to_unit="g",
+                source_name="USDA FoodData Central",
+                source_version=evidence_version,
             )
             .first()
         )
