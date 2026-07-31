@@ -13,7 +13,6 @@ from backend.domain.preparation_evidence import (
     BuildPreparationTasksRequest,
     DurationPolicy,
     PreparationEvidenceStatus,
-    PreparationTaskTemplate,
     RecipePreparationOccurrence,
     RecipePreparationProfileInput,
 )
@@ -22,7 +21,9 @@ from backend.services.preparation_evidence_service import (
     build_tasks_from_profiles,
     get_profile,
     list_profiles,
+    profile_content_hash,
     upsert_profile,
+    upsert_profiles,
 )
 
 
@@ -63,6 +64,7 @@ def db():
 def reviewed_profile(**updates):
     raw = {
         "recipe_id": "reviewed-soup",
+        "profile_version": "1",
         "schema_version": "1",
         "supported_servings_min": 2,
         "supported_servings_max": 6,
@@ -100,9 +102,13 @@ def reviewed_profile(**updates):
     return RecipePreparationProfileInput.model_validate(raw)
 
 
-def test_reviewed_profile_requires_review_metadata_and_acyclic_templates():
+def test_reviewed_profile_requires_review_metadata_timezone_and_acyclic_templates():
     with pytest.raises(ValidationError, match="reviewed_at"):
         reviewed_profile(reviewed_at=None)
+    with pytest.raises(ValidationError, match="timezone"):
+        reviewed_profile(reviewed_at="2026-07-31T00:00:00")
+    value = reviewed_profile(reviewed_at="2026-07-31T05:30:00+05:30")
+    assert value.reviewed_at == datetime(2026, 7, 31, tzinfo=timezone.utc)
     with pytest.raises(ValidationError, match="dependency cycle"):
         reviewed_profile(
             task_templates=[
@@ -124,20 +130,63 @@ def test_reviewed_profile_requires_review_metadata_and_acyclic_templates():
         )
 
 
-def test_upsert_and_read_preserve_provenance(db):
-    value = upsert_profile(db, reviewed_profile())
-    assert value.evidence_status == PreparationEvidenceStatus.REVIEWED
-    assert value.supported_servings_min == 2
-    assert value.task_templates[1].dependencies == ["chop"]
-
-    fetched = get_profile(db, "reviewed-soup")
-    assert fetched.id == value.id
-    assert fetched.source_version == "2026-07"
-    assert [item.recipe_id for item in list_profiles(db)] == ["reviewed-soup"]
+def test_identical_version_retry_is_idempotent_and_hash_stable(db):
+    payload = reviewed_profile()
+    first = upsert_profile(db, payload)
+    repeated = upsert_profile(db, payload)
+    assert repeated.id == first.id
+    assert repeated.content_hash == first.content_hash == profile_content_hash(payload)
+    assert len(first.content_hash) == 64
+    assert db.query(DBRecipePreparationProfile).count() == 1
 
 
-def test_compiler_namespaces_dependencies_and_uses_conservative_max(db):
+def test_contradictory_reuse_of_profile_version_is_rejected(db):
     upsert_profile(db, reviewed_profile())
+    with pytest.raises(ValueError, match="different evidence content"):
+        upsert_profile(
+            db,
+            reviewed_profile(
+                task_templates=[
+                    {
+                        "template_id": "changed",
+                        "name": "Changed task",
+                        "duration_min_minutes": 20,
+                        "duration_max_minutes": 25,
+                    }
+                ]
+            ),
+        )
+    assert db.query(DBRecipePreparationProfile).count() == 1
+
+
+def test_new_reviewed_version_supersedes_prior_active_version(db):
+    first = upsert_profile(db, reviewed_profile())
+    second = upsert_profile(
+        db,
+        reviewed_profile(
+            profile_version="2",
+            source_version="2026-08",
+            notes="Reviewed revision",
+        ),
+    )
+    db.expire_all()
+    old_row = db.get(DBRecipePreparationProfile, first.id)
+    new_row = db.get(DBRecipePreparationProfile, second.id)
+    assert old_row.active is False
+    assert new_row.active is True
+    assert new_row.supersedes_profile_id == old_row.id
+    assert get_profile(db, "reviewed-soup").id == new_row.id
+    assert len(list_profiles(db)) == 1
+    assert len(list_profiles(db, active_only=False)) == 2
+
+
+def test_batch_import_rejects_duplicate_natural_keys(db):
+    with pytest.raises(ValueError, match="duplicate recipe_id/profile_version"):
+        upsert_profiles(db, [reviewed_profile(), reviewed_profile()])
+
+
+def test_compiler_namespaces_dependencies_and_embeds_evidence_provenance(db):
+    profile = upsert_profile(db, reviewed_profile())
     result = build_tasks_from_profiles(
         db,
         BuildPreparationTasksRequest(
@@ -160,8 +209,12 @@ def test_compiler_namespaces_dependencies_and_uses_conservative_max(db):
     ]
     assert result.tasks[1].dependencies == ["day1.dinner.chop"]
     assert result.tasks[1].latest_finish_minute == 120
-    assert result.tasks[1].metadata["source_version"] == "2026-07"
-    assert result.tasks[1].metadata["unattended_allowed"] is None
+    metadata = result.tasks[1].metadata
+    assert metadata["source_version"] == "2026-07"
+    assert metadata["profile_version"] == "1"
+    assert metadata["profile_content_hash"] == profile.content_hash
+    assert metadata["unattended_allowed"] is None
+    assert profile.content_hash in result.profile_versions["reviewed-soup"]
     assert result.warnings
 
 
@@ -186,12 +239,15 @@ def test_optimistic_duration_policy_is_disclosed(db):
 
 
 def test_missing_unreviewed_inactive_and_serving_mismatch_are_unresolved(db):
-    draft = reviewed_profile(
-        evidence_status="draft",
-        reviewed_at=None,
-        reviewed_by=None,
+    upsert_profile(
+        db,
+        reviewed_profile(
+            profile_version="draft-1",
+            evidence_status="draft",
+            reviewed_at=None,
+            reviewed_by=None,
+        ),
     )
-    upsert_profile(db, draft)
     result = build_tasks_from_profiles(
         db,
         BuildPreparationTasksRequest(
@@ -216,7 +272,7 @@ def test_missing_unreviewed_inactive_and_serving_mismatch_are_unresolved(db):
         "profile_missing",
     }
 
-    upsert_profile(db, reviewed_profile())
+    upsert_profile(db, reviewed_profile(profile_version="reviewed-1"))
     outside = build_tasks_from_profiles(
         db,
         BuildPreparationTasksRequest(
