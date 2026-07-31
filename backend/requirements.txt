@@ -4,6 +4,7 @@ pydantic>=2.6,<3.0
 python-multipart>=0.0.9
 requests>=2.31,<3.0
 numpy>=1.24,<3.0
+Pillow>=10.0,<13.0
 python-dotenv>=1.0,<2.0
 SQLAlchemy>=2.0,<3.0
 Alembic>=1.13,<2.0
