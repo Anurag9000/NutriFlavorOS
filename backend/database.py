@@ -1,21 +1,33 @@
 """Database schema and session management.
 
-The application can run against SQLite for local development or PostgreSQL in
-hosted environments. Runtime code no longer stores user profiles in a separate
-JSON file; a single transactional store is used for identity and profile data.
+SQLite remains available for local development, while hosted deployments should
+use PostgreSQL. Compatibility migrations below are intentionally additive and
+idempotent; Alembic remains the required path for production migrations.
 """
 
 from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
-from typing import Generator
+from typing import Dict, Generator
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, JSON, String, create_engine, inspect, text
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    JSON,
+    String,
+    create_engine,
+    inspect,
+    text,
+)
 from sqlalchemy.orm import Session, declarative_base, relationship, sessionmaker
 
 
 DB_URL = os.getenv("DATABASE_URL", "sqlite:///nutriflavor.db")
+CURRENT_PLAN_SCHEMA_VERSION = "2"
 
 _engine_kwargs = {"pool_pre_ping": True}
 if DB_URL.startswith("sqlite"):
@@ -68,7 +80,7 @@ class DBUser(Base):
 
 
 class DBRecipe(Base):
-    """Recipe data used by the deterministic planner."""
+    """Recipe data with normalized ingredient and provenance metadata."""
 
     __tablename__ = "recipes"
 
@@ -77,6 +89,8 @@ class DBRecipe(Base):
     description = Column(String, nullable=False, default="")
     image_url = Column(String)
     ingredients = Column(JSON, nullable=False, default=list)
+    ingredient_data = Column(JSON, nullable=False, default=list)
+    servings = Column(Float, nullable=False, default=1.0)
     calories = Column(Integer, nullable=False, default=0)
     macros = Column(JSON, nullable=False, default=dict)
     flavor_profile = Column(JSON, nullable=False, default=dict)
@@ -84,6 +98,10 @@ class DBRecipe(Base):
     cuisine = Column(String)
     instructions = Column(JSON, nullable=False, default=list)
     estimated_cost = Column(Float, nullable=False, default=0.0)
+    source_name = Column(String)
+    source_url = Column(String)
+    source_version = Column(String)
+    nutrition_basis = Column(String, nullable=False, default="per_serving")
 
 
 class DBMealPlan(Base):
@@ -93,6 +111,7 @@ class DBMealPlan(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    schema_version = Column(String, nullable=False, default=CURRENT_PLAN_SCHEMA_VERSION)
     plan_data = Column(JSON, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
 
@@ -111,7 +130,7 @@ class DBFeedback(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
 
 
-_SQLITE_USER_MIGRATIONS = {
+_SQLITE_USER_MIGRATIONS: Dict[str, str] = {
     "hashed_password": "ALTER TABLE users ADD COLUMN hashed_password VARCHAR",
     "allergies": "ALTER TABLE users ADD COLUMN allergies JSON",
     "medications": "ALTER TABLE users ADD COLUMN medications JSON",
@@ -121,30 +140,64 @@ _SQLITE_USER_MIGRATIONS = {
     "target_fat_g": "ALTER TABLE users ADD COLUMN target_fat_g INTEGER",
 }
 
+_SQLITE_RECIPE_MIGRATIONS: Dict[str, str] = {
+    "ingredient_data": "ALTER TABLE recipes ADD COLUMN ingredient_data JSON",
+    "servings": "ALTER TABLE recipes ADD COLUMN servings FLOAT",
+    "source_name": "ALTER TABLE recipes ADD COLUMN source_name VARCHAR",
+    "source_url": "ALTER TABLE recipes ADD COLUMN source_url VARCHAR",
+    "source_version": "ALTER TABLE recipes ADD COLUMN source_version VARCHAR",
+    "nutrition_basis": "ALTER TABLE recipes ADD COLUMN nutrition_basis VARCHAR",
+}
 
-def _migrate_sqlite_user_table() -> None:
+_SQLITE_PLAN_MIGRATIONS: Dict[str, str] = {
+    "schema_version": "ALTER TABLE meal_plans ADD COLUMN schema_version VARCHAR",
+}
+
+
+def _migrate_sqlite_table(table_name: str, migrations: Dict[str, str]) -> None:
     if not DB_URL.startswith("sqlite"):
         return
-
     inspector = inspect(engine)
-    if "users" not in inspector.get_table_names():
+    if table_name not in inspector.get_table_names():
         return
-
-    existing = {column["name"] for column in inspector.get_columns("users")}
-    statements = [sql for name, sql in _SQLITE_USER_MIGRATIONS.items() if name not in existing]
+    existing = {column["name"] for column in inspector.get_columns(table_name)}
+    statements = [sql for name, sql in migrations.items() if name not in existing]
     if not statements:
         return
-
     with engine.begin() as connection:
         for statement in statements:
             connection.execute(text(statement))
 
 
+def _backfill_sqlite_defaults() -> None:
+    if not DB_URL.startswith("sqlite"):
+        return
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
+    with engine.begin() as connection:
+        if "recipes" in tables:
+            columns = {column["name"] for column in inspector.get_columns("recipes")}
+            if "servings" in columns:
+                connection.execute(text("UPDATE recipes SET servings = 1.0 WHERE servings IS NULL OR servings <= 0"))
+            if "nutrition_basis" in columns:
+                connection.execute(text("UPDATE recipes SET nutrition_basis = 'per_serving' WHERE nutrition_basis IS NULL"))
+        if "meal_plans" in tables:
+            columns = {column["name"] for column in inspector.get_columns("meal_plans")}
+            if "schema_version" in columns:
+                connection.execute(
+                    text("UPDATE meal_plans SET schema_version = :version WHERE schema_version IS NULL"),
+                    {"version": CURRENT_PLAN_SCHEMA_VERSION},
+                )
+
+
 def init_db() -> None:
-    """Create tables and apply safe local SQLite compatibility migrations."""
+    """Create tables and apply additive local SQLite compatibility migrations."""
 
     Base.metadata.create_all(bind=engine)
-    _migrate_sqlite_user_table()
+    _migrate_sqlite_table("users", _SQLITE_USER_MIGRATIONS)
+    _migrate_sqlite_table("recipes", _SQLITE_RECIPE_MIGRATIONS)
+    _migrate_sqlite_table("meal_plans", _SQLITE_PLAN_MIGRATIONS)
+    _backfill_sqlite_defaults()
 
 
 def get_db() -> Generator[Session, None, None]:
