@@ -56,6 +56,7 @@ from backend.services.household_access_service import (
     revoke_invitation,
     update_member,
 )
+from backend.services.idempotency_service import run_idempotent_inventory_operation
 from backend.services.inventory_service_v4 import (
     add_household_member,
     add_pantry_item,
@@ -183,129 +184,456 @@ def get_household_route(
     }
 
 
-@router.post("/{household_id}/members", response_model=HouseholdMemberView, status_code=status.HTTP_201_CREATED)
-def add_member_route(household_id: str, payload: HouseholdMemberCreate, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    household, _ = require_household_access(db, household_id, current_user.id, HouseholdRole.OWNER)
-    return HouseholdMemberView.model_validate(add_household_member(db, household, payload, current_user.id))
+@router.post(
+    "/{household_id}/members",
+    response_model=HouseholdMemberView,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_member_route(
+    household_id: str,
+    payload: HouseholdMemberCreate,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db, household_id, current_user.id, HouseholdRole.OWNER
+    )
+    return HouseholdMemberView.model_validate(
+        add_household_member(db, household, payload, current_user.id)
+    )
 
 
-@router.patch("/{household_id}/members/{member_id}", response_model=HouseholdMemberView)
-def update_member_route(household_id: str, member_id: int, payload: HouseholdMemberUpdate, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    household, _ = require_household_access(db, household_id, current_user.id, HouseholdRole.OWNER)
-    return HouseholdMemberView.model_validate(update_member(db, household, member_id, payload))
+@router.patch(
+    "/{household_id}/members/{member_id}", response_model=HouseholdMemberView
+)
+def update_member_route(
+    household_id: str,
+    member_id: int,
+    payload: HouseholdMemberUpdate,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db, household_id, current_user.id, HouseholdRole.OWNER
+    )
+    return HouseholdMemberView.model_validate(
+        update_member(db, household, member_id, payload)
+    )
 
 
-@router.post("/{household_id}/invitations", response_model=InvitationView, status_code=status.HTTP_201_CREATED)
-def create_invitation_route(household_id: str, payload: InvitationCreate, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    household, _ = require_household_access(db, household_id, current_user.id, HouseholdRole.OWNER)
+@router.post(
+    "/{household_id}/invitations",
+    response_model=InvitationView,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_invitation_route(
+    household_id: str,
+    payload: InvitationCreate,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db, household_id, current_user.id, HouseholdRole.OWNER
+    )
     return create_invitation(db, household, current_user, payload)
 
 
-@router.get("/{household_id}/invitations", response_model=list[InvitationView])
-def list_invitations_route(household_id: str, include_closed: bool = Query(False), db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    require_household_access(db, household_id, current_user.id, HouseholdRole.OWNER)
-    return [InvitationView.model_validate(value) for value in list_invitations(db, household_id, include_closed)]
+@router.get(
+    "/{household_id}/invitations", response_model=list[InvitationView]
+)
+def list_invitations_route(
+    household_id: str,
+    include_closed: bool = Query(False),
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    require_household_access(
+        db, household_id, current_user.id, HouseholdRole.OWNER
+    )
+    return [
+        InvitationView.model_validate(value)
+        for value in list_invitations(db, household_id, include_closed)
+    ]
 
 
-@router.delete("/{household_id}/invitations/{invitation_id}", response_model=InvitationView)
-def revoke_invitation_route(household_id: str, invitation_id: str, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    require_household_access(db, household_id, current_user.id, HouseholdRole.OWNER)
-    return InvitationView.model_validate(revoke_invitation(db, household_id, invitation_id))
+@router.delete(
+    "/{household_id}/invitations/{invitation_id}",
+    response_model=InvitationView,
+)
+def revoke_invitation_route(
+    household_id: str,
+    invitation_id: str,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    require_household_access(
+        db, household_id, current_user.id, HouseholdRole.OWNER
+    )
+    return InvitationView.model_validate(
+        revoke_invitation(db, household_id, invitation_id)
+    )
 
 
 @router.get("/{household_id}/pantry", response_model=list[PantryItemView])
-def pantry_route(household_id: str, include_empty: bool = Query(False), db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    household, _ = require_household_access(db, household_id, current_user.id, HouseholdRole.VIEWER)
-    return [PantryItemView.model_validate(value) for value in list_pantry_items(db, household.id, include_empty=include_empty)]
+def pantry_route(
+    household_id: str,
+    include_empty: bool = Query(False),
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db, household_id, current_user.id, HouseholdRole.VIEWER
+    )
+    return [
+        PantryItemView.model_validate(value)
+        for value in list_pantry_items(
+            db, household.id, include_empty=include_empty
+        )
+    ]
 
 
-@router.post("/{household_id}/pantry", response_model=PantryItemView, status_code=status.HTTP_201_CREATED)
-def add_pantry_route(household_id: str, payload: PantryItemCreate, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    household, _ = require_household_access(db, household_id, current_user.id, HouseholdRole.EDITOR)
-    return PantryItemView.model_validate(add_pantry_item(db, household, payload))
+@router.post(
+    "/{household_id}/pantry",
+    response_model=PantryItemView,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_pantry_route(
+    household_id: str,
+    payload: PantryItemCreate,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db, household_id, current_user.id, HouseholdRole.EDITOR
+    )
+    value = run_idempotent_inventory_operation(
+        db,
+        household_id=household.id,
+        key=payload.idempotency_key,
+        operation="pantry_create",
+        payload=payload,
+        handler=lambda: add_pantry_item(db, household, payload),
+    )
+    return PantryItemView.model_validate(value)
 
 
-@router.post("/{household_id}/pantry/{item_id}/consume", response_model=PantryItemView)
-def consume_pantry_route(household_id: str, item_id: int, payload: InventoryMutation, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    household, _ = require_household_access(db, household_id, current_user.id, HouseholdRole.EDITOR)
-    return PantryItemView.model_validate(consume_pantry_item(db, household, item_id, payload))
+@router.post(
+    "/{household_id}/pantry/{item_id}/consume",
+    response_model=PantryItemView,
+)
+def consume_pantry_route(
+    household_id: str,
+    item_id: int,
+    payload: InventoryMutation,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db, household_id, current_user.id, HouseholdRole.EDITOR
+    )
+    value = run_idempotent_inventory_operation(
+        db,
+        household_id=household.id,
+        key=payload.idempotency_key,
+        operation="pantry_consume",
+        payload=payload,
+        context={"item_id": item_id},
+        handler=lambda: consume_pantry_item(
+            db, household, item_id, payload
+        ),
+    )
+    return PantryItemView.model_validate(value)
 
 
-@router.post("/{household_id}/pantry/{item_id}/discard", response_model=PantryItemView)
-def discard_pantry_route(household_id: str, item_id: int, payload: InventoryMutation, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    household, _ = require_household_access(db, household_id, current_user.id, HouseholdRole.EDITOR)
-    return PantryItemView.model_validate(consume_pantry_item(db, household, item_id, payload, event_type=InventoryEventType.DISCARD))
+@router.post(
+    "/{household_id}/pantry/{item_id}/discard",
+    response_model=PantryItemView,
+)
+def discard_pantry_route(
+    household_id: str,
+    item_id: int,
+    payload: InventoryMutation,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db, household_id, current_user.id, HouseholdRole.EDITOR
+    )
+    value = run_idempotent_inventory_operation(
+        db,
+        household_id=household.id,
+        key=payload.idempotency_key,
+        operation="pantry_discard",
+        payload=payload,
+        context={"item_id": item_id},
+        handler=lambda: consume_pantry_item(
+            db,
+            household,
+            item_id,
+            payload,
+            event_type=InventoryEventType.DISCARD,
+        ),
+    )
+    return PantryItemView.model_validate(value)
 
 
-@router.put("/{household_id}/pantry/{item_id}", response_model=PantryItemView)
-def adjust_pantry_route(household_id: str, item_id: int, payload: InventoryMutation, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    household, _ = require_household_access(db, household_id, current_user.id, HouseholdRole.EDITOR)
-    return PantryItemView.model_validate(set_pantry_quantity(db, household, item_id, payload))
+@router.put(
+    "/{household_id}/pantry/{item_id}", response_model=PantryItemView
+)
+def adjust_pantry_route(
+    household_id: str,
+    item_id: int,
+    payload: InventoryMutation,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db, household_id, current_user.id, HouseholdRole.EDITOR
+    )
+    value = run_idempotent_inventory_operation(
+        db,
+        household_id=household.id,
+        key=payload.idempotency_key,
+        operation="pantry_adjust",
+        payload=payload,
+        context={"item_id": item_id},
+        handler=lambda: set_pantry_quantity(
+            db, household, item_id, payload
+        ),
+    )
+    return PantryItemView.model_validate(value)
 
 
-@router.get("/{household_id}/inventory-events", response_model=list[InventoryEventView])
-def inventory_events_route(household_id: str, limit: int = Query(100, ge=1, le=1000), db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    household, _ = require_household_access(db, household_id, current_user.id, HouseholdRole.VIEWER)
-    rows = db.query(DBInventoryEvent).filter(DBInventoryEvent.household_id == household.id).order_by(DBInventoryEvent.created_at.desc(), DBInventoryEvent.id.desc()).limit(limit).all()
+@router.get(
+    "/{household_id}/inventory-events",
+    response_model=list[InventoryEventView],
+)
+def inventory_events_route(
+    household_id: str,
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db, household_id, current_user.id, HouseholdRole.VIEWER
+    )
+    rows = (
+        db.query(DBInventoryEvent)
+        .filter(DBInventoryEvent.household_id == household.id)
+        .order_by(
+            DBInventoryEvent.created_at.desc(), DBInventoryEvent.id.desc()
+        )
+        .limit(limit)
+        .all()
+    )
     return [InventoryEventView.model_validate(value) for value in rows]
 
 
-@router.post("/{household_id}/leftovers", response_model=LeftoverView, status_code=status.HTTP_201_CREATED)
-def create_leftover_route(household_id: str, payload: LeftoverCreate, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    household, _ = require_household_access(db, household_id, current_user.id, HouseholdRole.EDITOR)
-    return LeftoverView.model_validate(create_leftover(db, household, payload))
+@router.post(
+    "/{household_id}/leftovers",
+    response_model=LeftoverView,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_leftover_route(
+    household_id: str,
+    payload: LeftoverCreate,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db, household_id, current_user.id, HouseholdRole.EDITOR
+    )
+    value = run_idempotent_inventory_operation(
+        db,
+        household_id=household.id,
+        key=payload.idempotency_key,
+        operation="leftover_create",
+        payload=payload,
+        handler=lambda: create_leftover(db, household, payload),
+    )
+    return LeftoverView.model_validate(value)
 
 
 @router.get("/{household_id}/leftovers", response_model=list[LeftoverView])
-def leftovers_route(household_id: str, include_empty: bool = Query(False), db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    household, _ = require_household_access(db, household_id, current_user.id, HouseholdRole.VIEWER)
-    return [LeftoverView.model_validate(value) for value in list_leftovers(db, household.id, include_empty=include_empty)]
+def leftovers_route(
+    household_id: str,
+    include_empty: bool = Query(False),
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db, household_id, current_user.id, HouseholdRole.VIEWER
+    )
+    return [
+        LeftoverView.model_validate(value)
+        for value in list_leftovers(
+            db, household.id, include_empty=include_empty
+        )
+    ]
 
 
-@router.post("/{household_id}/leftovers/{leftover_id}/consume", response_model=LeftoverView)
-def consume_leftover_route(household_id: str, leftover_id: int, payload: LeftoverConsume, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    household, _ = require_household_access(db, household_id, current_user.id, HouseholdRole.EDITOR)
-    return LeftoverView.model_validate(consume_leftover(db, household, leftover_id, payload))
+@router.post(
+    "/{household_id}/leftovers/{leftover_id}/consume",
+    response_model=LeftoverView,
+)
+def consume_leftover_route(
+    household_id: str,
+    leftover_id: int,
+    payload: LeftoverConsume,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db, household_id, current_user.id, HouseholdRole.EDITOR
+    )
+    value = run_idempotent_inventory_operation(
+        db,
+        household_id=household.id,
+        key=payload.idempotency_key,
+        operation="leftover_consume",
+        payload=payload,
+        context={"leftover_id": leftover_id},
+        handler=lambda: consume_leftover(
+            db, household, leftover_id, payload
+        ),
+    )
+    return LeftoverView.model_validate(value)
 
 
-@router.post("/{household_id}/plans", response_model=HouseholdPlanResponse, status_code=status.HTTP_201_CREATED)
-def generate_household_plan_route(household_id: str, payload: HouseholdPlanRequest, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    household, _ = require_household_access(db, household_id, current_user.id, HouseholdRole.EDITOR)
+@router.post(
+    "/{household_id}/plans",
+    response_model=HouseholdPlanResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def generate_household_plan_route(
+    household_id: str,
+    payload: HouseholdPlanRequest,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db, household_id, current_user.id, HouseholdRole.EDITOR
+    )
     owner = db.get(DBUser, household.owner_user_id)
     if owner is None:
-        raise HTTPException(status_code=409, detail="Household owner profile is unavailable")
+        raise HTTPException(
+            status_code=409, detail="Household owner profile is unavailable"
+        )
     try:
-        return create_household_plan(db=db, household=household, owner=owner, request=payload)
-    except (HouseholdPlanningError, InfeasiblePlanError, ValueError) as exc:
-        raise HTTPException(status_code=422, detail={"code": "household_plan_infeasible", "message": str(exc), "diagnostics": getattr(exc, "diagnostics", {})}) from exc
+        return create_household_plan(
+            db=db, household=household, owner=owner, request=payload
+        )
+    except (
+        HouseholdPlanningError,
+        InfeasiblePlanError,
+        ValueError,
+    ) as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "household_plan_infeasible",
+                "message": str(exc),
+                "diagnostics": getattr(exc, "diagnostics", {}),
+            },
+        ) from exc
 
 
-@router.get("/{household_id}/shopping-reconciliation", response_model=list[ReconciledShoppingItem])
-def shopping_reconciliation_route(household_id: str, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    household, _ = require_household_access(db, household_id, current_user.id, HouseholdRole.VIEWER)
-    return reconcile_shopping_list(_plan_response(_latest_household_plan(db, household.id)), list_pantry_items(db, household.id))
+@router.get(
+    "/{household_id}/shopping-reconciliation",
+    response_model=list[ReconciledShoppingItem],
+)
+def shopping_reconciliation_route(
+    household_id: str,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db, household_id, current_user.id, HouseholdRole.VIEWER
+    )
+    return reconcile_shopping_list(
+        _plan_response(_latest_household_plan(db, household.id)),
+        list_pantry_items(db, household.id),
+    )
 
 
 @router.get("/{household_id}/batch-prep", response_model=list[BatchPrepTask])
-def batch_prep_route(household_id: str, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    household, _ = require_household_access(db, household_id, current_user.id, HouseholdRole.VIEWER)
-    policies = db.query(DBStoragePolicy).filter(DBStoragePolicy.active.is_(True)).all()
-    return build_batch_prep_tasks(_plan_response(_latest_household_plan(db, household.id)), policies)
+def batch_prep_route(
+    household_id: str,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db, household_id, current_user.id, HouseholdRole.VIEWER
+    )
+    policies = (
+        db.query(DBStoragePolicy)
+        .filter(DBStoragePolicy.active.is_(True))
+        .all()
+    )
+    return build_batch_prep_tasks(
+        _plan_response(_latest_household_plan(db, household.id)), policies
+    )
 
 
-@router.get("/{household_id}/reservations", response_model=list[ReservationView])
-def reservations_route(household_id: str, include_closed: bool = Query(False), db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    household, _ = require_household_access(db, household_id, current_user.id, HouseholdRole.VIEWER)
-    return [ReservationView.model_validate(value) for value in list_reservations(db, household.id, include_closed=include_closed)]
+@router.get(
+    "/{household_id}/reservations", response_model=list[ReservationView]
+)
+def reservations_route(
+    household_id: str,
+    include_closed: bool = Query(False),
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db, household_id, current_user.id, HouseholdRole.VIEWER
+    )
+    return [
+        ReservationView.model_validate(value)
+        for value in list_reservations(
+            db, household.id, include_closed=include_closed
+        )
+    ]
 
 
-@router.post("/{household_id}/plans/{plan_id}/reservations/release", response_model=list[ReservationView])
-def release_reservations_route(household_id: str, plan_id: int, payload: ReservationMutation, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    household, _ = require_household_access(db, household_id, current_user.id, HouseholdRole.EDITOR)
-    return [ReservationView.model_validate(value) for value in release_plan_reservations(db, household.id, plan_id, payload)]
+@router.post(
+    "/{household_id}/plans/{plan_id}/reservations/release",
+    response_model=list[ReservationView],
+)
+def release_reservations_route(
+    household_id: str,
+    plan_id: int,
+    payload: ReservationMutation,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db, household_id, current_user.id, HouseholdRole.EDITOR
+    )
+    return [
+        ReservationView.model_validate(value)
+        for value in release_plan_reservations(
+            db, household.id, plan_id, payload
+        )
+    ]
 
 
-@router.post("/{household_id}/plans/{plan_id}/reservations/commit", response_model=list[ReservationView])
-def commit_reservations_route(household_id: str, plan_id: int, payload: ReservationMutation, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
-    household, _ = require_household_access(db, household_id, current_user.id, HouseholdRole.EDITOR)
-    return [ReservationView.model_validate(value) for value in commit_plan_reservations(db, household.id, plan_id, payload)]
+@router.post(
+    "/{household_id}/plans/{plan_id}/reservations/commit",
+    response_model=list[ReservationView],
+)
+def commit_reservations_route(
+    household_id: str,
+    plan_id: int,
+    payload: ReservationMutation,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db, household_id, current_user.id, HouseholdRole.EDITOR
+    )
+    return [
+        ReservationView.model_validate(value)
+        for value in commit_plan_reservations(
+            db, household.id, plan_id, payload
+        )
+    ]
