@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "description": "Small synthetic exact-solver parity fixture; contains no user data.",
+  "targets": {
+    "calories": 1500,
+    "protein": 90,
+    "carbs": 180,
+    "fat": 50,
+    "cost_limit": 24
+  },
+  "options": [
+    {
+      "slot": "breakfast",
+      "option_id": "breakfast-oats",
+      "calories": 430,
+      "protein": 22,
+      "carbs": 66,
+      "fat": 10,
+      "cost": 4.2,
+      "taste": 0.82,
+      "variety": 0.68,
+      "pantry": 0.9
+    },
+    {
+      "slot": "breakfast",
+      "option_id": "breakfast-eggs",
+      "calories": 390,
+      "protein": 30,
+      "carbs": 28,
+      "fat": 18,
+      "cost": 5.6,
+      "taste": 0.88,
+      "variety": 0.72,
+      "pantry": 0.55
+    },
+    {
+      "slot": "breakfast",
+      "option_id": "breakfast-yogurt",
+      "calories": 360,
+      "protein": 24,
+      "carbs": 44,
+      "fat": 9,
+      "cost": 4.8,
+      "taste": 0.76,
+      "variety": 0.8,
+      "pantry": 0.45
+    },
+    {
+      "slot": "lunch",
+      "option_id": "lunch-lentils",
+      "calories": 520,
+      "protein": 32,
+      "carbs": 78,
+      "fat": 12,
+      "cost": 6.1,
+      "taste": 0.8,
+      "variety": 0.84,
+      "pantry": 0.86
+    },
+    {
+      "slot": "lunch",
+      "option_id": "lunch-chicken-rice",
+      "calories": 610,
+      "protein": 45,
+      "carbs": 72,
+      "fat": 18,
+      "cost": 9.4,
+      "taste": 0.9,
+      "variety": 0.7,
+      "pantry": 0.42
+    },
+    {
+      "slot": "lunch",
+      "option_id": "lunch-tofu-bowl",
+      "calories": 500,
+      "protein": 30,
+      "carbs": 62,
+      "fat": 17,
+      "cost": 7.2,
+      "taste": 0.74,
+      "variety": 0.88,
+      "pantry": 0.62
+    },
+    {
+      "slot": "dinner",
+      "option_id": "dinner-bean-stew",
+      "calories": 510,
+      "protein": 31,
+      "carbs": 70,
+      "fat": 14,
+      "cost": 5.9,
+      "taste": 0.79,
+      "variety": 0.82,
+      "pantry": 0.84
+    },
+    {
+      "slot": "dinner",
+      "option_id": "dinner-fish-potato",
+      "calories": 570,
+      "protein": 42,
+      "carbs": 56,
+      "fat": 20,
+      "cost": 10.2,
+      "taste": 0.9,
+      "variety": 0.76,
+      "pantry": 0.3
+    },
+    {
+      "slot": "dinner",
+      "option_id": "dinner-chickpea-pasta",
+      "calories": 540,
+      "protein": 34,
+      "carbs": 76,
+      "fat": 13,
+      "cost": 7.0,
+      "taste": 0.83,
+      "variety": 0.9,
+      "pantry": 0.7
+    }
+  ]
+}
