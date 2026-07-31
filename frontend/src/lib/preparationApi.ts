@@ -60,10 +60,85 @@ export interface PreparationScheduleResponse {
   diagnostics: Record<string, unknown>;
 }
 
+export interface PreparationTaskTemplate {
+  template_id: string;
+  name: string;
+  duration_min_minutes: number;
+  duration_max_minutes: number;
+  resource_demands: Record<string, number>;
+  dependencies: string[];
+  active_work: boolean;
+  unattended_allowed?: boolean | null;
+  notes?: string | null;
+}
+
+export interface RecipePreparationProfile {
+  id: number;
+  recipe_id: string;
+  schema_version: string;
+  supported_servings_min: number;
+  supported_servings_max: number;
+  task_templates: PreparationTaskTemplate[];
+  source_name: string;
+  source_url: string;
+  source_version: string;
+  evidence_status: "draft" | "external_unverified" | "reviewed";
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  notes?: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PreparationOccurrenceInput {
+  occurrence_id: string;
+  recipe_id: string;
+  required_finish_minute: number;
+  servings: number;
+  priority: number;
+}
+
+export interface UnresolvedPreparationOccurrence {
+  occurrence_id: string;
+  recipe_id: string;
+  reason_code: string;
+  message: string;
+}
+
+export interface BuildPreparationTasksResponse {
+  tasks: PreparationTaskInput[];
+  unresolved: UnresolvedPreparationOccurrence[];
+  profile_versions: Record<string, string>;
+  duration_policy: "conservative_max" | "optimistic_min";
+  warnings: string[];
+}
+
 export const preparationApi = {
   schedule: (payload: PreparationScheduleRequest) =>
     apiRequest<PreparationScheduleResponse>("/preparation/schedule", {
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+  profiles: (reviewedOnly = true, activeOnly = true) =>
+    apiRequest<RecipePreparationProfile[]>(
+      `/preparation/profiles?reviewed_only=${reviewedOnly}&active_only=${activeOnly}`,
+    ),
+  profile: (recipeId: string, reviewedOnly = true) =>
+    apiRequest<RecipePreparationProfile>(
+      `/preparation/recipes/${encodeURIComponent(recipeId)}/profile?reviewed_only=${reviewedOnly}`,
+    ),
+  buildTasks: (
+    occurrences: PreparationOccurrenceInput[],
+    durationPolicy: "conservative_max" | "optimistic_min" = "conservative_max",
+    reviewedOnly = true,
+  ) =>
+    apiRequest<BuildPreparationTasksResponse>("/preparation/build-tasks", {
+      method: "POST",
+      body: JSON.stringify({
+        occurrences,
+        duration_policy: durationPolicy,
+        reviewed_only: reviewedOnly,
+      }),
     }),
 };
