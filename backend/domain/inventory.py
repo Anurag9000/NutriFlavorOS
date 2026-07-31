@@ -1,7 +1,7 @@
-"""Household, pantry, inventory-event, and leftover domain contracts.
+"""Household, pantry, inventory-event, leftover, and batch-prep contracts.
 
-The contracts preserve quantity ranges and unit families. They never convert
-between mass, volume, count, or culinary units without an explicit conversion.
+Quantity ranges and unit families are preserved. Cross-dimensional conversion is
+allowed only through an explicit evidence-backed conversion record.
 """
 
 from __future__ import annotations
@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
+from backend.domain.household_access import HouseholdRole
+
 
 class InventoryEventType(str, Enum):
     PURCHASE = "purchase"
@@ -20,6 +22,7 @@ class InventoryEventType(str, Enum):
     DISCARD = "discard"
     LEFTOVER_CREATE = "leftover_create"
     LEFTOVER_CONSUME = "leftover_consume"
+    RESERVATION_COMMIT = "reservation_commit"
 
 
 class QuantityRange(BaseModel):
@@ -42,11 +45,22 @@ class HouseholdCreate(BaseModel):
 class HouseholdMemberCreate(BaseModel):
     display_name: str = Field(min_length=1, max_length=120)
     linked_user_id: Optional[str] = Field(default=None, max_length=320)
+    role: HouseholdRole = HouseholdRole.VIEWER
     servings_multiplier: float = Field(default=1.0, gt=0, le=20)
     allergies: List[str] = Field(default_factory=list)
     dietary_restrictions: List[str] = Field(default_factory=list)
     disliked_ingredients: List[str] = Field(default_factory=list)
+    target_calories: Optional[int] = Field(default=None, gt=0, le=20000)
+    target_protein_g: Optional[int] = Field(default=None, ge=0, le=2000)
+    target_carbs_g: Optional[int] = Field(default=None, ge=0, le=4000)
+    target_fat_g: Optional[int] = Field(default=None, ge=0, le=2000)
     active: bool = True
+
+    @model_validator(mode="after")
+    def owner_role_not_assignable(self):
+        if self.role == HouseholdRole.OWNER:
+            raise ValueError("Ownership transfer requires a separate reviewed workflow")
+        return self
 
 
 class PantryItemCreate(BaseModel):
@@ -75,6 +89,7 @@ class LeftoverCreate(BaseModel):
     frozen: bool = False
     notes: Optional[str] = Field(default=None, max_length=1000)
     source_plan_id: Optional[int] = Field(default=None, ge=1)
+    storage_policy_key: Optional[str] = Field(default=None, max_length=160)
     idempotency_key: Optional[str] = Field(default=None, min_length=8, max_length=160)
 
 
@@ -92,6 +107,7 @@ class HouseholdView(BaseModel):
     version: int
     created_at: datetime
     updated_at: datetime
+    current_role: Optional[HouseholdRole] = None
 
     model_config = {"from_attributes": True}
 
@@ -101,10 +117,15 @@ class HouseholdMemberView(BaseModel):
     household_id: str
     display_name: str
     linked_user_id: Optional[str]
+    role: HouseholdRole
     servings_multiplier: float
     allergies: List[str]
     dietary_restrictions: List[str]
     disliked_ingredients: List[str]
+    target_calories: Optional[int]
+    target_protein_g: Optional[int]
+    target_carbs_g: Optional[int]
+    target_fat_g: Optional[int]
     active: bool
     created_at: datetime
 
@@ -156,6 +177,7 @@ class LeftoverView(BaseModel):
     cooked_at: datetime
     expires_at: Optional[datetime]
     frozen: bool
+    storage_policy_key: Optional[str]
     notes: Optional[str]
     version: int
     created_at: datetime
@@ -188,4 +210,5 @@ class BatchPrepTask(BaseModel):
     scheduled_day: int
     occurrences: int
     meal_slots: List[str]
-    storage_guidance_status: str = "requires_verified_recipe_specific_policy"
+    storage_guidance_status: str = "requires_reviewed_recipe_specific_policy"
+    applicable_storage_policies: List[str] = Field(default_factory=list)
