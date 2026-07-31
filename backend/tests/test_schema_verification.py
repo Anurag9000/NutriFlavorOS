@@ -34,9 +34,12 @@ def test_stale_alembic_revision_is_rejected(tmp_path, monkeypatch):
     database = tmp_path / "stale-head.db"
     url = f"sqlite:///{database}"
     monkeypatch.setenv("DATABASE_URL", url)
-    command.upgrade(_config(url), "20260731_0004")
+    command.upgrade(_config(url), "20260731_0005")
 
-    with pytest.raises(RuntimeError, match="Expected 20260731_0005; observed 20260731_0004"):
+    with pytest.raises(
+        RuntimeError,
+        match="Expected 20260801_0006; observed 20260731_0005",
+    ):
         verify_runtime_schema(create_engine(url))
 
 
