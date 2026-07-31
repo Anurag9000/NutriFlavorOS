@@ -38,6 +38,7 @@ def test_scheduler_is_deterministic_and_serializes_single_capacity_resource():
     second = build_preparation_schedule(request)
 
     assert first == second
+    assert first.method == "deterministic_dependency_aware_resource_scheduler_v2"
     assert [(task.task_id, task.start_minute, task.finish_minute) for task in first.scheduled] == [
         ("bake", 0, 45),
         ("roast", 45, 105),
@@ -74,6 +75,93 @@ def test_parallel_capacity_allows_overlap_without_exceeding_peak():
     ]
     assert result.resource_peak_usage["burner"] == 2
     assert result.resource_utilization["burner"] == pytest.approx(0.5)
+
+
+def test_dependency_chain_sets_earliest_start_and_critical_path():
+    result = build_preparation_schedule(
+        PreparationScheduleRequest(
+            horizon_minutes=180,
+            granularity_minutes=5,
+            resources=[
+                PreparationResource(resource_id="counter", capacity=1),
+                PreparationResource(resource_id="oven", capacity=1),
+            ],
+            tasks=[
+                PreparationTask(
+                    task_id="mix",
+                    duration_minutes=20,
+                    resource_demands={"counter": 1},
+                ),
+                PreparationTask(
+                    task_id="bake",
+                    duration_minutes=40,
+                    resource_demands={"oven": 1},
+                    dependencies=["mix"],
+                ),
+                PreparationTask(
+                    task_id="cool",
+                    duration_minutes=15,
+                    dependencies=["bake"],
+                ),
+            ],
+        )
+    )
+
+    assert [(task.task_id, task.start_minute, task.finish_minute) for task in result.scheduled] == [
+        ("mix", 0, 20),
+        ("bake", 20, 60),
+        ("cool", 60, 75),
+    ]
+    assert result.diagnostics["dependency_edge_count"] == 2
+    assert result.diagnostics["critical_path_lower_bound_minutes"] == 75
+    assert result.scheduled[-1].dependencies == ["bake"]
+
+
+def test_unscheduled_dependency_blocks_downstream_tasks():
+    result = build_preparation_schedule(
+        PreparationScheduleRequest(
+            horizon_minutes=90,
+            resources=[],
+            tasks=[
+                PreparationTask(
+                    task_id="freeze",
+                    duration_minutes=20,
+                    resource_demands={"freezer": 1},
+                ),
+                PreparationTask(
+                    task_id="pack",
+                    duration_minutes=10,
+                    dependencies=["freeze"],
+                ),
+            ],
+        )
+    )
+
+    by_id = {task.task_id: task for task in result.unscheduled}
+    assert by_id["freeze"].reason_code == "missing_resource"
+    assert by_id["pack"].reason_code == "blocked_by_dependency"
+    assert by_id["pack"].blocked_by == ["freeze"]
+
+
+def test_dependency_deadline_conflict_is_explicit():
+    result = build_preparation_schedule(
+        PreparationScheduleRequest(
+            horizon_minutes=120,
+            tasks=[
+                PreparationTask(task_id="prep", duration_minutes=50),
+                PreparationTask(
+                    task_id="serve",
+                    duration_minutes=20,
+                    latest_finish_minute=60,
+                    dependencies=["prep"],
+                ),
+            ],
+        )
+    )
+
+    assert result.scheduled[0].task_id == "prep"
+    assert result.unscheduled[0].task_id == "serve"
+    assert result.unscheduled[0].reason_code == "dependency_window_too_short"
 
 
 def test_missing_resources_and_excessive_demands_are_explicit():
@@ -166,7 +254,7 @@ def test_tasks_without_declared_resources_do_not_gain_invented_requirements():
     assert result.resource_utilization == {}
 
 
-def test_duplicate_identifiers_are_rejected_before_scheduling():
+def test_duplicate_identifiers_unknown_dependencies_and_cycles_are_rejected():
     with pytest.raises(ValidationError, match="resource_id values must be unique"):
         PreparationScheduleRequest(
             resources=[
@@ -180,5 +268,32 @@ def test_duplicate_identifiers_are_rejected_before_scheduling():
             tasks=[
                 PreparationTask(task_id="same", duration_minutes=10),
                 PreparationTask(task_id="same", duration_minutes=20),
+            ]
+        )
+
+    with pytest.raises(ValidationError, match="unknown dependencies"):
+        PreparationScheduleRequest(
+            tasks=[
+                PreparationTask(
+                    task_id="serve",
+                    duration_minutes=10,
+                    dependencies=["missing"],
+                )
+            ]
+        )
+
+    with pytest.raises(ValidationError, match="dependency cycle"):
+        PreparationScheduleRequest(
+            tasks=[
+                PreparationTask(
+                    task_id="a",
+                    duration_minutes=10,
+                    dependencies=["b"],
+                ),
+                PreparationTask(
+                    task_id="b",
+                    duration_minutes=10,
+                    dependencies=["a"],
+                ),
             ]
         )
