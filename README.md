@@ -1,6 +1,6 @@
 # NutriFlavorOS
 
-NutriFlavorOS is an **experimental meal-planning, household-food-state, and governed food-research platform**. It combines deterministic quantity-aware planning, transactional pantry and leftover workflows, household collaboration, explicit food-evidence records, and reproducible offline research infrastructure.
+NutriFlavorOS is an **experimental meal-planning, household-food-state, preparation-resource, and governed food-research platform**. It combines deterministic quantity-aware planning, transactional pantry and leftover workflows, household collaboration, explicit food-evidence records, capacity-aware preparation scheduling, and reproducible offline research infrastructure.
 
 > **Safety status:** this repository is not clinically validated, is not a medical device, and must not be used to diagnose, treat, or autonomously manage allergies, diseases, medication interactions, food safety, or health outcomes. Experimental ML components remain disabled until validated data, evaluations, versioned artifacts, and the declared promotion gates exist.
 
@@ -12,6 +12,7 @@ NutriFlavorOS is an **experimental meal-planning, household-food-state, and gove
 - Authenticated self-only access for user-owned resources and role-aware household access.
 - Explicit profile-completion state; signup and legacy reads never invent age, weight, height, activity, sex/gender, or goal values.
 - SQLAlchemy persistence and versioned Alembic migrations for SQLite and PostgreSQL.
+- Database constraints for household roles, invitation roles, versions, target bounds, inventory event types, reservation states, and storage-duration nonnegativity.
 - Append-only feedback and inventory events.
 - Explicit `404`, `409`, `422`, and `501` states instead of silent demo values or unsafe model fallbacks.
 - Request-time online model mutation is disabled; feedback is retained only for offline review.
@@ -35,7 +36,8 @@ NutriFlavorOS is an **experimental meal-planning, household-food-state, and gove
 - Household planning that unions hard restrictions and separately reports pantry coverage.
 - Stock reservations allocated from earliest-expiring compatible lots.
 - Explicit reservation release and commit; pantry stock is not consumed merely because a plan was generated.
-- Optimistic versions and idempotency keys for retry-safe writes.
+- Optimistic versions and complete-request idempotency fingerprints for retry-safe writes.
+- PostgreSQL concurrency probes for identical retries, contradictory retries, competing versions, cross-plan reservations, and duplicate commits.
 
 See [Household Access and Evidence](docs/HOUSEHOLD_ACCESS_AND_EVIDENCE.md).
 
@@ -52,6 +54,17 @@ See [Household Access and Evidence](docs/HOUSEHOLD_ACCESS_AND_EVIDENCE.md).
 
 See [Household Inventory, Leftovers and Batch Preparation](docs/HOUSEHOLD_INVENTORY.md).
 
+### Explicit preparation-resource scheduling
+
+- Authenticated deterministic scheduling for human-declared preparation tasks.
+- Explicit duration, earliest start, latest finish, priority, resource demand, resource capacity, and resource availability contracts.
+- Parallel-capacity and interval-overlap checks for appliances, work surfaces, or human work capacity.
+- Stable deadline/priority ordering, aligned start-time granularity, makespan, utilization, and peak-usage diagnostics.
+- Machine-readable unscheduled reasons for missing resources, excessive demands, insufficient task windows, and resource contention.
+- No inference of cooking time, appliance need, unattended-cooking suitability, or food-safety windows from recipe names or instructions.
+
+The protected frontend route `/preparation` provides explicit resource and task editors. The API endpoint is `POST /api/v1/preparation/schedule`.
+
 ### Food evidence
 
 - Ingredient-specific conversion records with multiplier intervals, source URL/version, evidence state, review time, and notes.
@@ -62,13 +75,7 @@ See [Household Inventory, Leftovers and Batch Preparation](docs/HOUSEHOLD_INVENT
 
 ### Research and experimentation
 
-The versioned catalog defines:
-
-- 28 task contracts;
-- 24 dataset families;
-- 57 model and algorithm families;
-- 21 experiment contracts;
-- 26 product and research feature contracts.
+The versioned catalog defines task, dataset, model, experiment, and product-feature contracts with explicit readiness and risk states.
 
 Executable offline baselines include:
 
@@ -79,7 +86,8 @@ Executable offline baselines include:
 - Bradley–Terry pairwise preferences;
 - Mahalanobis OOD scoring and split conformal intervals;
 - rule-based ingredient and instruction dependency parsing;
-- deterministic beam, Pareto, optional CP-SAT, and optional MILP planners.
+- deterministic beam, Pareto, optional CP-SAT, and optional MILP planners;
+- deterministic preparation-resource scheduling.
 
 Governed infrastructure includes:
 
@@ -91,8 +99,10 @@ Governed infrastructure includes:
 - risk-dependent promotion gates for OOD, calibration, subgroup evaluation, human review, and clinical validation;
 - numerical and categorical drift reports that never retrain or promote automatically;
 - reproducible offline manifests, fingerprints, seeds, metrics, warnings, artifacts, and environment snapshots;
+- a cross-process-locked local artifact registry;
 - an offline runner with a strict baseline whitelist and user-data path guard;
-- an explicit USDA FoodData Central adapter with no zero-filled or mock fallback.
+- an explicit USDA FoodData Central adapter with no zero-filled or mock fallback;
+- seeded planner benchmark generation, common-objective audits, repeatability checks, timing distributions, constraint-violation accounting, optional-solver requirements, and machine-readable regression gates.
 
 See [Research Platform](docs/RESEARCH_PLATFORM.md) and [Optimizer Benchmarks](docs/OPTIMIZER_BENCHMARKS.md).
 
@@ -104,6 +114,7 @@ The routed React/TypeScript application provides:
 - persisted-plan dashboard and descriptive analytics;
 - deterministic meal planning with optimizer and source provenance;
 - household, members, invitations, pantry, leftovers, reservations, shopping reconciliation, and audit events;
+- explicit preparation-resource scheduling and unscheduled diagnostics;
 - research catalog, runtime capability, conversion evidence, and storage-policy views;
 - keyboard-accessible navigation, a skip link, lazy routes, reduced-motion handling, and one React Query cache.
 
@@ -114,7 +125,7 @@ The obsolete parallel JSX application, fake grocery/gamification providers, dupl
 - Medical-condition, medication, allergy, storage-duration, and health guidance are not clinically validated.
 - Micronutrients are not hard optimization constraints until quantity-normalized nutrient provenance is sufficiently complete.
 - Sustainability estimation remains disabled by default because geography, production method, source provenance, functional units, and uncertainty remain incomplete.
-- Appliance-capacity and preparation-resource scheduling are not yet represented.
+- Preparation scheduling is currently an explicit standalone capacity scheduler; recipe records do not yet carry reviewed duration/resource metadata and therefore are not auto-converted into tasks.
 - Vision, multimodal nutrition estimation, constrained recipe generation, graph substitution, continual personalization, causal analyses, and privacy attacks remain research contracts until licensed data, training, evaluation, calibration, and promotion evidence exist.
 - Social, leaderboard, achievement, and predictive-purchase surfaces remain disabled until backed by real transactional state and validated methods.
 - A catalog entry or source file is not evidence that a model has been trained, benchmarked, promoted, or enabled.
@@ -126,8 +137,9 @@ The obsolete parallel JSX application, fake grocery/gamification providers, dupl
 - **Frontend:** React, TypeScript, Vite, Tailwind CSS, Framer Motion, Recharts, TanStack Query.
 - **Backend:** FastAPI, Pydantic, SQLAlchemy, Alembic.
 - **Optimization:** deterministic bounded beam search, household pantry-aware search, Pareto enumeration, optional CP-SAT, and optional MILP.
-- **Household domain:** roles, invitations, transactional lots, leftovers, audit events, reservations, and versioned writes.
-- **Research:** catalog, baselines, metrics, splits, cards, registry, drift, manifests, and whitelisted offline execution.
+- **Preparation:** explicit interval-capacity scheduler with availability and deadline constraints.
+- **Household domain:** roles, invitations, transactional lots, leftovers, audit events, reservations, full-request idempotency, and versioned writes.
+- **Research:** catalog, baselines, metrics, splits, cards, registry, drift, manifests, benchmark gates, and whitelisted offline execution.
 - **Persistence:** SQLite for local development and PostgreSQL for hosted or multi-replica deployment.
 
 ## Local setup
@@ -160,6 +172,13 @@ The main-only workflow validates direct commits with:
 ```bash
 python -m compileall -q backend scripts
 pytest -q backend/tests
+python scripts/benchmark_planners.py \
+  --generate-seed 17 \
+  --slots 4 \
+  --options-per-slot 3 \
+  --repeats 2 \
+  --max-objective-gap 1.0 \
+  --output /tmp/planner_benchmark.json
 DATABASE_URL=sqlite:///ci-fresh.db alembic upgrade head
 
 cd frontend
@@ -168,7 +187,7 @@ npm run lint
 npm test
 npm run build   # includes TypeScript project compilation
 
-# A separate CI job performs a fresh PostgreSQL migration.
+# Separate PostgreSQL CI steps run migrations and both concurrency probes.
 docker build -t nutriflavos .
 ```
 
@@ -190,11 +209,24 @@ python scripts/backfill_recipe_ingredients.py --apply
 
 This populates canonical ingredient structures. It does not automatically rewrite calories or macros because serving basis and source provenance must be reviewed.
 
-## Offline experiments
+## Offline experiments and benchmarks
 
 ```bash
 python scripts/run_offline_experiment.py --config experiment.json
-python scripts/benchmark_planners.py --input benchmark.json --output reports/experiments/planner-benchmark.json
+python scripts/benchmark_planners.py benchmarks/planner_small.json \
+  --repeats 5 \
+  --output reports/experiments/planner-benchmark.json
+```
+
+Generate a deterministic synthetic planner problem:
+
+```bash
+python scripts/benchmark_planners.py \
+  --generate-seed 17 \
+  --slots 7 \
+  --options-per-slot 5 \
+  --save-problem reports/generated/problem-seed-17.json \
+  --output reports/generated/planner-seed-17.json
 ```
 
 Manage versioned artifacts:
@@ -205,7 +237,7 @@ python scripts/manage_artifact_registry.py register-model tfidf_retriever 1.0 re
 python scripts/manage_artifact_registry.py verify model tfidf_retriever 1.0
 ```
 
-The API validates experiment configurations and exposes catalog, cards, capabilities, and drift diagnostics. It deliberately does not accept arbitrary experiment code over HTTP.
+The API validates experiment configurations and exposes catalog, cards, capabilities, drift diagnostics, and explicit preparation scheduling. It deliberately does not accept arbitrary experiment code over HTTP.
 
 ## USDA FoodData Central
 
@@ -241,9 +273,9 @@ The migration and application containers must share the same volume. PostgreSQL 
 
 ## Next engineering priorities
 
-1. Complete property-based and concurrent-write testing against PostgreSQL, including stale versions, duplicate idempotency keys, and competing reservations.
-2. Add browser-level accessibility and authenticated household end-to-end tests.
-3. Expand ingredient-specific conversion coverage only from reviewed portion/density/package evidence.
-4. Add appliance, preparation-time, capacity, and task-scheduling constraints to household planning.
-5. Run controlled planner benchmarks across beam, Pareto, CP-SAT, and MILP methods on versioned canonical fixtures.
+1. Run complete frontend, backend, migration, benchmark, PostgreSQL concurrency, and container validation on every main commit and repair any surfaced failures.
+2. Add full authenticated browser end-to-end coverage and automated accessibility audits beyond component-level tests.
+3. Expand ingredient-specific conversion coverage only from reviewed portion, density, or package evidence.
+4. Add reviewed recipe-level duration and resource metadata before connecting meal plans to preparation scheduling automatically.
+5. Run controlled beam, Pareto, CP-SAT, and MILP parity studies on canonical fixtures with pinned research dependencies.
 6. Implement additional catalogued datasets and models only through the card, split, evaluation, integrity, and promotion-gate pipeline.
