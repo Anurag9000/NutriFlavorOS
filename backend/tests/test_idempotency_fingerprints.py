@@ -17,6 +17,8 @@ from backend.domain.inventory import (
     QuantityRange,
 )
 from backend.services.idempotency_service import (
+    _PROCESS_LOCKS,
+    _SESSION_CONTEXT_KEY,
     request_fingerprint,
     run_idempotent_inventory_operation,
 )
@@ -112,9 +114,9 @@ def test_pantry_creation_retries_match_complete_request(db):
     repeated = execute(payload)
     assert repeated.id == first.id
     assert session.query(DBInventoryEvent).count() == 1
-    event = session.query(DBInventoryEvent).one()
-    assert len(event.event_metadata["request_fingerprint"]) == 64
-    assert event.event_metadata["idempotency_operation"] == "pantry_create"
+    event_value = session.query(DBInventoryEvent).one()
+    assert len(event_value.event_metadata["request_fingerprint"]) == 64
+    assert event_value.event_metadata["idempotency_operation"] == "pantry_create"
 
     changed_expiry = payload.model_copy(
         update={"expires_at": payload.expires_at + timedelta(days=1)}
@@ -226,3 +228,68 @@ def test_legacy_key_without_fingerprint_is_rejected_as_ambiguous(db):
         )
     assert conflict.value.status_code == 409
     assert "legacy event" in conflict.value.detail["message"].lower()
+
+
+def test_fingerprint_survives_failure_after_service_commit(db):
+    session, owner = db
+    household = create_household(session, owner, HouseholdCreate(name="Home"))
+    payload = PantryItemCreate(
+        ingredient_name="beans",
+        quantity=QuantityRange(quantity_min=250, quantity_max=250, unit="g"),
+        idempotency_key="atomic-commit-key-0001",
+    )
+
+    def committed_then_failed():
+        add_pantry_item(session, household, payload)
+        raise RuntimeError("simulated coordinator crash after service commit")
+
+    with pytest.raises(RuntimeError, match="simulated coordinator crash"):
+        run_idempotent_inventory_operation(
+            session,
+            household_id=household.id,
+            key=payload.idempotency_key,
+            operation="pantry_create",
+            payload=payload,
+            handler=committed_then_failed,
+        )
+
+    event_value = session.query(DBInventoryEvent).filter_by(
+        household_id=household.id,
+        idempotency_key=payload.idempotency_key,
+    ).one()
+    assert len(event_value.event_metadata["request_fingerprint"]) == 64
+
+    recovered = run_idempotent_inventory_operation(
+        session,
+        household_id=household.id,
+        key=payload.idempotency_key,
+        operation="pantry_create",
+        payload=payload,
+        handler=lambda: add_pantry_item(session, household, payload),
+    )
+    assert recovered.canonical_name == "beans"
+    assert session.query(DBInventoryEvent).filter_by(
+        household_id=household.id,
+        idempotency_key=payload.idempotency_key,
+    ).count() == 1
+
+
+def test_handler_failure_releases_session_context_and_process_lock(db):
+    session, owner = db
+    household = create_household(session, owner, HouseholdCreate(name="Home"))
+
+    def fail():
+        raise RuntimeError("handler failed before mutation")
+
+    with pytest.raises(RuntimeError, match="handler failed"):
+        run_idempotent_inventory_operation(
+            session,
+            household_id=household.id,
+            key="failed-handler-key-0001",
+            operation="pantry_create",
+            payload={"ingredient_name": "rice"},
+            handler=fail,
+        )
+
+    assert _SESSION_CONTEXT_KEY not in session.info
+    assert _PROCESS_LOCKS == {}
