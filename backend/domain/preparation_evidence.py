@@ -56,6 +56,8 @@ class PreparationTaskTemplate(BaseModel):
 class RecipePreparationProfileInput(BaseModel):
     recipe_id: str = Field(min_length=1, max_length=240)
     schema_version: str = Field(default="1", pattern=r"^[0-9]+$")
+    supported_servings_min: float = Field(gt=0, le=1000)
+    supported_servings_max: float = Field(gt=0, le=1000)
     task_templates: List[PreparationTaskTemplate] = Field(min_length=1, max_length=100)
     source_name: str = Field(min_length=1, max_length=300)
     source_url: str = Field(min_length=1, max_length=2000)
@@ -68,6 +70,10 @@ class RecipePreparationProfileInput(BaseModel):
 
     @model_validator(mode="after")
     def validate_profile(self):
+        if self.supported_servings_max < self.supported_servings_min:
+            raise ValueError(
+                "supported_servings_max cannot be less than supported_servings_min"
+            )
         identifiers = [value.template_id for value in self.task_templates]
         if len(identifiers) != len(set(identifiers)):
             raise ValueError("task template identifiers must be unique")
@@ -131,7 +137,7 @@ class RecipePreparationOccurrence(BaseModel):
     )
     recipe_id: str = Field(min_length=1, max_length=240)
     required_finish_minute: int = Field(ge=1, le=10080)
-    servings_multiplier: float = Field(default=1.0, gt=0, le=1000)
+    servings: float = Field(gt=0, le=1000)
     priority: int = Field(default=0, ge=-1000, le=1000)
 
 
