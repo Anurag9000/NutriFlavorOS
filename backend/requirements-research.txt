@@ -1,5 +1,5 @@
 -r requirements.txt
-ortools>=9.10,<10.0
+ortools>=9.15.6755,<10.0
 PuLP>=2.8,<4.0
 scikit-learn>=1.5,<2.0
 scipy>=1.13,<2.0
