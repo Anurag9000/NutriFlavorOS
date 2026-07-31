@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from sqlalchemy import Engine, inspect, text
+from sqlalchemy import inspect, text
+from sqlalchemy.engine import Engine
 
 from backend.database import REQUIRED_RUNTIME_TABLES, engine
 
