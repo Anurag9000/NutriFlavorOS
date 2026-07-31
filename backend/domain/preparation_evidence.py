@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Dict, List, Optional
 
@@ -120,6 +120,9 @@ class RecipePreparationProfileInput(BaseModel):
         if self.evidence_status == PreparationEvidenceStatus.REVIEWED:
             if self.reviewed_at is None:
                 raise ValueError("reviewed evidence requires reviewed_at")
+            if self.reviewed_at.tzinfo is None:
+                raise ValueError("reviewed_at must include a timezone")
+            self.reviewed_at = self.reviewed_at.astimezone(timezone.utc)
             if not self.reviewed_by or not self.reviewed_by.strip():
                 raise ValueError("reviewed evidence requires reviewed_by")
         return self
