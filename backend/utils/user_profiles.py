@@ -1,26 +1,75 @@
-"""Conversions between SQLAlchemy user rows and validated API profiles."""
+"""Conversions between SQLAlchemy user rows and validated planning profiles."""
 
 from __future__ import annotations
 
+from typing import List
+
 from backend.database import DBUser
 from backend.models import Gender, Goal, UserProfile
+
+
+REQUIRED_PROFILE_FIELDS = (
+    "age",
+    "weight_kg",
+    "height_cm",
+    "gender",
+    "activity_level",
+    "goal",
+)
+
+
+class IncompleteProfileError(ValueError):
+    def __init__(self, missing_fields: List[str]):
+        self.missing_fields = missing_fields
+        super().__init__(
+            "Complete the nutrition profile before generating plans: "
+            + ", ".join(missing_fields)
+        )
+
+    def to_detail(self):
+        return {
+            "code": "profile_incomplete",
+            "message": str(self),
+            "missing_fields": self.missing_fields,
+        }
 
 
 def _list_or_empty(value):
     return list(value) if isinstance(value, list) else []
 
 
+def missing_profile_fields(user: DBUser) -> List[str]:
+    missing = []
+    for field in REQUIRED_PROFILE_FIELDS:
+        value = getattr(user, field, None)
+        if value is None or (isinstance(value, str) and not value.strip()):
+            missing.append(field)
+    if user.gender is not None and user.gender not in {item.value for item in Gender}:
+        missing.append("gender")
+    if user.goal is not None and user.goal not in {item.value for item in Goal}:
+        missing.append("goal")
+    return sorted(set(missing))
+
+
+def profile_is_complete(user: DBUser) -> bool:
+    return not missing_profile_fields(user)
+
+
 def db_user_to_profile(user: DBUser) -> UserProfile:
-    """Return a complete validated profile, including defaults for legacy rows."""
+    """Return a complete validated profile or fail without invented physiology."""
+
+    missing = missing_profile_fields(user)
+    if missing:
+        raise IncompleteProfileError(missing)
 
     return UserProfile(
         name=user.name or "New User",
-        age=user.age if user.age is not None else 30,
-        weight_kg=user.weight_kg if user.weight_kg is not None else 70.0,
-        height_cm=user.height_cm if user.height_cm is not None else 170.0,
-        gender=user.gender if user.gender in {item.value for item in Gender} else Gender.OTHER,
-        activity_level=user.activity_level if user.activity_level is not None else 1.4,
-        goal=user.goal if user.goal in {item.value for item in Goal} else Goal.MAINTENANCE,
+        age=int(user.age),
+        weight_kg=float(user.weight_kg),
+        height_cm=float(user.height_cm),
+        gender=Gender(user.gender),
+        activity_level=float(user.activity_level),
+        goal=Goal(user.goal),
         liked_ingredients=_list_or_empty(user.liked_ingredients),
         disliked_ingredients=_list_or_empty(user.disliked_ingredients),
         allergies=_list_or_empty(getattr(user, "allergies", None)),
