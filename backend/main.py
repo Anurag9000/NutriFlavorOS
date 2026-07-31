@@ -26,7 +26,8 @@ from backend.api import (
     user_routes,
     vision_routes,
 )
-from backend.database import DB_URL, SessionLocal, init_db, verify_schema
+from backend.database import DB_URL, SessionLocal, init_db
+from backend.schema_verification import verify_runtime_schema
 from backend.services.conversion_service import seed_official_storage_policies
 
 
@@ -40,7 +41,7 @@ async def lifespan(_: FastAPI):
     if _bool_env("AUTO_CREATE_SCHEMA", auto_create_default):
         init_db()
     else:
-        verify_schema()
+        verify_runtime_schema()
     if _bool_env("SEED_REVIEWED_STORAGE_POLICIES", True):
         db = SessionLocal()
         try:
