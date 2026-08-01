@@ -45,6 +45,7 @@ SCENARIOS = {
 def _snapshot_program(statements: list[str]) -> str:
     return "\n".join(
         [
+            "import json",
             *statements,
             "from backend.research.catalog import get_catalog",
             "from backend.research.capabilities import implementation_status",
@@ -68,9 +69,16 @@ def _snapshot_program(statements: list[str]) -> str:
             "    },",
             "    'capabilities': {",
             "        key: {",
+            "            'declared_status': value.get('declared_status'),",
             "            'status': value.get('status'),",
+            "            'dependency': value.get('dependency'),",
+            "            'dependency_installed': value.get('dependency_installed'),",
             "            'module': value.get('module'),",
             "            'symbol': value.get('symbol'),",
+            "            'module_imported': value.get('module_imported'),",
+            "            'symbol_present': value.get('symbol_present'),",
+            "            'symbol_callable': value.get('symbol_callable'),",
+            "            'implementation_valid': value.get('implementation_valid'),",
             "            'runtime_available': value.get('runtime_available'),",
             "            'runtime_enabled': value.get('runtime_enabled'),",
             "            'implementation_error': value.get('implementation_error'),",
@@ -80,18 +88,15 @@ def _snapshot_program(statements: list[str]) -> str:
             "}",
             f"print({MARKER!r} + json.dumps(snapshot, sort_keys=True))",
         ]
-    ).replace(
-        "from backend.research.catalog import get_catalog",
-        "import json\nfrom backend.research.catalog import get_catalog",
-        1,
     )
 
 
 def _run_scenario(name: str, statements: list[str]) -> dict[str, Any]:
     env = dict(os.environ)
+    existing_pythonpath = env.get("PYTHONPATH")
     env["PYTHONPATH"] = os.pathsep.join(
-        [str(ROOT), value]
-        if (value := env.get("PYTHONPATH"))
+        [str(ROOT), existing_pythonpath]
+        if existing_pythonpath
         else [str(ROOT)]
     )
     env["PYTHONHASHSEED"] = "0"
