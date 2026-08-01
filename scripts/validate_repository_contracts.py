@@ -51,6 +51,9 @@ EXPECTED_CONTRACT_FILES = {
     "frontend_openapi_bindings": ROOT
     / "contracts"
     / "frontend_openapi_bindings.json",
+    "preparation_operations_frontend_bindings": ROOT
+    / "contracts"
+    / "preparation_operations_frontend_bindings.json",
 }
 DOCUMENTS_WITH_CATALOG_COUNTS = {
     ROOT / "README.md",
@@ -62,6 +65,12 @@ EXPECTED_EVIDENCE_TABLES = {
     "storage_policy_versions",
     "leftover_storage_policy_evidence",
     "evidence_lifecycle_events",
+}
+EXPECTED_PREPARATION_OPERATIONS_TABLES = {
+    "resource_calendar_versions",
+    "household_preparation_resources",
+    "persisted_preparation_schedules",
+    "preparation_schedule_events",
 }
 
 
@@ -159,6 +168,14 @@ def validate_repository_contracts() -> dict:
         errors.append(
             "immutable evidence tables missing from runtime schema contract: "
             + ", ".join(sorted(missing_schema_contract))
+        )
+    missing_preparation_tables = (
+        EXPECTED_PREPARATION_OPERATIONS_TABLES - set(CURRENT_REQUIRED_TABLES)
+    )
+    if missing_preparation_tables:
+        errors.append(
+            "preparation operations tables missing from runtime schema contract: "
+            + ", ".join(sorted(missing_preparation_tables))
         )
 
     for label, path in sorted(EXPECTED_BENCHMARK_FILES.items()):
