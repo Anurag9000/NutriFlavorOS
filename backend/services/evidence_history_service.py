@@ -5,9 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime, timezone
-from typing import Iterable, List
+from typing import List
 
 from fastapi import HTTPException
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -39,6 +40,23 @@ def _hash(payload: dict) -> str:
         allow_nan=False,
     ).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
+
+
+def _lock_evidence_key(db: Session, namespace: str, key: str) -> None:
+    """Serialize a natural evidence key on PostgreSQL.
+
+    Row locks cannot protect the first version because no row exists yet. A
+    transaction-scoped advisory lock closes that gap without introducing a
+    mutable parent table. SQLite remains protected by its writer serialization
+    and the database uniqueness constraints.
+    """
+
+    bind = db.get_bind()
+    if bind.dialect.name == "postgresql":
+        db.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:lock_key))"),
+            {"lock_key": f"nutriflavos:{namespace}:{key}"},
+        )
 
 
 def conversion_content_hash(payload: IngredientConversionVersionInput) -> str:
@@ -143,6 +161,8 @@ def register_conversion_version(
     db: Session,
     payload: IngredientConversionVersionInput,
 ) -> IngredientConversionVersionView:
+    natural_key = f"{payload.canonical_name}|{payload.from_unit}|{payload.to_unit}"
+    _lock_evidence_key(db, "conversion", natural_key)
     content_hash = conversion_content_hash(payload)
     existing = (
         db.query(DBIngredientConversionVersion)
@@ -238,6 +258,7 @@ def register_storage_policy_version(
     db: Session,
     payload: StoragePolicyVersionInput,
 ) -> StoragePolicyVersionView:
+    _lock_evidence_key(db, "storage-policy", payload.policy_key)
     content_hash = storage_policy_content_hash(payload)
     existing = (
         db.query(DBStoragePolicyVersion)
@@ -396,17 +417,13 @@ def apply_reviewed_conversion(
     db: Session,
     request: ConversionApplicationRequest,
 ) -> ConversionApplicationResult:
-    canonical_name = " ".join(
-        request.canonical_name.strip().lower().split()
-    )
-    from_unit = request.from_unit.strip().lower()
-    to_unit = request.to_unit.strip().lower()
     value = (
         db.query(DBIngredientConversionVersion)
         .filter(
-            DBIngredientConversionVersion.canonical_name == canonical_name,
-            DBIngredientConversionVersion.from_unit == from_unit,
-            DBIngredientConversionVersion.to_unit == to_unit,
+            DBIngredientConversionVersion.canonical_name
+            == request.canonical_name,
+            DBIngredientConversionVersion.from_unit == request.from_unit,
+            DBIngredientConversionVersion.to_unit == request.to_unit,
             DBIngredientConversionVersion.evidence_status
             == EvidenceRecordStatus.REVIEWED.value,
             DBIngredientConversionVersion.active.is_(True),
@@ -424,9 +441,9 @@ def apply_reviewed_conversion(
             },
         )
     return ConversionApplicationResult(
-        canonical_name=canonical_name,
-        from_unit=from_unit,
-        to_unit=to_unit,
+        canonical_name=request.canonical_name,
+        from_unit=request.from_unit,
+        to_unit=request.to_unit,
         input_quantity_min=request.quantity_min,
         input_quantity_max=request.quantity_max,
         output_quantity_min=request.quantity_min * value.multiplier_min,
