@@ -133,6 +133,34 @@ jobs:
           --apply
           --operator github-actions
           --manifest /tmp/food_evidence_reapply.json
+      - name: Immutable evidence lifecycle dry run
+        env:
+          DATABASE_URL: sqlite:///ci-fresh.db
+          NUTRIFLAVOR_COMMIT_SHA: ${{ github.sha }}
+        run: >-
+          python scripts/manage_food_evidence_lifecycle.py
+          benchmarks/food_evidence_lifecycle_small.json
+          --manifest /tmp/food_evidence_lifecycle_dry_run.json
+      - name: Immutable evidence lifecycle atomic apply
+        env:
+          DATABASE_URL: sqlite:///ci-fresh.db
+          NUTRIFLAVOR_COMMIT_SHA: ${{ github.sha }}
+        run: >-
+          python scripts/manage_food_evidence_lifecycle.py
+          benchmarks/food_evidence_lifecycle_small.json
+          --apply
+          --operator github-actions
+          --manifest /tmp/food_evidence_lifecycle_apply.json
+      - name: Immutable evidence lifecycle idempotent reapply
+        env:
+          DATABASE_URL: sqlite:///ci-fresh.db
+          NUTRIFLAVOR_COMMIT_SHA: ${{ github.sha }}
+        run: >-
+          python scripts/manage_food_evidence_lifecycle.py
+          benchmarks/food_evidence_lifecycle_small.json
+          --apply
+          --operator github-actions
+          --manifest /tmp/food_evidence_lifecycle_reapply.json
       - name: Retain backend validation reports
         uses: actions/upload-artifact@v4
         with:
