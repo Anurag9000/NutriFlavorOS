@@ -10,9 +10,9 @@ Development is performed directly on `main` in coherent commits. Code, tests, mi
 
 - Database migration head: **`20260801_0012`**.
 - API version: **`0.8.0`**.
-- OpenAPI release contract: **`2026-08-02.1`**.
+- OpenAPI release contract: **`2026-08-02.2`**.
 - Food-evidence frontend binding contract: **`2026-08-01.2`**.
-- Preparation-operations frontend binding contract: **`2026-08-02.1`**.
+- Preparation-operations frontend binding contract: **`2026-08-02.2`**.
 - Effective governed research catalog: **`2026-08-01.3`**.
 
 ## Product platform
@@ -116,11 +116,25 @@ Migrations `20260801_0009`–`20260801_0012` add the governed operational layer.
 - Owner-only approval and invalidation; owner/editor persistence, completion, and cancellation; viewer read access.
 - Legacy schedules remain readable but non-approvable when the occurrence document or replay request is missing. An exact matching creation retry may safely backfill missing provenance.
 
+### Provenance coverage
+
+`GET /api/v1/households/{household_id}/preparation-operations/coverage` reports exact household denominators for:
+
+- total, reviewed, and active reviewed calendars;
+- lifecycle status counts;
+- stored occurrence documents and deterministic scheduler requests;
+- schedules with complete replay provenance and replayable drafts;
+- exact source-plan-version linkage;
+- append-only event totals;
+- explicit warnings for legacy or missing-calendar gaps.
+
+Coverage is descriptive only. It does not certify correctness, execution, nutrition quality, appliance state, or food safety, and it never replaces approval-time replay.
+
 Authenticated APIs are under:
 
 `/api/v1/households/{household_id}/preparation-operations`
 
-The protected React workspace at `/preparation/operations` provides household selection, reviewed calendar registration, history, exact occurrence/request/schedule hashes, replay state, schedule persistence, role-aware transitions, task timing, and append-only events. `preparation-operations-handoff-v2` transfers the reviewed pipeline's complete occurrence document, profile map, optional source-plan pair, request, and response without automatic persistence or approval.
+The protected React workspace at `/preparation/operations` provides household selection, reviewed calendar registration, history, exact occurrence/request/schedule hashes, replay state, schedule persistence, role-aware transitions, task timing, and append-only events. The protected `/preparation/operations/coverage` dashboard exposes explicit provenance rates, lifecycle counts, source-plan linkage, and legacy-gap warnings. `preparation-operations-handoff-v2` transfers the reviewed pipeline's complete occurrence document, profile map, optional source-plan pair, request, and response without automatic persistence or approval.
 
 See [Preparation Operations](docs/PREPARATION_OPERATIONS.md).
 
@@ -136,10 +150,10 @@ The routed React/TypeScript application includes:
 - exact leftover policy ID/version/hash/reviewer/source/scope and withdrawn state;
 - manual preparation editor and reviewed-profile pipeline;
 - typed reviewed-pipeline-to-preparation-operations handoff;
-- persisted preparation-operations workspace;
+- persisted preparation-operations workspace and provenance-coverage dashboard;
 - research catalog, runtime capability metadata, immutable conversion/policy histories, and lifecycle events;
 - shared authenticated HTTP transport;
-- lazy protected routes, skip link, keyboard navigation, and reduced-motion handling.
+- lazy protected routes, skip link, keyboard navigation, progress semantics, and reduced-motion handling.
 
 Both evidence and preparation-operations clients are checked mechanically against generated OpenAPI for exact top-level fields, enum values, route fragments, and HTTP methods.
 
