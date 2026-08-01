@@ -40,6 +40,11 @@ jobs:
         run: >-
           python scripts/validate_frontend_openapi_bindings.py
           --output /tmp/frontend_openapi_bindings.json
+      - name: Preparation operations frontend binding gate
+        run: >-
+          python scripts/validate_frontend_openapi_bindings.py
+          --contract contracts/preparation_operations_frontend_bindings.json
+          --output /tmp/preparation_operations_frontend_bindings.json
       - run: pytest -q backend/tests
       - name: Deterministic planner benchmark gate
         run: >-
