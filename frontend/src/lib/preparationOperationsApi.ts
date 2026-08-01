@@ -213,10 +213,35 @@ export interface PreparationScheduleEventView {
   created_at: string;
 }
 
+export interface PreparationOperationsCoverageView {
+  household_id: string;
+  generated_at: string;
+  calendar_total: number;
+  reviewed_calendar_total: number;
+  active_reviewed_calendar_count: number;
+  schedule_total: number;
+  schedule_status_counts: Record<PreparationScheduleStatus, number>;
+  replay_status_counts: Record<ScheduleReplayStatus, number>;
+  occurrence_document_count: number;
+  scheduler_request_count: number;
+  replayable_schedule_count: number;
+  replayable_draft_count: number;
+  source_plan_linked_count: number;
+  event_total: number;
+  occurrence_document_coverage: number;
+  scheduler_request_coverage: number;
+  replayable_schedule_coverage: number;
+  latest_calendar_created_at: string | null;
+  latest_schedule_created_at: string | null;
+  warnings: string[];
+}
+
 const base = (householdId: string) =>
   `/households/${encode(householdId)}/preparation-operations`;
 
 export const preparationOperationsApi = {
+  coverage: (householdId: string) =>
+    request<PreparationOperationsCoverageView>(`${base(householdId)}/coverage`),
   createCalendar: (householdId: string, payload: ResourceCalendarVersionCreate) =>
     request<ResourceCalendarVersionView>(`${base(householdId)}/resource-calendars`, {
       method: "POST",
