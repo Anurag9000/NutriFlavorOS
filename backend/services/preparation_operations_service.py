@@ -1,4 +1,10 @@
-"""Transactional household preparation calendar and schedule services."""
+"""Transactional household preparation calendar and schedule services.
+
+Every persisted schedule is bound to an immutable reviewed resource calendar,
+a verified occurrence-set document, the complete deterministic scheduler
+request, and the exact replayed response. Approval fails closed when any of
+those inputs are missing or have drifted.
+"""
 
 from __future__ import annotations
 
@@ -8,16 +14,22 @@ from datetime import datetime, timezone
 from typing import Iterable, List
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import DBHousehold, DBMealPlan
-from backend.domain.preparation import PreparationResource, PreparationScheduleRequest
+from backend.domain.preparation import (
+    PreparationResource,
+    PreparationScheduleRequest,
+    PreparationScheduleResponse,
+)
 from backend.domain.preparation_operations import (
     CalendarEvidenceStatus,
     HouseholdResourceView,
     PersistedPreparationScheduleView,
+    PreparationOccurrenceSetDocument,
     PreparationScheduleEventType,
     PreparationScheduleEventView,
     PreparationScheduleStatus,
@@ -38,11 +50,6 @@ from backend.preparation_operations_models import (
 ACTIVE_SCHEDULE_STATUSES = {
     PreparationScheduleStatus.DRAFT.value,
     PreparationScheduleStatus.APPROVED.value,
-}
-TERMINAL_SCHEDULE_STATUSES = {
-    PreparationScheduleStatus.INVALIDATED.value,
-    PreparationScheduleStatus.COMPLETED.value,
-    PreparationScheduleStatus.CANCELLED.value,
 }
 
 
@@ -128,6 +135,8 @@ def _schedule_request_fingerprint(
     payload: PersistedScheduleCreateRequest,
     actor_user_id: str,
 ) -> str:
+    # Keep the established fingerprint shape so exact legacy retries can be
+    # recognized while separately persisting the complete occurrence document.
     return _canonical_hash(
         {
             "actor_user_id": actor_user_id,
@@ -158,6 +167,31 @@ def _transition_fingerprint(
             "reason": payload.reason,
             "metadata": payload.metadata,
             "actor_user_id": actor_user_id,
+        }
+    )
+
+
+def _schedule_hash(
+    *,
+    calendar_content_hash: str,
+    source_plan_id: int | None,
+    source_plan_version: int | None,
+    occurrence_set_version: str,
+    occurrence_set_hash: str,
+    profile_versions: dict[str, str],
+    schedule_request: PreparationScheduleRequest,
+    schedule_response: PreparationScheduleResponse,
+) -> str:
+    return _canonical_hash(
+        {
+            "calendar_content_hash": calendar_content_hash,
+            "source_plan_id": source_plan_id,
+            "source_plan_version": source_plan_version,
+            "occurrence_set_version": occurrence_set_version,
+            "occurrence_set_hash": occurrence_set_hash,
+            "profile_versions": dict(sorted(profile_versions.items())),
+            "schedule_request": schedule_request.model_dump(mode="json"),
+            "schedule_response": schedule_response.model_dump(mode="json"),
         }
     )
 
@@ -216,9 +250,56 @@ def _calendar_view(
     )
 
 
+def _parse_persisted_provenance(
+    value: DBPersistedPreparationSchedule,
+) -> tuple[
+    PreparationOccurrenceSetDocument | None,
+    PreparationScheduleRequest | None,
+    PreparationScheduleResponse,
+    str,
+]:
+    try:
+        occurrence_set = (
+            PreparationOccurrenceSetDocument.model_validate(
+                value.occurrence_set_payload
+            )
+            if value.occurrence_set_payload is not None
+            else None
+        )
+        request = (
+            PreparationScheduleRequest.model_validate(
+                value.schedule_request_payload
+            )
+            if value.schedule_request_payload is not None
+            else None
+        )
+        response = PreparationScheduleResponse.model_validate(
+            value.schedule_payload
+        )
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "persisted_schedule_provenance_invalid",
+                "message": "Persisted preparation provenance no longer validates",
+            },
+        ) from exc
+
+    if request is None:
+        replay_status = "legacy_request_missing"
+    elif occurrence_set is None:
+        replay_status = "legacy_occurrence_set_missing"
+    else:
+        replay_status = "replayable"
+    return occurrence_set, request, response, replay_status
+
+
 def _schedule_view(
     value: DBPersistedPreparationSchedule,
 ) -> PersistedPreparationScheduleView:
+    occurrence_set, request, response, replay_status = (
+        _parse_persisted_provenance(value)
+    )
     return PersistedPreparationScheduleView(
         id=value.id,
         household_id=value.household_id,
@@ -228,8 +309,12 @@ def _schedule_view(
         source_plan_version=value.source_plan_version,
         occurrence_set_version=value.occurrence_set_version,
         occurrence_set_hash=value.occurrence_set_hash,
+        occurrence_set=occurrence_set,
         profile_versions=dict(value.profile_versions or {}),
-        schedule=value.schedule_payload,
+        schedule_request=request,
+        schedule_request_hash=value.schedule_request_hash,
+        replay_status=replay_status,
+        schedule=response,
         schedule_hash=value.schedule_hash,
         status=PreparationScheduleStatus(value.status),
         version=value.version,
@@ -294,7 +379,9 @@ def _assert_schedule_matches_calendar(
             status_code=422,
             detail={
                 "code": "calendar_horizon_mismatch",
-                "message": "Schedule horizon must equal the selected calendar horizon",
+                "message": (
+                    "Schedule horizon must equal the selected calendar horizon"
+                ),
             },
         )
     expected = [
@@ -303,14 +390,20 @@ def _assert_schedule_matches_calendar(
     ]
     observed = [
         value.model_dump(mode="json")
-        for value in sorted(request.resources, key=lambda item: item.resource_id)
+        for value in sorted(
+            request.resources,
+            key=lambda item: item.resource_id,
+        )
     ]
     if observed != expected:
         raise HTTPException(
             status_code=422,
             detail={
                 "code": "calendar_resource_mismatch",
-                "message": "Schedule resources must exactly match the selected immutable calendar version",
+                "message": (
+                    "Schedule resources must exactly match the selected "
+                    "immutable calendar version"
+                ),
             },
         )
 
@@ -333,7 +426,25 @@ def _assert_source_plan(
             status_code=409,
             detail={
                 "code": "source_plan_version_mismatch",
-                "message": "The source household plan is missing or its version changed",
+                "message": (
+                    "The source household plan is missing or its version changed"
+                ),
+            },
+        )
+
+
+def _assert_occurrence_household(
+    occurrence_set: PreparationOccurrenceSetDocument,
+    household_id: str,
+) -> None:
+    if occurrence_set.household_id != household_id:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "occurrence_set_household_mismatch",
+                "message": (
+                    "Occurrence set household_id must match the route household"
+                ),
             },
         )
 
@@ -393,12 +504,14 @@ def _invalidate_schedules_for_calendar(
         schedule.version += 1
         schedule.invalidated_at = now
         schedule.invalidation_reason = (
-            f"Resource calendar superseded by calendar record {replacement_calendar_id}"
+            "Resource calendar superseded by calendar record "
+            f"{replacement_calendar_id}"
         )
         schedule.updated_at = now
         db.add(schedule)
         event_key = (
-            f"calendar-supersede:{replacement_calendar_id}:schedule:{schedule.id}"
+            f"calendar-supersede:{replacement_calendar_id}:"
+            f"schedule:{schedule.id}"
         )
         fingerprint = _canonical_hash(
             {
@@ -451,7 +564,9 @@ def register_resource_calendar(
                 status_code=409,
                 detail={
                     "code": "calendar_idempotency_conflict",
-                    "message": "Calendar idempotency key was reused with different content",
+                    "message": (
+                        "Calendar idempotency key was reused with different content"
+                    ),
                 },
             )
         return _calendar_view(db, existing_idempotent)
@@ -461,7 +576,8 @@ def register_resource_calendar(
         db.query(DBResourceCalendarVersion)
         .filter(
             DBResourceCalendarVersion.household_id == household_id,
-            DBResourceCalendarVersion.calendar_version == payload.calendar_version,
+            DBResourceCalendarVersion.calendar_version
+            == payload.calendar_version,
         )
         .with_for_update()
         .first()
@@ -471,7 +587,9 @@ def register_resource_calendar(
             status_code=409,
             detail={
                 "code": "calendar_version_conflict",
-                "message": "Calendar version already exists under a different request key",
+                "message": (
+                    "Calendar version already exists under a different request key"
+                ),
             },
         )
 
@@ -548,7 +666,9 @@ def register_resource_calendar(
             status_code=409,
             detail={
                 "code": "calendar_registration_conflict",
-                "message": "Calendar registration conflicted with concurrent state",
+                "message": (
+                    "Calendar registration conflicted with concurrent state"
+                ),
             },
         ) from exc
     db.refresh(calendar)
@@ -592,6 +712,64 @@ def get_resource_calendar(
     return _calendar_view(db, value)
 
 
+def _backfill_replay_provenance(
+    db: Session,
+    existing: DBPersistedPreparationSchedule,
+    payload: PersistedScheduleCreateRequest,
+) -> None:
+    changed = False
+    request_payload = payload.schedule_request.model_dump(mode="json")
+    request_hash = _canonical_hash(request_payload)
+    occurrence_payload = payload.occurrence_set.model_dump(mode="json")
+
+    if existing.occurrence_set_payload is None:
+        if (
+            existing.occurrence_set_version != payload.occurrence_set_version
+            or existing.occurrence_set_hash != payload.occurrence_set_hash
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "legacy_occurrence_provenance_conflict",
+                    "message": (
+                        "Legacy occurrence fingerprint differs from retry content"
+                    ),
+                },
+            )
+        existing.occurrence_set_payload = occurrence_payload
+        changed = True
+    elif _canonical_hash(existing.occurrence_set_payload) != payload.occurrence_set_hash:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "persisted_occurrence_hash_mismatch",
+                "message": "Persisted occurrence document does not match its hash",
+            },
+        )
+
+    if existing.schedule_request_payload is None:
+        existing.schedule_request_payload = request_payload
+        existing.schedule_request_hash = request_hash
+        changed = True
+    elif (
+        existing.schedule_request_hash != request_hash
+        or _canonical_hash(existing.schedule_request_payload) != request_hash
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "persisted_schedule_request_hash_mismatch",
+                "message": "Persisted schedule request does not match its hash",
+            },
+        )
+
+    if changed:
+        existing.updated_at = utcnow()
+        db.add(existing)
+        db.commit()
+        db.refresh(existing)
+
+
 def create_persisted_schedule(
     db: Session,
     *,
@@ -600,6 +778,7 @@ def create_persisted_schedule(
     payload: PersistedScheduleCreateRequest,
 ) -> PersistedPreparationScheduleView:
     _lock_household(db, household_id)
+    _assert_occurrence_household(payload.occurrence_set, household_id)
     fingerprint = _schedule_request_fingerprint(payload, actor_user_id)
     existing = (
         db.query(DBPersistedPreparationSchedule)
@@ -617,9 +796,12 @@ def create_persisted_schedule(
                 status_code=409,
                 detail={
                     "code": "schedule_idempotency_conflict",
-                    "message": "Schedule idempotency key was reused with different content",
+                    "message": (
+                        "Schedule idempotency key was reused with different content"
+                    ),
                 },
             )
+        _backfill_replay_provenance(db, existing, payload)
         return _schedule_view(existing)
 
     calendar = (
@@ -640,9 +822,13 @@ def create_persisted_schedule(
             status_code=409,
             detail={
                 "code": "active_reviewed_calendar_required",
-                "message": "Schedules may be persisted only against the active reviewed calendar",
+                "message": (
+                    "Schedules may be persisted only against the active "
+                    "reviewed calendar"
+                ),
             },
         )
+
     _assert_schedule_matches_calendar(db, calendar, payload.schedule_request)
     _assert_source_plan(
         db,
@@ -651,12 +837,18 @@ def create_persisted_schedule(
         payload.source_plan_version,
     )
     replay = build_preparation_schedule(payload.schedule_request)
-    if replay.model_dump(mode="json") != payload.schedule_response.model_dump(mode="json"):
+    if (
+        replay.model_dump(mode="json")
+        != payload.schedule_response.model_dump(mode="json")
+    ):
         raise HTTPException(
             status_code=422,
             detail={
                 "code": "schedule_replay_mismatch",
-                "message": "Submitted schedule response does not match deterministic server replay",
+                "message": (
+                    "Submitted schedule response does not match deterministic "
+                    "server replay"
+                ),
             },
         )
     if replay.unscheduled:
@@ -664,21 +856,24 @@ def create_persisted_schedule(
             status_code=422,
             detail={
                 "code": "incomplete_schedule",
-                "message": "Schedules with unresolved tasks cannot be persisted",
+                "message": (
+                    "Schedules with unresolved tasks cannot be persisted"
+                ),
             },
         )
-    schedule_payload = replay.model_dump(mode="json")
-    schedule_hash = _canonical_hash(
-        {
-            "calendar_content_hash": calendar.content_hash,
-            "source_plan_id": payload.source_plan_id,
-            "source_plan_version": payload.source_plan_version,
-            "occurrence_set_version": payload.occurrence_set_version,
-            "occurrence_set_hash": payload.occurrence_set_hash,
-            "profile_versions": dict(sorted(payload.profile_versions.items())),
-            "schedule_request": payload.schedule_request.model_dump(mode="json"),
-            "schedule_response": schedule_payload,
-        }
+
+    occurrence_payload = payload.occurrence_set.model_dump(mode="json")
+    request_payload = payload.schedule_request.model_dump(mode="json")
+    request_hash = _canonical_hash(request_payload)
+    schedule_hash = _schedule_hash(
+        calendar_content_hash=calendar.content_hash,
+        source_plan_id=payload.source_plan_id,
+        source_plan_version=payload.source_plan_version,
+        occurrence_set_version=payload.occurrence_set_version,
+        occurrence_set_hash=payload.occurrence_set_hash,
+        profile_versions=payload.profile_versions,
+        schedule_request=payload.schedule_request,
+        schedule_response=replay,
     )
     now = utcnow()
     schedule = DBPersistedPreparationSchedule(
@@ -689,8 +884,11 @@ def create_persisted_schedule(
         source_plan_version=payload.source_plan_version,
         occurrence_set_version=payload.occurrence_set_version,
         occurrence_set_hash=payload.occurrence_set_hash,
+        occurrence_set_payload=occurrence_payload,
         profile_versions=dict(sorted(payload.profile_versions.items())),
-        schedule_payload=schedule_payload,
+        schedule_request_payload=request_payload,
+        schedule_request_hash=request_hash,
+        schedule_payload=replay.model_dump(mode="json"),
         schedule_hash=schedule_hash,
         status=PreparationScheduleStatus.DRAFT.value,
         version=1,
@@ -718,6 +916,8 @@ def create_persisted_schedule(
         metadata={
             "calendar_version_id": calendar.id,
             "calendar_content_hash": calendar.content_hash,
+            "occurrence_set_hash": payload.occurrence_set_hash,
+            "schedule_request_hash": request_hash,
             "schedule_hash": schedule_hash,
         },
         idempotency_key=f"schedule-created:{schedule.id}",
@@ -732,7 +932,9 @@ def create_persisted_schedule(
             status_code=409,
             detail={
                 "code": "schedule_creation_conflict",
-                "message": "Schedule creation conflicted with concurrent state",
+                "message": (
+                    "Schedule creation conflicted with concurrent state"
+                ),
             },
         ) from exc
     db.refresh(schedule)
@@ -780,6 +982,129 @@ def get_persisted_schedule(
     return _schedule_view(value)
 
 
+def _validate_approval_replay(
+    db: Session,
+    *,
+    household_id: str,
+    schedule: DBPersistedPreparationSchedule,
+    calendar: DBResourceCalendarVersion,
+) -> None:
+    if schedule.schedule_request_payload is None:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "schedule_replay_input_missing",
+                "message": (
+                    "Legacy schedule lacks the deterministic request required "
+                    "for approval"
+                ),
+            },
+        )
+    if schedule.occurrence_set_payload is None:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "schedule_occurrence_set_missing",
+                "message": (
+                    "Legacy schedule lacks the verified occurrence document "
+                    "required for approval"
+                ),
+            },
+        )
+
+    try:
+        occurrence_set = PreparationOccurrenceSetDocument.model_validate(
+            schedule.occurrence_set_payload
+        )
+        request = PreparationScheduleRequest.model_validate(
+            schedule.schedule_request_payload
+        )
+        response = PreparationScheduleResponse.model_validate(
+            schedule.schedule_payload
+        )
+        verified = PersistedScheduleCreateRequest.model_validate(
+            {
+                "calendar_version_id": schedule.calendar_version_id,
+                "source_plan_id": schedule.source_plan_id,
+                "source_plan_version": schedule.source_plan_version,
+                "occurrence_set": occurrence_set.model_dump(mode="json"),
+                "profile_versions": dict(schedule.profile_versions or {}),
+                "schedule_request": request.model_dump(mode="json"),
+                "schedule_response": response.model_dump(mode="json"),
+                "notes": schedule.notes,
+                "idempotency_key": schedule.creation_idempotency_key,
+            }
+        )
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "schedule_provenance_validation_failed",
+                "message": (
+                    "Persisted occurrence, profile, request, and response "
+                    "provenance no longer agree"
+                ),
+            },
+        ) from exc
+
+    _assert_occurrence_household(occurrence_set, household_id)
+    _assert_schedule_matches_calendar(db, calendar, request)
+    _assert_source_plan(
+        db,
+        household_id,
+        schedule.source_plan_id,
+        schedule.source_plan_version,
+    )
+
+    request_hash = _canonical_hash(request.model_dump(mode="json"))
+    if request_hash != schedule.schedule_request_hash:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "schedule_request_hash_mismatch",
+                "message": "Persisted scheduler request hash no longer matches",
+            },
+        )
+    if verified.occurrence_set_hash != schedule.occurrence_set_hash:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "occurrence_set_hash_mismatch",
+                "message": "Persisted occurrence document hash no longer matches",
+            },
+        )
+
+    replay = build_preparation_schedule(request)
+    if replay.model_dump(mode="json") != response.model_dump(mode="json"):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "schedule_approval_replay_mismatch",
+                "message": (
+                    "Persisted response differs from deterministic approval replay"
+                ),
+            },
+        )
+    expected_schedule_hash = _schedule_hash(
+        calendar_content_hash=calendar.content_hash,
+        source_plan_id=schedule.source_plan_id,
+        source_plan_version=schedule.source_plan_version,
+        occurrence_set_version=verified.occurrence_set_version,
+        occurrence_set_hash=verified.occurrence_set_hash,
+        profile_versions=verified.profile_versions,
+        schedule_request=request,
+        schedule_response=replay,
+    )
+    if expected_schedule_hash != schedule.schedule_hash:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "schedule_hash_mismatch",
+                "message": "Combined persisted schedule hash no longer matches",
+            },
+        )
+
+
 def transition_schedule(
     db: Session,
     *,
@@ -800,7 +1125,8 @@ def transition_schedule(
         db.query(DBPreparationScheduleEvent)
         .filter(
             DBPreparationScheduleEvent.household_id == household_id,
-            DBPreparationScheduleEvent.idempotency_key == payload.idempotency_key,
+            DBPreparationScheduleEvent.idempotency_key
+            == payload.idempotency_key,
         )
         .with_for_update()
         .first()
@@ -815,7 +1141,10 @@ def transition_schedule(
                 status_code=409,
                 detail={
                     "code": "schedule_event_idempotency_conflict",
-                    "message": "Schedule event idempotency key was reused with a different request",
+                    "message": (
+                        "Schedule event idempotency key was reused with a "
+                        "different request"
+                    ),
                 },
             )
         schedule = db.get(DBPersistedPreparationSchedule, schedule_id)
@@ -839,7 +1168,9 @@ def transition_schedule(
             status_code=409,
             detail={
                 "code": "schedule_version_conflict",
-                "message": "Schedule version changed; reload before mutating it",
+                "message": (
+                    "Schedule version changed; reload before mutating it"
+                ),
                 "current_version": schedule.version,
             },
         )
@@ -866,7 +1197,9 @@ def transition_schedule(
             status_code=409,
             detail={
                 "code": "invalid_schedule_transition",
-                "message": f"Cannot apply {event_type.value} to {current.value} schedule",
+                "message": (
+                    f"Cannot apply {event_type.value} to {current.value} schedule"
+                ),
             },
         )
 
@@ -876,27 +1209,38 @@ def transition_schedule(
             calendar is None
             or not calendar.active
             or calendar.content_hash != schedule.calendar_content_hash
-            or calendar.evidence_status != CalendarEvidenceStatus.REVIEWED.value
+            or calendar.evidence_status
+            != CalendarEvidenceStatus.REVIEWED.value
         ):
             raise HTTPException(
                 status_code=409,
                 detail={
                     "code": "schedule_calendar_stale",
-                    "message": "Schedule calendar is no longer the active reviewed version",
+                    "message": (
+                        "Schedule calendar is no longer the active reviewed version"
+                    ),
                 },
             )
-        _assert_source_plan(
+        _validate_approval_replay(
             db,
-            household_id,
-            schedule.source_plan_id,
-            schedule.source_plan_version,
+            household_id=household_id,
+            schedule=schedule,
+            calendar=calendar,
         )
 
     target = {
-        PreparationScheduleEventType.APPROVED: PreparationScheduleStatus.APPROVED,
-        PreparationScheduleEventType.COMPLETED: PreparationScheduleStatus.COMPLETED,
-        PreparationScheduleEventType.CANCELLED: PreparationScheduleStatus.CANCELLED,
-        PreparationScheduleEventType.INVALIDATED: PreparationScheduleStatus.INVALIDATED,
+        PreparationScheduleEventType.APPROVED: (
+            PreparationScheduleStatus.APPROVED
+        ),
+        PreparationScheduleEventType.COMPLETED: (
+            PreparationScheduleStatus.COMPLETED
+        ),
+        PreparationScheduleEventType.CANCELLED: (
+            PreparationScheduleStatus.CANCELLED
+        ),
+        PreparationScheduleEventType.INVALIDATED: (
+            PreparationScheduleStatus.INVALIDATED
+        ),
     }[event_type]
     now = utcnow()
     schedule.status = target.value
@@ -930,7 +1274,9 @@ def transition_schedule(
             status_code=409,
             detail={
                 "code": "schedule_transition_conflict",
-                "message": "Schedule transition conflicted with concurrent state",
+                "message": (
+                    "Schedule transition conflicted with concurrent state"
+                ),
             },
         ) from exc
     db.refresh(schedule)
