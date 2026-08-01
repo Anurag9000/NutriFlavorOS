@@ -6,6 +6,11 @@ const request = apiRequest;
 
 export type HouseholdRole = "viewer" | "editor" | "owner";
 export type ReservationStatus = "active" | "released" | "consumed" | "expired";
+export type EvidenceRecordStatus =
+  | "draft"
+  | "external_unverified"
+  | "reviewed"
+  | "legacy_unreviewed";
 
 export interface QuantityRange {
   quantity_min: number;
@@ -177,6 +182,7 @@ export interface HouseholdPlanResult {
   diagnostics: Record<string, unknown>;
 }
 
+/** Legacy mutable compatibility record. New UI should prefer history types. */
 export interface IngredientConversion {
   id: number;
   canonical_name: string;
@@ -193,6 +199,7 @@ export interface IngredientConversion {
   active: boolean;
 }
 
+/** Legacy mutable compatibility record. New UI should prefer history types. */
 export interface StoragePolicy {
   id: number;
   policy_key: string;
@@ -207,6 +214,71 @@ export interface StoragePolicy {
   safety_scope: string;
   notes?: string | null;
   active: boolean;
+}
+
+export interface IngredientConversionVersion {
+  id: number;
+  canonical_name: string;
+  from_unit: string;
+  to_unit: string;
+  record_version: string;
+  multiplier_min: number;
+  multiplier_max: number;
+  source_name: string;
+  source_url: string;
+  source_version: string;
+  evidence_status: EvidenceRecordStatus;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  notes?: string | null;
+  content_hash: string;
+  supersedes_conversion_id?: number | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StoragePolicyVersion {
+  id: number;
+  policy_key: string;
+  policy_version: string;
+  food_category: string;
+  storage_state: string;
+  duration_min_hours?: number | null;
+  duration_max_hours?: number | null;
+  maximum_temperature_c?: number | null;
+  source_name: string;
+  source_url: string;
+  source_version: string;
+  evidence_status: EvidenceRecordStatus;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  safety_scope: string;
+  notes?: string | null;
+  content_hash: string;
+  supersedes_policy_id?: number | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReviewedConversionResult {
+  canonical_name: string;
+  from_unit: string;
+  to_unit: string;
+  input_quantity_min: number;
+  input_quantity_max: number;
+  output_quantity_min: number;
+  output_quantity_max: number;
+  conversion_record_id: number;
+  conversion_record_version: string;
+  conversion_content_hash: string;
+  source_name: string;
+  source_url: string;
+  source_version: string;
+  evidence_status: EvidenceRecordStatus;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
 }
 
 export interface SubstitutionCandidate {
@@ -265,6 +337,10 @@ export const householdApi = {
     request<InventoryEvent[]>(`/households/${encode(id)}/inventory-events?limit=${limit}`),
   leftovers: (id: string, includeEmpty = false) =>
     request<Leftover[]>(`/households/${encode(id)}/leftovers?include_empty=${includeEmpty}`),
+  leftoverStoragePolicy: (id: string, leftoverId: number) =>
+    request<StoragePolicyVersion>(
+      `/food-evidence/history/households/${encode(id)}/leftovers/${leftoverId}/storage-policy`,
+    ),
   addLeftover: (id: string, payload: Record<string, unknown>) =>
     request<Leftover>(`/households/${encode(id)}/leftovers`, { method: "POST", body: body(payload) }),
   consumeLeftover: (id: string, leftoverId: number, payload: Record<string, unknown>) =>
@@ -294,6 +370,40 @@ export const evidenceApi = {
     const suffix = params.size ? `?${params.toString()}` : "";
     return request<StoragePolicy[]>(`/food-evidence/storage-policies${suffix}`);
   },
+};
+
+export const evidenceHistoryApi = {
+  conversions: (options: { activeOnly?: boolean; reviewedOnly?: boolean } = {}) => {
+    const params = new URLSearchParams();
+    params.set("active_only", String(options.activeOnly ?? true));
+    params.set("reviewed_only", String(options.reviewedOnly ?? false));
+    return request<IngredientConversionVersion[]>(
+      `/food-evidence/history/conversions?${params.toString()}`,
+    );
+  },
+  convertReviewed: (payload: {
+    canonical_name: string;
+    quantity_min: number;
+    quantity_max: number;
+    from_unit: string;
+    to_unit: string;
+  }) =>
+    request<ReviewedConversionResult>("/food-evidence/history/convert-reviewed", {
+      method: "POST",
+      body: body(payload),
+    }),
+  storagePolicies: (options: { activeOnly?: boolean; reviewedOnly?: boolean } = {}) => {
+    const params = new URLSearchParams();
+    params.set("active_only", String(options.activeOnly ?? true));
+    params.set("reviewed_only", String(options.reviewedOnly ?? false));
+    return request<StoragePolicyVersion[]>(
+      `/food-evidence/history/storage-policies?${params.toString()}`,
+    );
+  },
+  activeStoragePolicy: (policyKey: string) =>
+    request<StoragePolicyVersion>(
+      `/food-evidence/history/storage-policies/${encode(policyKey)}/active-reviewed`,
+    ),
 };
 
 export const substitutionApi = {
