@@ -21,8 +21,6 @@ from backend.evidence_history_models import (
 )
 from backend.services.evidence_history_service import (
     _conversion_view,
-    _latest_reviewed_conversion,
-    _latest_reviewed_policy,
     _lock_evidence_key,
     _policy_view,
     conversion_content_hash,
@@ -118,6 +116,57 @@ def _validate_batch_shape(
         )
 
 
+def _latest_reviewed_conversion_snapshot(
+    db: Session,
+    payload: IngredientConversionVersionInput,
+) -> DBIngredientConversionVersion | None:
+    """Return the current predecessor without taking a database row lock.
+
+    Dry-run preflight is an advisory snapshot, not a reservation. Apply mode
+    first obtains transaction advisory locks for every natural key, then calls
+    the same snapshot logic inside that protected transaction.
+    """
+
+    return (
+        db.query(DBIngredientConversionVersion)
+        .filter(
+            DBIngredientConversionVersion.canonical_name == payload.canonical_name,
+            DBIngredientConversionVersion.from_unit == payload.from_unit,
+            DBIngredientConversionVersion.to_unit == payload.to_unit,
+            DBIngredientConversionVersion.evidence_status
+            == EvidenceRecordStatus.REVIEWED.value,
+        )
+        .order_by(
+            DBIngredientConversionVersion.active.desc(),
+            DBIngredientConversionVersion.created_at.desc(),
+            DBIngredientConversionVersion.id.desc(),
+        )
+        .first()
+    )
+
+
+def _latest_reviewed_policy_snapshot(
+    db: Session,
+    payload: StoragePolicyVersionInput,
+) -> DBStoragePolicyVersion | None:
+    """Return the current policy predecessor without taking a row lock."""
+
+    return (
+        db.query(DBStoragePolicyVersion)
+        .filter(
+            DBStoragePolicyVersion.policy_key == payload.policy_key,
+            DBStoragePolicyVersion.evidence_status
+            == EvidenceRecordStatus.REVIEWED.value,
+        )
+        .order_by(
+            DBStoragePolicyVersion.active.desc(),
+            DBStoragePolicyVersion.created_at.desc(),
+            DBStoragePolicyVersion.id.desc(),
+        )
+        .first()
+    )
+
+
 def _conversion_preview(
     db: Session,
     payload: IngredientConversionVersionInput,
@@ -153,7 +202,7 @@ def _conversion_preview(
 
     predecessor = None
     if payload.active and payload.evidence_status == EvidenceRecordStatus.REVIEWED:
-        predecessor = _latest_reviewed_conversion(db, payload)
+        predecessor = _latest_reviewed_conversion_snapshot(db, payload)
     if predecessor is not None:
         action: PlannedAction = "register_and_supersede"
     elif payload.active and payload.evidence_status == EvidenceRecordStatus.REVIEWED:
@@ -206,7 +255,7 @@ def _policy_preview(
 
     predecessor = None
     if payload.active and payload.evidence_status == EvidenceRecordStatus.REVIEWED:
-        predecessor = _latest_reviewed_policy(db, payload)
+        predecessor = _latest_reviewed_policy_snapshot(db, payload)
     if predecessor is not None:
         action: PlannedAction = "register_and_supersede"
     elif payload.active and payload.evidence_status == EvidenceRecordStatus.REVIEWED:
