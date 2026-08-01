@@ -51,6 +51,7 @@ EXPECTED_EVIDENCE_TABLES = {
     "ingredient_conversion_versions",
     "storage_policy_versions",
     "leftover_storage_policy_evidence",
+    "evidence_lifecycle_events",
 }
 
 
