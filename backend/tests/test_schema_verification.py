@@ -15,6 +15,12 @@ from backend.evidence_history_models import (  # noqa: F401
     DBStoragePolicyVersion,
 )
 from backend.preparation_models import DBRecipePreparationProfile  # noqa: F401
+from backend.preparation_operations_models import (  # noqa: F401
+    DBHouseholdPreparationResource,
+    DBPersistedPreparationSchedule,
+    DBPreparationScheduleEvent,
+    DBResourceCalendarVersion,
+)
 from backend.schema_verification import verify_runtime_schema
 
 
@@ -44,7 +50,7 @@ def test_stale_alembic_revision_is_rejected(tmp_path, monkeypatch):
 
     with pytest.raises(
         RuntimeError,
-        match="Expected 20260801_0008; observed 20260731_0005",
+        match="Expected 20260801_0009; observed 20260731_0005",
     ):
         verify_runtime_schema(create_engine(url))
 
