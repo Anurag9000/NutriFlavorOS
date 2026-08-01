@@ -1,7 +1,8 @@
 """Read-only API for immutable conversion and storage-policy evidence.
 
 Evidence mutation remains an offline reviewed operation. Authenticated product
-clients may inspect exact versions and apply only an active reviewed conversion.
+clients may inspect exact versions, lifecycle history, and apply only an active
+reviewed conversion.
 """
 
 from __future__ import annotations
@@ -16,6 +17,10 @@ from backend.domain.evidence_history import (
     IngredientConversionVersionView,
     StoragePolicyVersionView,
 )
+from backend.domain.evidence_lifecycle import (
+    EvidenceLifecycleEventView,
+    EvidenceTargetKind,
+)
 from backend.domain.household_access import HouseholdRole
 from backend.services.evidence_history_service import (
     active_reviewed_storage_policy,
@@ -23,6 +28,9 @@ from backend.services.evidence_history_service import (
     list_conversion_versions,
     list_storage_policy_versions,
     storage_policy_for_leftover,
+)
+from backend.services.evidence_lifecycle_service import (
+    list_evidence_lifecycle_events,
 )
 from backend.services.household_access_service import require_household_access
 from backend.utils.security import get_current_user
@@ -90,6 +98,33 @@ def active_storage_policy_route(
     _current_user: DBUser = Depends(get_current_user),
 ):
     return active_reviewed_storage_policy(db, policy_key)
+
+
+@router.get(
+    "/lifecycle-events",
+    response_model=list[EvidenceLifecycleEventView],
+)
+def lifecycle_events_route(
+    target_kind: EvidenceTargetKind | None = Query(default=None),
+    target_id: int | None = Query(default=None, ge=1),
+    limit: int = Query(default=500, ge=1, le=5000),
+    db: Session = Depends(get_db),
+    _current_user: DBUser = Depends(get_current_user),
+):
+    if target_id is not None and target_kind is None:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "lifecycle_target_kind_required",
+                "message": "target_kind is required when target_id is supplied",
+            },
+        )
+    return list_evidence_lifecycle_events(
+        db,
+        target_kind=target_kind,
+        target_id=target_id,
+        limit=limit,
+    )
 
 
 @router.get(
