@@ -24,15 +24,16 @@ from backend.preparation_operations_models import (
     DBPreparationScheduleEvent,
     DBResourceCalendarVersion,
 )
-from backend.services.preparation_operations_integrity_service import (
+from backend.services.preparation_operations_service import (
     create_persisted_schedule,
+    register_resource_calendar,
     transition_schedule,
 )
-from backend.services.preparation_operations_service import register_resource_calendar
 
 
 USER_ID = "ci-preparation-operations@example.test"
 HOUSEHOLD_ID = "ci-preparation-operations-home"
+PROFILE_HASH = "a" * 64
 
 
 def _run_pair(left: Callable[[], object], right: Callable[[], object]):
@@ -42,7 +43,7 @@ def _run_pair(left: Callable[[], object], right: Callable[[], object]):
         barrier.wait(timeout=10)
         try:
             return label, callback()
-        except Exception as exc:
+        except Exception as exc:  # Deliberately captured for race assertions.
             return label, exc
 
     with ThreadPoolExecutor(max_workers=2) as pool:
@@ -154,6 +155,23 @@ def _register(payload):
         )
 
 
+def _metadata(template_id: str, duration: int) -> dict:
+    return {
+        "occurrence_id": "dinner",
+        "recipe_id": "ci-recipe",
+        "servings": 2.0,
+        "profile_id": 1,
+        "profile_version": "v1",
+        "profile_content_hash": PROFILE_HASH,
+        "duration_min_minutes": duration,
+        "duration_max_minutes": duration,
+        "duration_policy": "conservative_max",
+        "template_id": template_id,
+        "active_work": True,
+        "unattended_allowed": False,
+    }
+
+
 def _schedule_payload(calendar, key: str):
     request = PreparationScheduleRequest.model_validate(
         {
@@ -173,36 +191,50 @@ def _schedule_payload(calendar, key: str):
             ],
             "tasks": [
                 {
-                    "task_id": "prep",
+                    "task_id": "dinner.prep",
                     "duration_minutes": 15,
                     "earliest_start_minute": 0,
-                    "latest_finish_minute": 30,
+                    "latest_finish_minute": 150,
                     "priority": 2,
                     "resource_demands": {"person": 1},
                     "dependencies": [],
-                    "metadata": {"profile_content_hash": "a" * 64},
+                    "metadata": _metadata("prep", 15),
                 },
                 {
-                    "task_id": "cook",
+                    "task_id": "dinner.cook",
                     "duration_minutes": 20,
                     "earliest_start_minute": 60,
                     "latest_finish_minute": 150,
-                    "priority": 1,
+                    "priority": 2,
                     "resource_demands": {"person": 1, "burner": 1},
-                    "dependencies": ["prep"],
-                    "metadata": {"profile_content_hash": "a" * 64},
+                    "dependencies": ["dinner.prep"],
+                    "metadata": _metadata("cook", 20),
                 },
             ],
         }
     )
     response = build_preparation_schedule(request)
+    assert response.unscheduled == []
     return PersistedScheduleCreateRequest.model_validate(
         {
             "calendar_version_id": calendar.id,
-            "occurrence_set_version": "ci-occurrences-v1",
-            "occurrence_set_hash": "b" * 64,
+            "occurrence_set": {
+                "document_version": "preparation-occurrence-set-v1",
+                "household_id": HOUSEHOLD_ID,
+                "occurrence_set_version": "ci-occurrences-v1",
+                "duration_policy": "conservative_max",
+                "occurrences": [
+                    {
+                        "occurrence_id": "dinner",
+                        "recipe_id": "ci-recipe",
+                        "required_finish_minute": 150,
+                        "servings": 2.0,
+                        "priority": 2,
+                    }
+                ],
+            },
             "profile_versions": {
-                "ci-recipe": "profile:1/version:1/sha256:" + "a" * 64
+                "ci-recipe": f"profile:1/version:v1/sha256:{PROFILE_HASH}"
             },
             "schedule_request": request.model_dump(mode="json"),
             "schedule_response": response.model_dump(mode="json"),
@@ -221,7 +253,11 @@ def _create_schedule(payload):
         )
 
 
-def _transition(schedule_id: int, event_type: PreparationScheduleEventType, key: str):
+def _transition(
+    schedule_id: int,
+    event_type: PreparationScheduleEventType,
+    key: str,
+):
     with SessionLocal() as db:
         return transition_schedule(
             db,
@@ -245,8 +281,7 @@ def _assert_identical_calendar_retry_collapses() -> None:
     results = _run_pair(lambda: _register(payload), lambda: _register(payload))
     errors = [value for _, value in results if isinstance(value, Exception)]
     assert errors == [], errors
-    ids = {value.id for _, value in results}
-    assert len(ids) == 1
+    assert len({value.id for _, value in results}) == 1
     with SessionLocal() as db:
         rows = db.query(DBResourceCalendarVersion).filter(
             DBResourceCalendarVersion.household_id == HOUSEHOLD_ID
@@ -255,7 +290,7 @@ def _assert_identical_calendar_retry_collapses() -> None:
         assert rows[0].active is True
 
 
-def _assert_identical_schedule_retry_collapses() -> tuple[object, object]:
+def _assert_identical_schedule_retry_collapses() -> None:
     calendar = _register(_calendar("calendar-v1", "ci-calendar-schedule"))
     payload = _schedule_payload(calendar, "ci-schedule-identical")
     results = _run_pair(
@@ -264,9 +299,7 @@ def _assert_identical_schedule_retry_collapses() -> tuple[object, object]:
     )
     errors = [value for _, value in results if isinstance(value, Exception)]
     assert errors == [], errors
-    ids = {value.id for _, value in results}
-    assert len(ids) == 1
-    schedule = next(value for _, value in results)
+    assert len({value.id for _, value in results}) == 1
     with SessionLocal() as db:
         rows = db.query(DBPersistedPreparationSchedule).filter(
             DBPersistedPreparationSchedule.household_id == HOUSEHOLD_ID
@@ -276,8 +309,8 @@ def _assert_identical_schedule_retry_collapses() -> tuple[object, object]:
         ).all()
         assert len(rows) == 1
         assert len(events) == 1
+        assert rows[0].occurrence_set_payload is not None
         assert rows[0].schedule_request_hash is not None
-    return calendar, schedule
 
 
 def _assert_competing_transitions_have_one_winner() -> None:
@@ -348,7 +381,9 @@ def _assert_supersession_racing_approval_always_invalidates() -> None:
             .order_by(DBPreparationScheduleEvent.id)
             .all()
         )
-        assert events[-1].event_type == PreparationScheduleEventType.INVALIDATED.value
+        assert events[-1].event_type == (
+            PreparationScheduleEventType.INVALIDATED.value
+        )
         assert events[-1].event_metadata["replacement_calendar_id"] == active.id
 
 
