@@ -2,8 +2,8 @@
 """Validate cross-file contracts that must evolve together.
 
 This validator intentionally checks declarations, not model quality. It catches
-catalog/capability drift, stale migration heads, missing benchmark fixtures, and
-stale catalog counts in public documentation.
+catalog/capability drift, stale migration heads, missing benchmark fixtures,
+missing release contracts, and stale public catalog declarations.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ import json
 import re
 from pathlib import Path
 
+from backend.domain.evidence_import import FoodEvidenceImportDocument
 from backend.research.capabilities import (
     assert_core_capabilities_valid,
     implementation_status,
@@ -32,6 +33,14 @@ EXPECTED_BENCHMARK_FILES = {
     / "preparation_scheduler_small.json",
     "inventory": ROOT / "benchmarks" / "inventory_small.json",
     "forecast_inventory": ROOT / "benchmarks" / "forecast_inventory_small.json",
+}
+EXPECTED_TYPED_FIXTURES = {
+    "food_evidence_import": ROOT
+    / "benchmarks"
+    / "food_evidence_import_small.json",
+}
+EXPECTED_CONTRACT_FILES = {
+    "openapi": ROOT / "contracts" / "openapi_required.json",
 }
 DOCUMENTS_WITH_CATALOG_COUNTS = {
     ROOT / "README.md",
@@ -82,6 +91,21 @@ def _document_errors(path: Path, expected: dict[str, int], version: str) -> list
     return errors
 
 
+def _json_object(path: Path, *, label: str, errors: list[str]) -> dict | None:
+    if not path.is_file():
+        errors.append(f"missing {label}: {path.relative_to(ROOT)}")
+        return None
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        errors.append(f"invalid JSON in {path.relative_to(ROOT)}: {exc}")
+        return None
+    if not isinstance(value, dict):
+        errors.append(f"{label} must be a JSON object: {path.relative_to(ROOT)}")
+        return None
+    return value
+
+
 def validate_repository_contracts() -> dict:
     catalog = get_catalog()
     summary = catalog.summary()
@@ -127,25 +151,40 @@ def validate_repository_contracts() -> dict:
         )
 
     for label, path in sorted(EXPECTED_BENCHMARK_FILES.items()):
-        if not path.is_file():
-            errors.append(f"missing {label} benchmark fixture: {path.relative_to(ROOT)}")
-            continue
-        try:
-            value = json.loads(path.read_text(encoding="utf-8"))
-            if not isinstance(value, dict):
+        _json_object(path, label=f"{label} benchmark fixture", errors=errors)
+
+    typed_fixture_report: dict[str, str] = {}
+    for label, path in sorted(EXPECTED_TYPED_FIXTURES.items()):
+        value = _json_object(path, label=f"{label} typed fixture", errors=errors)
+        if value is not None:
+            try:
+                if label == "food_evidence_import":
+                    document = FoodEvidenceImportDocument.model_validate(value)
+                    typed_fixture_report[label] = document.document_version
+            except (TypeError, ValueError) as exc:
                 errors.append(
-                    f"benchmark fixture must be a JSON object: {path.relative_to(ROOT)}"
+                    f"typed fixture validation failed for {path.relative_to(ROOT)}: {exc}"
                 )
-        except json.JSONDecodeError as exc:
-            errors.append(f"invalid JSON in {path.relative_to(ROOT)}: {exc}")
+
+    contract_report: dict[str, str] = {}
+    for label, path in sorted(EXPECTED_CONTRACT_FILES.items()):
+        value = _json_object(path, label=f"{label} release contract", errors=errors)
+        if value is not None:
+            version = value.get("contract_version")
+            if not isinstance(version, str) or not version:
+                errors.append(
+                    f"release contract has no contract_version: {path.relative_to(ROOT)}"
+                )
+            else:
+                contract_report[label] = version
 
     for path in sorted(DOCUMENTS_WITH_CATALOG_COUNTS):
         errors.extend(_document_errors(path, counts, catalog.version))
 
     migration_matches = sorted(
-        (
-            ROOT / "backend" / "migrations" / "versions"
-        ).glob(f"{CURRENT_ALEMBIC_REVISION}_*.py")
+        (ROOT / "backend" / "migrations" / "versions").glob(
+            f"{CURRENT_ALEMBIC_REVISION}_*.py"
+        )
     )
     if len(migration_matches) != 1:
         rendered = ", ".join(
@@ -167,6 +206,8 @@ def validate_repository_contracts() -> dict:
             label: str(path.relative_to(ROOT))
             for label, path in sorted(EXPECTED_BENCHMARK_FILES.items())
         },
+        "typed_fixtures": typed_fixture_report,
+        "release_contracts": contract_report,
         "migration_files": [
             str(path.relative_to(ROOT)) for path in migration_matches
         ],
