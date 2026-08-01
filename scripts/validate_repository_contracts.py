@@ -45,6 +45,9 @@ EXPECTED_TYPED_FIXTURES = {
 }
 EXPECTED_CONTRACT_FILES = {
     "openapi": ROOT / "contracts" / "openapi_required.json",
+    "frontend_openapi_bindings": ROOT
+    / "contracts"
+    / "frontend_openapi_bindings.json",
 }
 DOCUMENTS_WITH_CATALOG_COUNTS = {
     ROOT / "README.md",
