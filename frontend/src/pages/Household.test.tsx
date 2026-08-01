@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   get: vi.fn(),
   pantry: vi.fn(),
   leftovers: vi.fn(),
+  leftoverStoragePolicy: vi.fn(),
   reservations: vi.fn(),
   events: vi.fn(),
   invitations: vi.fn(),
@@ -43,7 +44,7 @@ vi.mock("@/hooks/use-toast", () => ({
 }));
 
 vi.mock("@/lib/platformApi", () => ({
-  evidenceApi: {
+  evidenceHistoryApi: {
     storagePolicies: mocks.storagePolicies,
   },
   householdApi: {
@@ -51,6 +52,7 @@ vi.mock("@/lib/platformApi", () => ({
     get: mocks.get,
     pantry: mocks.pantry,
     leftovers: mocks.leftovers,
+    leftoverStoragePolicy: mocks.leftoverStoragePolicy,
     reservations: mocks.reservations,
     events: mocks.events,
     invitations: mocks.invitations,
@@ -85,6 +87,61 @@ const household = {
   current_role: "owner",
 };
 
+const activePolicyHash = "a".repeat(64);
+const historicalPolicyHash = "b".repeat(64);
+
+const activePolicy = {
+  id: 41,
+  policy_key: "rice_refrigerated",
+  policy_version: "reviewed-v2",
+  food_category: "cooked rice",
+  storage_state: "refrigerated",
+  duration_min_hours: 72,
+  duration_max_hours: 96,
+  maximum_temperature_c: 4,
+  source_name: "Reviewed policy source",
+  source_url: "https://example.test/policy/v2",
+  source_version: "source-v2",
+  evidence_status: "reviewed",
+  reviewed_at: "2026-08-01T00:00:00Z",
+  reviewed_by: "Policy reviewer",
+  safety_scope: "general_home_storage",
+  notes: null,
+  content_hash: activePolicyHash,
+  supersedes_policy_id: 39,
+  active: true,
+  created_at: "2026-08-01T00:00:00Z",
+  updated_at: "2026-08-01T00:00:00Z",
+};
+
+const leftover = {
+  id: 51,
+  household_id: household.id,
+  recipe_id: "rice-recipe",
+  source_plan_id: null,
+  portions_available: 2,
+  cooked_at: "2026-07-31T18:00:00Z",
+  expires_at: "2026-08-04T18:00:00Z",
+  frozen: false,
+  storage_policy_key: "rice_refrigerated",
+  notes: null,
+  version: 1,
+  created_at: "2026-07-31T18:00:00Z",
+  updated_at: "2026-07-31T18:00:00Z",
+};
+
+const historicalPolicy = {
+  ...activePolicy,
+  id: 39,
+  policy_version: "reviewed-v1",
+  source_version: "source-v1",
+  reviewed_at: "2026-07-01T00:00:00Z",
+  reviewed_by: "Original policy reviewer",
+  content_hash: historicalPolicyHash,
+  supersedes_policy_id: null,
+  active: false,
+};
+
 function detail(role: "owner" | "editor" | "viewer") {
   return {
     household: { ...household, current_role: role },
@@ -115,6 +172,7 @@ beforeEach(() => {
   mocks.get.mockResolvedValue(detail("owner"));
   mocks.pantry.mockResolvedValue([]);
   mocks.leftovers.mockResolvedValue([]);
+  mocks.leftoverStoragePolicy.mockResolvedValue(historicalPolicy);
   mocks.reservations.mockResolvedValue([]);
   mocks.events.mockResolvedValue([]);
   mocks.invitations.mockResolvedValue([]);
@@ -184,5 +242,48 @@ describe("Household workspace", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Planning" }));
     expect(screen.getByRole("button", { name: "Generate and reserve" })).toBeDisabled();
+  });
+
+  it("selects active reviewed versions and shows exact historical leftover provenance", async () => {
+    mocks.storagePolicies.mockResolvedValue([
+      activePolicy,
+      {
+        ...activePolicy,
+        id: 42,
+        policy_key: "rice_draft",
+        policy_version: "draft-v1",
+        evidence_status: "draft",
+        active: true,
+      },
+      {
+        ...activePolicy,
+        id: 43,
+        policy_key: "rice_frozen",
+        policy_version: "frozen-v1",
+        storage_state: "frozen",
+      },
+    ]);
+    mocks.leftovers.mockResolvedValue([leftover]);
+
+    renderPage();
+    fireEvent.click(await screen.findByRole("tab", { name: "Leftovers" }));
+
+    const selector = await screen.findByLabelText("Active reviewed storage policy");
+    expect(selector).toHaveTextContent(
+      "cooked rice · rice_refrigerated · version reviewed-v2 · reviewed by Policy reviewer",
+    );
+    expect(selector).not.toHaveTextContent("rice_draft");
+    expect(selector).not.toHaveTextContent("rice_frozen");
+    expect(mocks.storagePolicies).toHaveBeenCalledWith({
+      activeOnly: true,
+      reviewedOnly: true,
+    });
+
+    expect(await screen.findByText("Exact policy record #39")).toBeInTheDocument();
+    expect(screen.getByText(/rice_refrigerated · version reviewed-v1/)).toBeInTheDocument();
+    expect(screen.getByText("historical inactive")).toBeInTheDocument();
+    expect(screen.getByText(/Original policy reviewer/)).toBeInTheDocument();
+    expect(screen.getByTitle(historicalPolicyHash)).toBeInTheDocument();
+    expect(mocks.leftoverStoragePolicy).toHaveBeenCalledWith(household.id, leftover.id);
   });
 });
