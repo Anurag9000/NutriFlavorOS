@@ -6,7 +6,7 @@ from scripts.validate_repository_contracts import validate_repository_contracts
 def test_repository_contracts_are_synchronized():
     report = validate_repository_contracts()
     assert report["catalog_version"] == "2026-08-01.3"
-    assert report["migration_head"] == "20260801_0007"
+    assert report["migration_head"] == "20260801_0008"
     assert report["counts"] == {
         "tasks": 37,
         "datasets": 30,
@@ -18,13 +18,14 @@ def test_repository_contracts_are_synchronized():
         "ingredient_conversion_versions",
         "storage_policy_versions",
         "leftover_storage_policy_evidence",
+        "evidence_lifecycle_events",
     } <= set(report["required_runtime_tables"])
     assert report["typed_fixtures"] == {
         "food_evidence_import": "food-evidence-import-v1"
     }
     assert report["release_contracts"] == {"openapi": "2026-08-01.1"}
     assert report["migration_files"] == [
-        "backend/migrations/versions/20260801_0007_version_food_evidence.py"
+        "backend/migrations/versions/20260801_0008_evidence_lifecycle.py"
     ]
     assert report["valid"] is True, report["errors"]
     assert report["errors"] == []
