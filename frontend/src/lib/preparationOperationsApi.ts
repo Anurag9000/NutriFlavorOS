@@ -17,7 +17,11 @@ export type PreparationScheduleEventType =
   | "invalidated"
   | "completed"
   | "cancelled";
-export type ScheduleReplayStatus = "replayable" | "legacy_request_missing";
+export type DurationPolicy = "conservative_max" | "optimistic_min";
+export type ScheduleReplayStatus =
+  | "replayable"
+  | "legacy_request_missing"
+  | "legacy_occurrence_set_missing";
 
 export interface PreparationAvailabilityWindow {
   start_minute: number;
@@ -75,7 +79,7 @@ export interface PreparationResource {
   capacity: number;
   available_from_minute?: number;
   available_until_minute?: number | null;
-  availability_windows?: PreparationAvailabilityWindow[] | null;
+  availability_windows?: PreparationAvailabilityWindow[];
   label?: string | null;
 }
 
@@ -131,12 +135,27 @@ export interface PreparationScheduleResponse {
   diagnostics: Record<string, unknown>;
 }
 
+export interface RecipePreparationOccurrence {
+  occurrence_id: string;
+  recipe_id: string;
+  required_finish_minute: number;
+  servings: number;
+  priority: number;
+}
+
+export interface PreparationOccurrenceSetDocument {
+  document_version: "preparation-occurrence-set-v1";
+  household_id: string;
+  occurrence_set_version: string;
+  duration_policy: DurationPolicy;
+  occurrences: RecipePreparationOccurrence[];
+}
+
 export interface PersistedScheduleCreateRequest {
   calendar_version_id: number;
   source_plan_id?: number | null;
   source_plan_version?: number | null;
-  occurrence_set_version: string;
-  occurrence_set_hash: string;
+  occurrence_set: PreparationOccurrenceSetDocument;
   profile_versions: Record<string, string>;
   schedule_request: PreparationScheduleRequest;
   schedule_response: PreparationScheduleResponse;
@@ -153,6 +172,7 @@ export interface PersistedPreparationScheduleView {
   source_plan_version: number | null;
   occurrence_set_version: string;
   occurrence_set_hash: string;
+  occurrence_set?: PreparationOccurrenceSetDocument | null;
   profile_versions: Record<string, string>;
   schedule_request?: PreparationScheduleRequest | null;
   schedule_request_hash?: string | null;
@@ -227,22 +247,38 @@ export const preparationOperationsApi = {
     request<PersistedPreparationScheduleView>(
       `${base(householdId)}/schedules/${scheduleId}`,
     ),
-  approve: (householdId: string, scheduleId: number, payload: ScheduleStateTransitionRequest) =>
+  approve: (
+    householdId: string,
+    scheduleId: number,
+    payload: ScheduleStateTransitionRequest,
+  ) =>
     request<PersistedPreparationScheduleView>(
       `${base(householdId)}/schedules/${scheduleId}/approve`,
       { method: "POST", body: body(payload) },
     ),
-  complete: (householdId: string, scheduleId: number, payload: ScheduleStateTransitionRequest) =>
+  complete: (
+    householdId: string,
+    scheduleId: number,
+    payload: ScheduleStateTransitionRequest,
+  ) =>
     request<PersistedPreparationScheduleView>(
       `${base(householdId)}/schedules/${scheduleId}/complete`,
       { method: "POST", body: body(payload) },
     ),
-  cancel: (householdId: string, scheduleId: number, payload: ScheduleStateTransitionRequest) =>
+  cancel: (
+    householdId: string,
+    scheduleId: number,
+    payload: ScheduleStateTransitionRequest,
+  ) =>
     request<PersistedPreparationScheduleView>(
       `${base(householdId)}/schedules/${scheduleId}/cancel`,
       { method: "POST", body: body(payload) },
     ),
-  invalidate: (householdId: string, scheduleId: number, payload: ScheduleStateTransitionRequest) =>
+  invalidate: (
+    householdId: string,
+    scheduleId: number,
+    payload: ScheduleStateTransitionRequest,
+  ) =>
     request<PersistedPreparationScheduleView>(
       `${base(householdId)}/schedules/${scheduleId}/invalidate`,
       { method: "POST", body: body(payload) },
