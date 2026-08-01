@@ -229,6 +229,10 @@ jobs:
         env:
           DATABASE_URL: postgresql+psycopg://nutriflavos:nutriflavos@localhost:5432/nutriflavos
         run: python scripts/check_evidence_lifecycle_concurrency.py
+      - name: Preparation operations concurrency probe
+        env:
+          DATABASE_URL: postgresql+psycopg://nutriflavos:nutriflavos@localhost:5432/nutriflavos
+        run: python scripts/check_preparation_operations_concurrency.py
 
   frontend:
     runs-on: ubuntu-latest
