@@ -140,7 +140,7 @@ def test_revision_backfills_legacy_evidence_conservatively(tmp_path):
                 "FROM leftover_storage_policy_evidence ORDER BY leftover_id"
             )
         ).mappings().all()
-        assert links == [
+        assert [dict(value) for value in links] == [
             {
                 "leftover_id": 10,
                 "storage_policy_version_id": pizza["id"],
