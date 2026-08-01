@@ -3,6 +3,7 @@ import {
   Beaker,
   CalendarRange,
   Clock3,
+  FileCheck2,
   Home,
   LayoutDashboard,
   ListChecks,
@@ -41,6 +42,11 @@ const navItems = [
     title: "Preparation Operations",
     url: "/preparation/operations",
     icon: CalendarRange,
+  },
+  {
+    title: "Prep Provenance Coverage",
+    url: "/preparation/operations/coverage",
+    icon: FileCheck2,
   },
   { title: "Research Registry", url: "/research", icon: Beaker },
   { title: "Settings", url: "/settings", icon: Settings },
@@ -85,7 +91,11 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild tooltip={item.title}>
                     <NavLink
                       to={item.url}
-                      end={item.url === "/dashboard" || item.url === "/preparation"}
+                      end={
+                        item.url === "/dashboard"
+                        || item.url === "/preparation"
+                        || item.url === "/preparation/operations"
+                      }
                       className="hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring"
                       activeClassName="bg-sidebar-accent text-primary font-medium"
                     >
