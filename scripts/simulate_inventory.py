@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run deterministic perishable-inventory replay simulations from JSON."""
+"""Run deterministic perishable-inventory replay from a typed JSON fixture."""
 
 from __future__ import annotations
 
@@ -7,67 +7,47 @@ import argparse
 import json
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, List
 
-from backend.research.inventory_simulation import (
-    DemandEvent,
-    ReorderPolicy,
-    SimulationLot,
-    simulate_perishable_inventory,
-)
+from backend.domain.benchmark_fixtures import InventoryBenchmarkFixture
+from backend.research.inventory_simulation import simulate_perishable_inventory
 
 
-def _list(raw: Any, key: str) -> List[dict]:
-    value = raw.get(key, [])
-    if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
-        raise ValueError(f"{key} must be a list of objects")
-    return value
-
-
-def load_simulation(path: Path) -> tuple[list, list, list, int]:
+def load_document(path: Path) -> InventoryBenchmarkFixture:
     raw = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(raw, dict):
-        raise ValueError("simulation input must be a JSON object")
-    horizon = int(raw.get("horizon_days", 0))
-    lots = [SimulationLot(**value) for value in _list(raw, "initial_lots")]
-    demand = [DemandEvent(**value) for value in _list(raw, "demand_events")]
-    policies = [ReorderPolicy(**value) for value in _list(raw, "policies")]
-    return lots, demand, policies, horizon
+    return InventoryBenchmarkFixture.model_validate(raw)
 
 
 def build_report(path: Path) -> dict:
-    lots, demand, policies, horizon = load_simulation(path)
+    document = load_document(path)
     result = simulate_perishable_inventory(
-        lots,
-        demand,
-        policies,
-        horizon_days=horizon,
+        [value.to_domain() for value in document.initial_lots],
+        [value.to_domain() for value in document.demand_events],
+        [value.to_domain() for value in document.policies],
+        horizon_days=document.horizon_days,
     )
     return {
-        **{
-            key: value
-            for key, value in asdict(result).items()
-            if key not in {"per_sku", "events"}
-        },
+        "method": result.method,
+        "deterministic": result.deterministic,
+        "horizon_days": result.horizon_days,
+        "input_fingerprint": result.input_fingerprint,
+        "demand_units": result.demand_units,
+        "fulfilled_units": result.fulfilled_units,
+        "stockout_units": result.stockout_units,
+        "expired_units": result.expired_units,
+        "ordered_units": result.ordered_units,
+        "ending_units": result.ending_units,
+        "fill_rate": result.fill_rate,
+        "demand_service_level": result.demand_service_level,
+        "average_on_hand": result.average_on_hand,
+        "stockout_event_count": result.stockout_event_count,
+        "order_count": result.order_count,
         "per_sku": [asdict(value) for value in result.per_sku],
         "events": [asdict(value) for value in result.events],
-        "assumptions": {
-            "allocation": "first_expire_first_out",
-            "day_order": [
-                "arrivals",
-                "expiry",
-                "demand",
-                "reorder_decision",
-                "end_of_day_inventory",
-            ],
-            "expiry_semantics": (
-                "a lot with expires_day=d is unavailable from the start of day d"
-            ),
-            "replenishment": (
-                "orders are placed after demand and arrive after the declared positive lead time"
-            ),
-            "runtime_inventory_mutation": False,
-        },
+        "limitations": [
+            "This is an offline deterministic replay and never mutates household inventory.",
+            "Demand, lead times, reorder policy, and shelf life are explicit scenario inputs rather than learned guarantees.",
+            "Fill rate and waste are reported separately; no automatic procurement policy is selected."
+        ],
     }
 
 
