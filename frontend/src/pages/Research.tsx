@@ -4,17 +4,31 @@ import AppLayout from "@/components/AppLayout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   evidenceHistoryApi,
   researchApi,
+  type EvidenceLifecycleEvent,
   type IngredientConversionVersion,
   type StoragePolicyVersion,
 } from "@/lib/platformApi";
-import { Beaker, Database, FlaskConical, Info, ShieldCheck } from "lucide-react";
+import {
+  Beaker,
+  Database,
+  FileClock,
+  FlaskConical,
+  Info,
+  ShieldCheck,
+} from "lucide-react";
 
 const collections = ["tasks", "datasets", "models", "experiments", "features"] as const;
 type CollectionName = (typeof collections)[number];
@@ -49,10 +63,37 @@ function dateLabel(value?: string | null): string {
 
 function statusVariant(value: unknown): "default" | "secondary" | "destructive" | "outline" {
   const normalized = String(value ?? "").toLowerCase();
-  if (normalized.includes("broken") || normalized.includes("clinical") || normalized.includes("high")) return "destructive";
-  if (normalized.includes("available") || normalized.includes("executable") || normalized.includes("implemented") || normalized === "reviewed") return "default";
-  if (normalized.includes("research") || normalized.includes("optional") || normalized.includes("missing") || normalized.includes("unverified")) return "secondary";
+  if (
+    normalized.includes("broken") ||
+    normalized.includes("clinical") ||
+    normalized.includes("high") ||
+    normalized.includes("rejected")
+  ) {
+    return "destructive";
+  }
+  if (
+    normalized.includes("available") ||
+    normalized.includes("executable") ||
+    normalized.includes("implemented") ||
+    normalized === "reviewed"
+  ) {
+    return "default";
+  }
+  if (
+    normalized.includes("research") ||
+    normalized.includes("optional") ||
+    normalized.includes("missing") ||
+    normalized.includes("unverified") ||
+    normalized.includes("deactivated")
+  ) {
+    return "secondary";
+  }
   return "outline";
+}
+
+function metadataLabel(value: Record<string, unknown>): string | null {
+  if (Object.keys(value).length === 0) return null;
+  return JSON.stringify(value, null, 2);
 }
 
 export default function ResearchPage() {
@@ -81,6 +122,11 @@ export default function ResearchPage() {
     queryFn: () => evidenceHistoryApi.conversions({ activeOnly: false }),
     staleTime: 30 * 60_000,
   });
+  const lifecycleQ = useQuery({
+    queryKey: ["food-evidence-history", "lifecycle-events"],
+    queryFn: () => evidenceHistoryApi.lifecycleEvents({ limit: 500 }),
+    staleTime: 5 * 60_000,
+  });
 
   const items = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -92,6 +138,12 @@ export default function ResearchPage() {
   const summary = catalogQ.data?.summary ?? {};
   const implemented = catalogQ.data?.implemented_components ?? {};
   const executableCount = Object.keys(implemented).length;
+  const pageError =
+    catalogQ.error ||
+    collectionQ.error ||
+    policiesQ.error ||
+    conversionsQ.error ||
+    lifecycleQ.error;
 
   return (
     <AppLayout>
@@ -103,11 +155,11 @@ export default function ResearchPage() {
           </p>
         </div>
 
-        {(catalogQ.error || collectionQ.error || policiesQ.error || conversionsQ.error) && (
+        {pageError && (
           <Alert variant="destructive">
             <Info className="h-4 w-4" />
             <AlertTitle>Registry data unavailable</AlertTitle>
-            <AlertDescription>{messageOf(catalogQ.error || collectionQ.error || policiesQ.error || conversionsQ.error)}</AlertDescription>
+            <AlertDescription>{messageOf(pageError)}</AlertDescription>
           </Alert>
         )}
 
@@ -138,7 +190,7 @@ export default function ResearchPage() {
           <ShieldCheck className="h-4 w-4" />
           <AlertTitle>Governance boundary</AlertTitle>
           <AlertDescription>
-            A catalog entry or importable callable is not a trained or deployed model. Evidence history is read-only through the product API; registration and supersession remain reviewed offline operations.
+            A catalog entry or importable callable is not a trained or deployed model. Evidence registration, supersession, rejection, and deactivation remain reviewed offline operations; the product API is read-only except for applying an already reviewed exact conversion.
           </AlertDescription>
         </Alert>
 
@@ -158,17 +210,34 @@ export default function ResearchPage() {
               <CardContent className="grid gap-3 md:grid-cols-4">
                 <div className="space-y-1">
                   <Label htmlFor="collection">Collection</Label>
-                  <select id="collection" value={collection} onChange={(event) => setCollection(event.target.value as CollectionName)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                    {collections.map((name) => <option key={name} value={name}>{name}</option>)}
+                  <select
+                    id="collection"
+                    value={collection}
+                    onChange={(event) => setCollection(event.target.value as CollectionName)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    {collections.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="readiness">Readiness</Label>
-                  <Input id="readiness" placeholder="e.g. baseline_available" value={readiness} onChange={(event) => setReadiness(event.target.value)} />
+                  <Input
+                    id="readiness"
+                    placeholder="e.g. baseline_available"
+                    value={readiness}
+                    onChange={(event) => setReadiness(event.target.value)}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="risk">Risk</Label>
-                  <Input id="risk" placeholder="e.g. moderate" value={risk} onChange={(event) => setRisk(event.target.value)} />
+                  <Input
+                    id="risk"
+                    placeholder="e.g. moderate"
+                    value={risk}
+                    onChange={(event) => setRisk(event.target.value)}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="catalog-search">Search</Label>
@@ -187,39 +256,61 @@ export default function ResearchPage() {
                         <CardDescription>{String(item.id ?? "No identifier")}</CardDescription>
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {item.readiness !== undefined && <Badge variant={statusVariant(item.readiness)}>{label(item.readiness)}</Badge>}
-                        {item.risk !== undefined && <Badge variant={statusVariant(item.risk)}>{label(item.risk)}</Badge>}
+                        {item.readiness !== undefined && (
+                          <Badge variant={statusVariant(item.readiness)}>{label(item.readiness)}</Badge>
+                        )}
+                        {item.risk !== undefined && (
+                          <Badge variant={statusVariant(item.risk)}>{label(item.risk)}</Badge>
+                        )}
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm">
                     {typeof item.description === "string" && <p>{item.description}</p>}
-                    {typeof item.family === "string" && <p><span className="text-muted-foreground">Family:</span> {label(item.family)}</p>}
-                    {Array.isArray(item.tasks) && <p><span className="text-muted-foreground">Tasks:</span> {item.tasks.join(", ")}</p>}
-                    {Array.isArray(item.datasets) && <p><span className="text-muted-foreground">Datasets:</span> {item.datasets.join(", ")}</p>}
-                    {Array.isArray(item.models) && <p><span className="text-muted-foreground">Models:</span> {item.models.join(", ")}</p>}
-                    {typeof item.default_enabled === "boolean" && <p><span className="text-muted-foreground">Default enabled:</span> {item.default_enabled ? "yes" : "no"}</p>}
+                    {typeof item.family === "string" && (
+                      <p><span className="text-muted-foreground">Family:</span> {label(item.family)}</p>
+                    )}
+                    {Array.isArray(item.tasks) && (
+                      <p><span className="text-muted-foreground">Tasks:</span> {item.tasks.join(", ")}</p>
+                    )}
+                    {Array.isArray(item.datasets) && (
+                      <p><span className="text-muted-foreground">Datasets:</span> {item.datasets.join(", ")}</p>
+                    )}
+                    {Array.isArray(item.models) && (
+                      <p><span className="text-muted-foreground">Models:</span> {item.models.join(", ")}</p>
+                    )}
+                    {typeof item.default_enabled === "boolean" && (
+                      <p><span className="text-muted-foreground">Default enabled:</span> {item.default_enabled ? "yes" : "no"}</p>
+                    )}
                   </CardContent>
                 </Card>
               ))}
-              {!collectionQ.isLoading && items.length === 0 && <p className="text-sm text-muted-foreground">No catalog items match these filters.</p>}
+              {!collectionQ.isLoading && items.length === 0 && (
+                <p className="text-sm text-muted-foreground">No catalog items match these filters.</p>
+              )}
             </div>
           </TabsContent>
 
           <TabsContent value="implemented" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base"><FlaskConical className="h-4 w-4" />Runtime capability registry</CardTitle>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <FlaskConical className="h-4 w-4" />Runtime capability registry
+                </CardTitle>
                 <CardDescription>Importable code is not benchmark quality, production approval, or clinical validation.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {Object.entries(implemented).map(([id, value]) => {
-                  const detail = value && typeof value === "object" ? value as Record<string, unknown> : { status: value };
+                  const detail = value && typeof value === "object"
+                    ? value as Record<string, unknown>
+                    : { status: value };
                   return (
                     <div key={id} className="rounded-md border p-3 text-sm">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <code className="font-medium">{id}</code>
-                        <Badge variant={statusVariant(detail.status ?? detail.readiness)}>{label(detail.status ?? detail.readiness)}</Badge>
+                        <Badge variant={statusVariant(detail.status ?? detail.readiness)}>
+                          {label(detail.status ?? detail.readiness)}
+                        </Badge>
                       </div>
                       <p className="mt-2 text-xs text-muted-foreground">
                         Runtime available: {detail.runtime_available === true ? "yes" : "no"} · runtime enabled: {detail.runtime_enabled === true ? "yes" : "no"}
@@ -227,11 +318,15 @@ export default function ResearchPage() {
                       {typeof detail.implementation_error === "string" && detail.implementation_error && (
                         <p className="mt-2 text-xs text-destructive">{detail.implementation_error}</p>
                       )}
-                      {typeof detail.note === "string" && <p className="mt-2 text-xs text-muted-foreground">{detail.note}</p>}
+                      {typeof detail.note === "string" && (
+                        <p className="mt-2 text-xs text-muted-foreground">{detail.note}</p>
+                      )}
                     </div>
                   );
                 })}
-                {!catalogQ.isLoading && executableCount === 0 && <p className="text-sm text-muted-foreground">No runtime capability metadata was returned.</p>}
+                {!catalogQ.isLoading && executableCount === 0 && (
+                  <p className="text-sm text-muted-foreground">No runtime capability metadata was returned.</p>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -241,13 +336,16 @@ export default function ResearchPage() {
               <ShieldCheck className="h-4 w-4" />
               <AlertTitle>Immutable history</AlertTitle>
               <AlertDescription>
-                Active and superseded versions are shown together. Only an active reviewed exact conversion or policy is eligible for automatic product use.
+                Active, superseded, deactivated, and rejected records remain auditable. Only an active reviewed exact conversion or policy is eligible for automatic product use.
               </AlertDescription>
             </Alert>
+
             <div className="grid gap-4 lg:grid-cols-2">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base"><Database className="h-4 w-4" />Conversion versions</CardTitle>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Database className="h-4 w-4" />Conversion versions
+                  </CardTitle>
                   <CardDescription>Ingredient and unit-direction evidence with immutable versions and hashes.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
@@ -257,23 +355,37 @@ export default function ResearchPage() {
                         <span className="font-medium">{conversion.canonical_name}</span>
                         <div className="flex gap-1">
                           <Badge variant={statusVariant(conversion.evidence_status)}>{label(conversion.evidence_status)}</Badge>
-                          <Badge variant={conversion.active ? "default" : "secondary"}>{conversion.active ? "active" : "superseded/inactive"}</Badge>
+                          <Badge variant={conversion.active ? "default" : "secondary"}>
+                            {conversion.active ? "active" : "superseded/withdrawn/inactive"}
+                          </Badge>
                         </div>
                       </div>
-                      <p>{conversion.from_unit} → {conversion.multiplier_min === conversion.multiplier_max ? conversion.multiplier_min : `${conversion.multiplier_min}–${conversion.multiplier_max}`} {conversion.to_unit}</p>
+                      <p>
+                        {conversion.from_unit} → {conversion.multiplier_min === conversion.multiplier_max
+                          ? conversion.multiplier_min
+                          : `${conversion.multiplier_min}–${conversion.multiplier_max}`} {conversion.to_unit}
+                      </p>
                       <p className="text-xs text-muted-foreground">Record {conversion.record_version} · source {conversion.source_version}</p>
                       <p className="text-xs text-muted-foreground">Reviewed by {conversion.reviewed_by ?? "not recorded"} · {dateLabel(conversion.reviewed_at)}</p>
-                      <p className="text-xs text-muted-foreground">SHA-256 <code title={conversion.content_hash}>{shortHash(conversion.content_hash)}</code></p>
-                      {conversion.supersedes_conversion_id && <p className="text-xs text-muted-foreground">Supersedes record #{conversion.supersedes_conversion_id}</p>}
+                      <p className="text-xs text-muted-foreground">
+                        SHA-256 <code title={conversion.content_hash}>{shortHash(conversion.content_hash)}</code>
+                      </p>
+                      {conversion.supersedes_conversion_id && (
+                        <p className="text-xs text-muted-foreground">Supersedes record #{conversion.supersedes_conversion_id}</p>
+                      )}
                     </div>
                   ))}
-                  {!conversionsQ.isLoading && (conversionsQ.data?.length ?? 0) === 0 && <p className="text-sm text-muted-foreground">No immutable conversion versions are registered.</p>}
+                  {!conversionsQ.isLoading && (conversionsQ.data?.length ?? 0) === 0 && (
+                    <p className="text-sm text-muted-foreground">No immutable conversion versions are registered.</p>
+                  )}
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base"><Beaker className="h-4 w-4" />Storage-policy versions</CardTitle>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Beaker className="h-4 w-4" />Storage-policy versions
+                  </CardTitle>
                   <CardDescription>Review assumptions and exact immutable provenance; no policy is a universal safety guarantee.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
@@ -283,27 +395,101 @@ export default function ResearchPage() {
                         <span className="font-medium">{policy.food_category}</span>
                         <div className="flex gap-1">
                           <Badge variant="outline">{policy.storage_state}</Badge>
-                          <Badge variant={policy.active ? "default" : "secondary"}>{policy.active ? "active" : "superseded/inactive"}</Badge>
+                          <Badge variant={policy.active ? "default" : "secondary"}>
+                            {policy.active ? "active" : "superseded/withdrawn/inactive"}
+                          </Badge>
                         </div>
                       </div>
-                      <p>{policy.duration_min_hours ?? "?"}–{policy.duration_max_hours ?? "?"} hours{policy.maximum_temperature_c !== null && policy.maximum_temperature_c !== undefined ? ` at or below ${policy.maximum_temperature_c}°C` : ""}</p>
+                      <p>
+                        {policy.duration_min_hours ?? "?"}–{policy.duration_max_hours ?? "?"} hours
+                        {policy.maximum_temperature_c !== null && policy.maximum_temperature_c !== undefined
+                          ? ` at or below ${policy.maximum_temperature_c}°C`
+                          : ""}
+                      </p>
                       <p className="text-xs text-muted-foreground">Policy {policy.policy_key} · version {policy.policy_version}</p>
                       <p className="text-xs text-muted-foreground">{policy.source_name} · source {policy.source_version}</p>
                       <p className="text-xs text-muted-foreground">Reviewed by {policy.reviewed_by ?? "not recorded"} · {dateLabel(policy.reviewed_at)}</p>
                       <p className="text-xs text-muted-foreground">Scope: {label(policy.safety_scope)}</p>
-                      <p className="text-xs text-muted-foreground">SHA-256 <code title={policy.content_hash}>{shortHash(policy.content_hash)}</code></p>
-                      {policy.supersedes_policy_id && <p className="text-xs text-muted-foreground">Supersedes policy record #{policy.supersedes_policy_id}</p>}
+                      <p className="text-xs text-muted-foreground">
+                        SHA-256 <code title={policy.content_hash}>{shortHash(policy.content_hash)}</code>
+                      </p>
+                      {policy.supersedes_policy_id && (
+                        <p className="text-xs text-muted-foreground">Supersedes policy record #{policy.supersedes_policy_id}</p>
+                      )}
                     </div>
                   ))}
-                  {!policiesQ.isLoading && (policiesQ.data?.length ?? 0) === 0 && <p className="text-sm text-muted-foreground">No immutable storage-policy versions are registered.</p>}
+                  {!policiesQ.isLoading && (policiesQ.data?.length ?? 0) === 0 && (
+                    <p className="text-sm text-muted-foreground">No immutable storage-policy versions are registered.</p>
+                  )}
                 </CardContent>
               </Card>
             </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <FileClock className="h-4 w-4" />Lifecycle events
+                </CardTitle>
+                <CardDescription>
+                  Append-only rejection and deactivation records. These events never rewrite the target evidence content.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {(lifecycleQ.data ?? []).map((event: EvidenceLifecycleEvent) => {
+                  const metadata = metadataLabel(event.metadata);
+                  return (
+                    <div key={event.id} className="rounded-md border p-3 text-sm">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <p className="font-medium capitalize">
+                            {label(event.target_kind)} #{event.target_id}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Target version {event.target_record_version}
+                          </p>
+                        </div>
+                        <Badge variant={statusVariant(event.action)}>{label(event.action)}</Badge>
+                      </div>
+                      <p className="mt-2">{event.reason}</p>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Actor {event.actor} · {dateLabel(event.created_at)} · target was {event.target_was_active ? "active" : "already inactive"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Target SHA-256 <code title={event.target_content_hash}>{shortHash(event.target_content_hash)}</code>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Request SHA-256 <code title={event.request_fingerprint}>{shortHash(event.request_fingerprint)}</code>
+                      </p>
+                      {metadata && (
+                        <pre className="mt-2 overflow-x-auto rounded bg-muted p-2 text-xs" aria-label={`Lifecycle metadata for event ${event.id}`}>
+                          {metadata}
+                        </pre>
+                      )}
+                    </div>
+                  );
+                })}
+                {!lifecycleQ.isLoading && (lifecycleQ.data?.length ?? 0) === 0 && (
+                  <p className="text-sm text-muted-foreground">No lifecycle events are registered.</p>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
 
         <div className="flex justify-end">
-          <Button variant="outline" type="button" onClick={() => void Promise.all([catalogQ.refetch(), collectionQ.refetch(), policiesQ.refetch(), conversionsQ.refetch()])}>Refresh registry</Button>
+          <Button
+            variant="outline"
+            type="button"
+            onClick={() => void Promise.all([
+              catalogQ.refetch(),
+              collectionQ.refetch(),
+              policiesQ.refetch(),
+              conversionsQ.refetch(),
+              lifecycleQ.refetch(),
+            ])}
+          >
+            Refresh registry
+          </Button>
         </div>
       </div>
     </AppLayout>
