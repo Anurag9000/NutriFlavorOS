@@ -32,6 +32,10 @@ jobs:
         run: >-
           python scripts/validate_openapi_contracts.py
           --output /tmp/openapi_contracts.json
+      - name: Frontend OpenAPI binding gate
+        run: >-
+          python scripts/validate_frontend_openapi_bindings.py
+          --output /tmp/frontend_openapi_bindings.json
       - run: pytest -q backend/tests
       - name: Deterministic planner benchmark gate
         run: >-
