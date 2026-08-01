@@ -12,19 +12,24 @@ import argparse
 import json
 import re
 from pathlib import Path
-from typing import Iterable
 
 from backend.research.capabilities import (
     assert_core_capabilities_valid,
     implementation_status,
 )
 from backend.research.catalog import Readiness, get_catalog
-from backend.schema_verification import CURRENT_ALEMBIC_REVISION
+from backend.schema_verification import (
+    CURRENT_ALEMBIC_REVISION,
+    CURRENT_REQUIRED_TABLES,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_BENCHMARK_FILES = {
     "planner": ROOT / "benchmarks" / "planner_small.json",
+    "preparation_scheduler": ROOT
+    / "benchmarks"
+    / "preparation_scheduler_small.json",
     "inventory": ROOT / "benchmarks" / "inventory_small.json",
     "forecast_inventory": ROOT / "benchmarks" / "forecast_inventory_small.json",
 }
@@ -32,6 +37,11 @@ DOCUMENTS_WITH_CATALOG_COUNTS = {
     ROOT / "README.md",
     ROOT / "docs" / "RESEARCH_PLATFORM.md",
     ROOT / "docs" / "IMPLEMENTATION_STATUS.md",
+}
+EXPECTED_EVIDENCE_TABLES = {
+    "ingredient_conversion_versions",
+    "storage_policy_versions",
+    "leftover_storage_policy_evidence",
 }
 
 
@@ -109,29 +119,41 @@ def validate_repository_contracts() -> dict:
             + ", ".join(missing_capabilities)
         )
 
+    missing_schema_contract = EXPECTED_EVIDENCE_TABLES - set(CURRENT_REQUIRED_TABLES)
+    if missing_schema_contract:
+        errors.append(
+            "immutable evidence tables missing from runtime schema contract: "
+            + ", ".join(sorted(missing_schema_contract))
+        )
+
     for label, path in sorted(EXPECTED_BENCHMARK_FILES.items()):
         if not path.is_file():
             errors.append(f"missing {label} benchmark fixture: {path.relative_to(ROOT)}")
             continue
         try:
-            json.loads(path.read_text(encoding="utf-8"))
+            value = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(value, dict):
+                errors.append(
+                    f"benchmark fixture must be a JSON object: {path.relative_to(ROOT)}"
+                )
         except json.JSONDecodeError as exc:
             errors.append(f"invalid JSON in {path.relative_to(ROOT)}: {exc}")
 
     for path in sorted(DOCUMENTS_WITH_CATALOG_COUNTS):
         errors.extend(_document_errors(path, counts, catalog.version))
 
-    migration_path = (
-        ROOT
-        / "backend"
-        / "migrations"
-        / "versions"
-        / f"{CURRENT_ALEMBIC_REVISION}_version_preparation_profiles.py"
+    migration_matches = sorted(
+        (
+            ROOT / "backend" / "migrations" / "versions"
+        ).glob(f"{CURRENT_ALEMBIC_REVISION}_*.py")
     )
-    if not migration_path.is_file():
+    if len(migration_matches) != 1:
+        rendered = ", ".join(
+            str(path.relative_to(ROOT)) for path in migration_matches
+        ) or "none"
         errors.append(
-            "schema verifier head does not map to the expected migration file: "
-            + str(migration_path.relative_to(ROOT))
+            "schema verifier head must map to exactly one migration file; "
+            f"observed {rendered}"
         )
 
     return {
@@ -140,10 +162,14 @@ def validate_repository_contracts() -> dict:
         "migration_head": CURRENT_ALEMBIC_REVISION,
         "counts": counts,
         "capability_count": len(capabilities),
+        "required_runtime_tables": sorted(CURRENT_REQUIRED_TABLES),
         "benchmark_fixtures": {
             label: str(path.relative_to(ROOT))
             for label, path in sorted(EXPECTED_BENCHMARK_FILES.items())
         },
+        "migration_files": [
+            str(path.relative_to(ROOT)) for path in migration_matches
+        ],
         "errors": errors,
     }
 
