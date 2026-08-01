@@ -1,6 +1,6 @@
 {
-  "contract_version": "2026-08-01.3",
-  "api_version": "0.6.0",
+  "contract_version": "2026-08-01.4",
+  "api_version": "0.7.0",
   "paths": {
     "/api/v1/food-evidence/history/conversions": {
       "methods": ["get"],
@@ -28,6 +28,42 @@
     },
     "/api/v1/preparation/compile-and-schedule": {
       "methods": ["post"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/preparation-operations/resource-calendars": {
+      "methods": ["get", "post"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/preparation-operations/resource-calendars/{calendar_id}": {
+      "methods": ["get"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/preparation-operations/schedules": {
+      "methods": ["get", "post"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}": {
+      "methods": ["get"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/approve": {
+      "methods": ["post"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/complete": {
+      "methods": ["post"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/cancel": {
+      "methods": ["post"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/invalidate": {
+      "methods": ["post"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/events": {
+      "methods": ["get"],
       "authenticated": true
     },
     "/api/v1/research/catalog": {
@@ -112,6 +148,67 @@
     },
     "CompileAndScheduleResponse": {
       "required": ["compilation", "partial", "execution_status"]
+    },
+    "ResourceCalendarVersionView": {
+      "required": [
+        "id",
+        "household_id",
+        "calendar_version",
+        "horizon_minutes",
+        "timezone",
+        "evidence_status",
+        "reviewed_at",
+        "reviewed_by",
+        "notes",
+        "content_hash",
+        "supersedes_calendar_id",
+        "active",
+        "created_by_user_id",
+        "created_at",
+        "updated_at",
+        "resources"
+      ]
+    },
+    "PersistedPreparationScheduleView": {
+      "required": [
+        "id",
+        "household_id",
+        "calendar_version_id",
+        "calendar_content_hash",
+        "source_plan_id",
+        "source_plan_version",
+        "occurrence_set_version",
+        "occurrence_set_hash",
+        "profile_versions",
+        "schedule",
+        "schedule_hash",
+        "status",
+        "version",
+        "notes",
+        "created_by_user_id",
+        "approved_by_user_id",
+        "approved_at",
+        "invalidated_at",
+        "invalidation_reason",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "PreparationScheduleEventView": {
+      "required": [
+        "id",
+        "schedule_id",
+        "household_id",
+        "event_type",
+        "actor_user_id",
+        "from_status",
+        "to_status",
+        "reason",
+        "metadata",
+        "idempotency_key",
+        "request_fingerprint",
+        "created_at"
+      ]
     }
   },
   "forbidden_mutation_prefixes": [
