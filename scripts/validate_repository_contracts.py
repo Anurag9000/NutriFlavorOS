@@ -3,7 +3,8 @@
 
 This validator intentionally checks declarations, not model quality. It catches
 catalog/capability drift, stale migration heads, missing benchmark fixtures,
-missing release contracts, and stale public catalog declarations.
+missing release contracts, migration-chain defects, and stale public catalog
+declarations.
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from backend.schema_verification import (
     CURRENT_ALEMBIC_REVISION,
     CURRENT_REQUIRED_TABLES,
 )
+from scripts.validate_alembic_chain import validate_alembic_chain
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -207,6 +209,11 @@ def validate_repository_contracts() -> dict:
             f"observed {rendered}"
         )
 
+    alembic_report = validate_alembic_chain()
+    errors.extend(
+        f"Alembic chain: {value}" for value in alembic_report["errors"]
+    )
+
     return {
         "valid": not errors,
         "catalog_version": catalog.version,
@@ -223,6 +230,14 @@ def validate_repository_contracts() -> dict:
         "migration_files": [
             str(path.relative_to(ROOT)) for path in migration_matches
         ],
+        "alembic_chain": {
+            "valid": alembic_report["valid"],
+            "heads": alembic_report["heads"],
+            "bases": alembic_report["bases"],
+            "revision_count": alembic_report["revision_count"],
+            "migration_file_count": alembic_report["migration_file_count"],
+            "linear_chain": alembic_report["linear_chain"],
+        },
         "errors": errors,
     }
 
