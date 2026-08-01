@@ -60,13 +60,17 @@ class PreparationResource(StrictPreparationModel):
             {"available_from_minute", "available_until_minute"}
             & self.model_fields_set
         )
-        if explicit_windows and self.availability_windows and explicit_legacy:
+        if explicit_windows and explicit_legacy:
             raise ValueError(
                 "availability_windows cannot be combined with legacy "
                 "available_from_minute/available_until_minute fields"
             )
+        if explicit_windows and not self.availability_windows:
+            raise ValueError(
+                "availability_windows cannot be empty when explicitly provided"
+            )
         if (
-            not self.availability_windows
+            not explicit_windows
             and self.available_until_minute is not None
             and self.available_until_minute <= self.available_from_minute
         ):
