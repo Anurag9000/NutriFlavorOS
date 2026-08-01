@@ -21,7 +21,8 @@ def test_repository_contracts_are_synchronized():
         "evidence_lifecycle_events",
     } <= set(report["required_runtime_tables"])
     assert report["typed_fixtures"] == {
-        "food_evidence_import": "food-evidence-import-v1"
+        "food_evidence_import": "food-evidence-import-v1",
+        "food_evidence_lifecycle": "evidence-lifecycle-v1",
     }
     assert report["release_contracts"] == {"openapi": "2026-08-01.2"}
     assert report["migration_files"] == [
