@@ -1,5 +1,5 @@
 {
-  "contract_version": "2026-08-01.2",
+  "contract_version": "2026-08-01.3",
   "api_version": "0.6.0",
   "paths": {
     "/api/v1/food-evidence/history/conversions": {
@@ -88,7 +88,9 @@
         "source_name",
         "source_url",
         "source_version",
-        "evidence_status"
+        "evidence_status",
+        "reviewed_at",
+        "reviewed_by"
       ]
     },
     "EvidenceLifecycleEventView": {
