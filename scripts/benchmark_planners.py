@@ -8,25 +8,32 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
+from backend.domain.benchmark_fixtures import PlannerBenchmarkFixture
 from backend.research.planner_benchmarks import generate_problem, run_benchmark
 
 
-def _load_or_generate(args: argparse.Namespace, parser: argparse.ArgumentParser) -> Dict[str, Any]:
+def _load_or_generate(
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+) -> Dict[str, Any]:
     if args.problem is not None and args.generate_seed is not None:
         parser.error("Provide either a problem file or --generate-seed, not both")
     if args.problem is None and args.generate_seed is None:
         parser.error("Provide a problem file or --generate-seed")
     if args.problem is not None:
-        return json.loads(args.problem.read_text(encoding="utf-8"))
-    problem = generate_problem(
-        seed=args.generate_seed,
-        slots=args.slots,
-        options_per_slot=args.options_per_slot,
-    )
+        raw = json.loads(args.problem.read_text(encoding="utf-8"))
+        return PlannerBenchmarkFixture.model_validate(raw).to_problem()
+    problem = PlannerBenchmarkFixture.model_validate(
+        generate_problem(
+            seed=args.generate_seed,
+            slots=args.slots,
+            options_per_slot=args.options_per_slot,
+        )
+    ).to_problem()
     if args.save_problem is not None:
         args.save_problem.parent.mkdir(parents=True, exist_ok=True)
         args.save_problem.write_text(
-            json.dumps(problem, indent=2, sort_keys=True) + "\n",
+            json.dumps(problem, indent=2, sort_keys=True, allow_nan=False) + "\n",
             encoding="utf-8",
         )
     return problem
@@ -65,16 +72,21 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    problem = _load_or_generate(args, parser)
-    report = run_benchmark(
-        problem,
-        repeats=args.repeats,
-        max_objective_gap=args.max_objective_gap,
-        require_available=args.require_solver,
-    )
+    try:
+        problem = _load_or_generate(args, parser)
+        report = run_benchmark(
+            problem,
+            repeats=args.repeats,
+            max_objective_gap=args.max_objective_gap,
+            require_available=args.require_solver,
+        )
+    except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
+        print(f"Planner benchmark failed: {type(exc).__name__}: {exc}")
+        return 2
+
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
-        json.dumps(report, indent=2, sort_keys=True) + "\n",
+        json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n",
         encoding="utf-8",
     )
     print(args.output)
