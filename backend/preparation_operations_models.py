@@ -49,6 +49,16 @@ class DBResourceCalendarVersion(Base):
             "length(request_fingerprint) = 64",
             name="ck_resource_calendar_request_fingerprint_length",
         ),
+        CheckConstraint(
+            "((evidence_status = 'reviewed' AND reviewed_at IS NOT NULL "
+            "AND reviewed_by IS NOT NULL AND length(trim(reviewed_by)) > 0) OR "
+            "(evidence_status = 'draft' AND active = 0))",
+            name="ck_resource_calendar_review_state",
+        ),
+        CheckConstraint(
+            "active = 0 OR evidence_status = 'reviewed'",
+            name="ck_resource_calendar_active_reviewed",
+        ),
         Index(
             "uq_active_reviewed_resource_calendar_household",
             "household_id",
@@ -165,6 +175,19 @@ class DBPersistedPreparationSchedule(Base):
             "(source_plan_id IS NOT NULL AND source_plan_version IS NOT NULL))",
             name="ck_persisted_schedule_plan_source_pair",
         ),
+        CheckConstraint(
+            "((status IN ('approved','completed') AND approved_by_user_id IS NOT NULL "
+            "AND approved_at IS NOT NULL) OR status NOT IN ('approved','completed'))",
+            name="ck_persisted_schedule_approval_state",
+        ),
+        CheckConstraint(
+            "((status = 'invalidated' AND invalidated_at IS NOT NULL "
+            "AND invalidation_reason IS NOT NULL "
+            "AND length(trim(invalidation_reason)) > 0) OR "
+            "(status <> 'invalidated' AND invalidated_at IS NULL "
+            "AND invalidation_reason IS NULL))",
+            name="ck_persisted_schedule_invalidation_state",
+        ),
         Index(
             "ix_persisted_schedule_household_status_updated",
             "household_id",
@@ -247,6 +270,20 @@ class DBPreparationScheduleEvent(Base):
         CheckConstraint(
             "length(request_fingerprint) = 64",
             name="ck_preparation_schedule_event_fingerprint_length",
+        ),
+        CheckConstraint(
+            "((event_type = 'created' AND from_status IS NULL AND to_status = 'draft') OR "
+            "(event_type = 'approved' AND from_status = 'draft' AND to_status = 'approved') OR "
+            "(event_type = 'completed' AND from_status = 'approved' AND to_status = 'completed') OR "
+            "(event_type = 'cancelled' AND from_status IN ('draft','approved') "
+            "AND to_status = 'cancelled') OR "
+            "(event_type = 'invalidated' AND from_status IN ('draft','approved') "
+            "AND to_status = 'invalidated'))",
+            name="ck_preparation_schedule_event_transition_pair",
+        ),
+        CheckConstraint(
+            "length(trim(reason)) > 0",
+            name="ck_preparation_schedule_event_reason_nonblank",
         ),
         Index(
             "ix_preparation_schedule_event_schedule_created",
