@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { PREPARATION_OPERATIONS_HANDOFF_KEY } from "@/lib/preparationOperationsHandoff";
 import PreparationOperationsPage from "@/pages/PreparationOperations";
 
 const mocks = vi.hoisted(() => ({
@@ -146,6 +147,50 @@ function schedule(replayStatus: "replayable" | "legacy_request_missing") {
   };
 }
 
+function handoffBundle() {
+  return {
+    document_version: "preparation-operations-handoff-v1",
+    household_id: household.id,
+    created_at: "2026-08-01T00:00:00Z",
+    bundle: {
+      calendar_version_id: calendar.id,
+      source_plan_id: null,
+      source_plan_version: null,
+      occurrence_set_version: "occurrences-v1",
+      occurrence_set_hash: "f".repeat(64),
+      profile_versions: {
+        recipe: `profile:1/version:1/sha256:${"e".repeat(64)}`,
+      },
+      schedule_request: {
+        horizon_minutes: 240,
+        granularity_minutes: 5,
+        resources: [
+          {
+            resource_id: "person",
+            label: "Available cook",
+            capacity: 1,
+            availability_windows: [{ start_minute: 0, end_minute: 240 }],
+          },
+        ],
+        tasks: [
+          {
+            task_id: "prep",
+            duration_minutes: 20,
+            earliest_start_minute: 0,
+            latest_finish_minute: 60,
+            priority: 1,
+            resource_demands: { person: 1 },
+            dependencies: [],
+            metadata: { profile_content_hash: "e".repeat(64) },
+          },
+        ],
+      },
+      schedule_response: schedule("replayable").schedule,
+      notes: "Pipeline handoff",
+    },
+  };
+}
+
 function renderPage() {
   const client = new QueryClient({
     defaultOptions: {
@@ -162,6 +207,7 @@ function renderPage() {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  sessionStorage.clear();
   mocks.householdList.mockResolvedValue([household]);
   mocks.householdGet.mockResolvedValue({
     household,
@@ -192,6 +238,7 @@ beforeEach(() => {
     },
   ]);
   mocks.createCalendar.mockResolvedValue(calendar);
+  mocks.createSchedule.mockResolvedValue(schedule("replayable"));
 });
 
 describe("Preparation operations workspace", () => {
@@ -238,6 +285,30 @@ describe("Preparation operations workspace", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Load event history" })[0]);
     expect(await screen.findByText(/Persisted deterministic preparation schedule created/)).toBeInTheDocument();
     expect(mocks.events).toHaveBeenCalledWith(household.id, 21);
+  });
+
+  it("loads a one-time pipeline handoff without auto-persisting", async () => {
+    sessionStorage.setItem(
+      PREPARATION_OPERATIONS_HANDOFF_KEY,
+      JSON.stringify(handoffBundle()),
+    );
+    renderPage();
+
+    expect(await screen.findByText("Reviewed pipeline handoff loaded")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Persist reviewed output" })).toHaveAttribute("data-state", "active");
+    expect(screen.getByLabelText("Schedule creation bundle JSON")).toHaveValue(
+      JSON.stringify(handoffBundle().bundle, null, 2),
+    );
+    expect(sessionStorage.getItem(PREPARATION_OPERATIONS_HANDOFF_KEY)).toBeNull();
+    expect(mocks.createSchedule).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Persist replayable draft" }));
+    await waitFor(() => expect(mocks.createSchedule).toHaveBeenCalledTimes(1));
+    const [householdId, payload] = mocks.createSchedule.mock.calls[0];
+    expect(householdId).toBe(household.id);
+    expect(payload.calendar_version_id).toBe(calendar.id);
+    expect(payload.occurrence_set_hash).toBe("f".repeat(64));
+    expect(payload.idempotency_key).toMatch(/^schedule-create-/);
   });
 
   it("hides calendar registration and approval from a viewer", async () => {
