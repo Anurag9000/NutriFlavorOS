@@ -219,6 +219,7 @@ class DBPersistedPreparationSchedule(Base):
     source_plan_version = Column(Integer, nullable=True)
     occurrence_set_version = Column(String, nullable=False)
     occurrence_set_hash = Column(String, nullable=False)
+    occurrence_set_payload = Column(JSON, nullable=True)
     profile_versions = Column(JSON, nullable=False, default=dict)
     schedule_request_payload = Column(JSON, nullable=True)
     schedule_request_hash = Column(String, nullable=True, index=True)
