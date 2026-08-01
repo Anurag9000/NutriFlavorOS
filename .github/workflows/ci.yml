@@ -24,6 +24,10 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r backend/requirements.txt
       - run: python -m compileall -q backend scripts
+      - name: Repository contract gate
+        run: >-
+          python scripts/validate_repository_contracts.py
+          --output /tmp/repository_contracts.json
       - run: pytest -q backend/tests
       - name: Deterministic planner benchmark gate
         run: >-
@@ -34,6 +38,34 @@ jobs:
           --repeats 2
           --max-objective-gap 1.0
           --output /tmp/planner_benchmark.json
+      - name: Preparation heuristic exact-comparison gate
+        run: >-
+          python scripts/benchmark_preparation_schedulers.py
+          benchmarks/preparation_scheduler_small.json
+          --heuristic-repeats 2
+          --maximum-tasks 10
+          --maximum-nodes 500000
+          --require-heuristic-complete
+          --require-exact-optimal
+          --maximum-gap-minutes 0
+          --maximum-exact-nodes 500000
+          --output /tmp/preparation_scheduler_benchmark.json
+      - name: Temporal ranking and diversity gate
+        run: >-
+          python scripts/benchmark_rankers.py
+          --generate-seed 17
+          --user-count 18
+          --item-group-count 3
+          --items-per-group 8
+          --interactions-per-user 6
+          --k 5
+          --require-model bayesian_popularity_recommender
+          --require-model item_knn_recommender
+          --require-model mmr_diversity_reranker
+          --minimum-best-recall 0.0
+          --minimum-best-coverage 0.10
+          --maximum-hard-violations 0
+          --output /tmp/ranking_benchmark.json
       - name: Rolling-origin forecasting benchmark gate
         run: >-
           python scripts/benchmark_forecasters.py
@@ -56,10 +88,25 @@ jobs:
           --maximum-waste-units 1.0
           --maximum-stockout-units 0.0
           --output /tmp/inventory_simulation.json
+      - name: Forecast-to-inventory closed-loop gate
+        run: >-
+          python scripts/evaluate_forecast_inventory.py
+          benchmarks/forecast_inventory_small.json
+          --require-model seasonal_naive
+          --require-model tsb_intermittent_demand
+          --minimum-best-fill-rate 0.80
+          --maximum-least-waste 2.0
+          --output /tmp/forecast_inventory_evaluation.json
       - name: Fresh SQLite migration
         env:
           DATABASE_URL: sqlite:///ci-fresh.db
         run: alembic upgrade head
+      - name: Retain backend validation reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-validation-reports
+          path: /tmp/*.json
+          if-no-files-found: error
 
   postgres-migration:
     runs-on: ubuntu-latest
@@ -97,6 +144,14 @@ jobs:
         env:
           DATABASE_URL: postgresql+psycopg://nutriflavos:nutriflavos@localhost:5432/nutriflavos
         run: python scripts/check_full_request_idempotency.py
+      - name: Preparation evidence concurrency probe
+        env:
+          DATABASE_URL: postgresql+psycopg://nutriflavos:nutriflavos@localhost:5432/nutriflavos
+        run: python scripts/check_preparation_evidence_concurrency.py
+      - name: Immutable food-evidence concurrency probe
+        env:
+          DATABASE_URL: postgresql+psycopg://nutriflavos:nutriflavos@localhost:5432/nutriflavos
+        run: python scripts/check_evidence_history_concurrency.py
 
   frontend:
     runs-on: ubuntu-latest
