@@ -14,6 +14,7 @@ from backend.api import (
     analytics_routes,
     auth_routes,
     conversion_routes,
+    evidence_history_routes,
     household_routes,
     meal_routes,
     nutrition_routes,
@@ -29,6 +30,9 @@ from backend.api import (
 from backend.database import DB_URL, SessionLocal, init_db
 from backend.schema_verification import verify_runtime_schema
 from backend.services.conversion_service import seed_official_storage_policies
+from backend.services.official_evidence_history import (
+    seed_official_storage_policy_versions,
+)
 
 
 def _bool_env(name: str, default: bool) -> bool:
@@ -45,7 +49,11 @@ async def lifespan(_: FastAPI):
     if _bool_env("SEED_REVIEWED_STORAGE_POLICIES", True):
         db = SessionLocal()
         try:
+            # Retain the legacy read surface while every consumer migrates to
+            # exact immutable versions. The immutable seed supersedes migrated
+            # legacy policy rows and is the authoritative history surface.
             seed_official_storage_policies(db)
+            seed_official_storage_policy_versions(db)
         finally:
             db.close()
     yield
@@ -53,11 +61,11 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="NutriFlavorOS API",
-    version="0.5.0",
+    version="0.6.0",
     description=(
         "Experimental meal-planning, household-inventory, preparation-resource, "
-        "evidence, and offline-research API. Outputs are not medical advice and "
-        "must not be represented as clinically validated."
+        "immutable evidence, and offline-research API. Outputs are not medical "
+        "advice and must not be represented as clinically validated."
     ),
     lifespan=lifespan,
 )
@@ -99,6 +107,7 @@ app.include_router(user_routes.router)
 app.include_router(meal_routes.router)
 app.include_router(household_routes.router)
 app.include_router(conversion_routes.router)
+app.include_router(evidence_history_routes.router)
 app.include_router(analytics_routes.router)
 app.include_router(recipe_routes.router)
 app.include_router(substitution_routes.router)
