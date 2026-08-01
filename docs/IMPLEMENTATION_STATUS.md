@@ -4,9 +4,9 @@
 **Development policy:** coherent direct commits to `main`; no feature pull requests or development branches; no history rewriting.  
 **Database migration head:** `20260801_0012`  
 **API version:** `0.8.0`  
-**OpenAPI release contract:** `2026-08-02.1`  
+**OpenAPI release contract:** `2026-08-02.2`  
 **Food-evidence frontend binding contract:** `2026-08-01.2`  
-**Preparation-operations frontend binding contract:** `2026-08-02.1`  
+**Preparation-operations frontend binding contract:** `2026-08-02.2`  
 **Effective research catalog:** `2026-08-01.3`
 
 Current governed inventory remains:
@@ -159,6 +159,8 @@ An importable class, committed test, synthetic fixture, endpoint, model name, or
 - Tampered request, response, occurrence document, profile mapping, calendar, plan, or combined hash fails closed.
 - Legacy rows remain readable but non-approvable; an exact idempotent retry may backfill missing occurrence/request provenance.
 - Draft, approved, invalidated, completed, and cancelled lifecycle with optimistic versions and append-only events.
+- Household-scoped provenance coverage endpoint with explicit calendar, occurrence-document, scheduler-request, replayable-schedule, source-plan-link, status, and event denominators.
+- Coverage warnings identify legacy replay gaps and missing active reviewed calendars without treating coverage as correctness or safety.
 - Role-aware API and frontend workspace.
 - One authoritative mutation implementation; the former integrity service is a compatibility facade rather than a second write path.
 - PostgreSQL probe covers identical retries, competing transitions, and calendar-supersession/approval races.
@@ -176,13 +178,14 @@ An importable class, committed test, synthetic fixture, endpoint, model name, or
 ### Implemented
 
 - One routed React/TypeScript application with protected lazy routes and profile-completion routing.
-- Dashboard, planner, analytics, settings, household/pantry, preparation editor, reviewed pipeline, preparation operations, and research views.
+- Dashboard, planner, analytics, settings, household/pantry, preparation editor, reviewed pipeline, preparation operations, provenance coverage, and research views.
 - Role-based mutation controls and exact evidence provenance surfaces.
 - Mechanical OpenAPI-to-TypeScript checks for food evidence and preparation operations.
 - `preparation-operations-handoff-v2`: complete occurrence document, source-plan pair, profile versions, request, response, and local hash preview.
 - Browser-side task/occurrence/profile/duration consistency validation before handoff storage.
 - Operations workspace blocks approval when occurrence or replay provenance is missing.
-- Vitest browser-environment coverage, skip link, labels, keyboard navigation, and reduced-motion handling.
+- Protected provenance dashboard reports exact rates and lifecycle counts, preserves household isolation, exposes gaps, and explicitly rejects safety interpretation.
+- Vitest browser-environment coverage, skip link, labels, keyboard navigation, progress semantics, and reduced-motion handling.
 
 ### Remaining
 
