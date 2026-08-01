@@ -37,7 +37,12 @@ from backend.services.official_evidence_history import (
 
 
 def _bool_env(name: str, default: bool) -> bool:
-    return os.getenv(name, str(default)).strip().lower() in {"1", "true", "yes", "on"}
+    return os.getenv(name, str(default)).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 @asynccontextmanager
@@ -62,7 +67,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="NutriFlavorOS API",
-    version="0.7.0",
+    version="0.8.0",
     description=(
         "Experimental meal-planning, household-inventory, reviewed preparation "
         "operations, immutable evidence, and offline-research API. Outputs are "
@@ -74,7 +79,11 @@ app = FastAPI(
 
 def _cors_origins() -> list[str]:
     configured = os.getenv("CORS_ORIGINS", "http://localhost:5173")
-    return [origin.strip() for origin in configured.split(",") if origin.strip()]
+    return [
+        origin.strip()
+        for origin in configured.split(",")
+        if origin.strip()
+    ]
 
 
 origins = _cors_origins()
@@ -125,14 +134,21 @@ FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 if FRONTEND_DIST.is_dir():
     assets_dir = FRONTEND_DIST / "assets"
     if assets_dir.is_dir():
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend-assets")
+        app.mount(
+            "/assets",
+            StaticFiles(directory=assets_dir),
+            name="frontend-assets",
+        )
 
     @app.get("/{frontend_path:path}", include_in_schema=False)
     def serve_frontend(frontend_path: str):
         if frontend_path.startswith("api/"):
             raise HTTPException(status_code=404, detail="Not found")
         requested = (FRONTEND_DIST / frontend_path).resolve()
-        if requested.is_file() and FRONTEND_DIST.resolve() in requested.parents:
+        if (
+            requested.is_file()
+            and FRONTEND_DIST.resolve() in requested.parents
+        ):
             return FileResponse(requested)
         return FileResponse(FRONTEND_DIST / "index.html")
 
