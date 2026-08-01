@@ -9,6 +9,7 @@ from sqlalchemy import create_engine
 
 from backend.database import Base
 from backend.evidence_history_models import (  # noqa: F401
+    DBEvidenceLifecycleEvent,
     DBIngredientConversionVersion,
     DBLeftoverStoragePolicyEvidence,
     DBStoragePolicyVersion,
@@ -43,7 +44,7 @@ def test_stale_alembic_revision_is_rejected(tmp_path, monkeypatch):
 
     with pytest.raises(
         RuntimeError,
-        match="Expected 20260801_0007; observed 20260731_0005",
+        match="Expected 20260801_0008; observed 20260731_0005",
     ):
         verify_runtime_schema(create_engine(url))
 
