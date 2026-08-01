@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from backend.domain.preparation import (
     PreparationAvailabilityWindow,
+    PreparationScheduleRequest,
     PreparationScheduleResponse,
 )
 
@@ -36,6 +38,29 @@ class PreparationScheduleEventType(str, Enum):
     INVALIDATED = "invalidated"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+
+
+def _canonical_utc_timestamp(value: str | None) -> str | None:
+    if value is None:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("reviewed_at must be an ISO-8601 timestamp") from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _normalize_profile_versions(values: Dict[str, str]) -> Dict[str, str]:
+    normalized: Dict[str, str] = {}
+    for raw_key, raw_value in values.items():
+        key = raw_key.strip()
+        value = raw_value.strip()
+        if not key or not value:
+            raise ValueError("profile_versions keys and values cannot be blank")
+        normalized[key] = value
+    return dict(sorted(normalized.items()))
 
 
 class HouseholdResourceInput(StrictPreparationOperationsModel):
@@ -100,6 +125,7 @@ class ResourceCalendarVersionCreate(StrictPreparationOperationsModel):
     @model_validator(mode="after")
     def validate_calendar(self):
         self.timezone = self.timezone.strip()
+        self.reviewed_at = _canonical_utc_timestamp(self.reviewed_at)
         self.reviewed_by = self.reviewed_by.strip() if self.reviewed_by else None
         self.notes = self.notes.strip() if self.notes else None
         identifiers = [value.resource_id for value in self.resources]
@@ -183,6 +209,7 @@ class PersistedPreparationScheduleCreate(StrictPreparationOperationsModel):
             )
         if self.schedule.unscheduled:
             raise ValueError("persisted schedules must be complete")
+        self.profile_versions = _normalize_profile_versions(self.profile_versions)
         self.notes = self.notes.strip() if self.notes else None
         return self
 
@@ -215,6 +242,11 @@ class PersistedPreparationScheduleView(StrictPreparationOperationsModel):
     occurrence_set_version: str
     occurrence_set_hash: str
     profile_versions: Dict[str, str]
+    schedule_request: Optional[PreparationScheduleRequest] = None
+    schedule_request_hash: Optional[str] = None
+    replay_status: Literal["replayable", "legacy_request_missing"] = (
+        "legacy_request_missing"
+    )
     schedule: PreparationScheduleResponse
     schedule_hash: str
     status: PreparationScheduleStatus
