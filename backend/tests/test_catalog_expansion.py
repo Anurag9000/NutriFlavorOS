@@ -6,12 +6,12 @@ from backend.research.catalog import Readiness, RiskLevel, get_catalog
 
 def test_expanded_catalog_counts_and_version_are_stable():
     catalog = get_catalog()
-    assert catalog.version == "2026-08-01.1"
+    assert catalog.version == "2026-08-01.3"
     assert catalog.summary()["tasks"]["total"] == 37
     assert catalog.summary()["datasets"]["total"] == 30
-    assert catalog.summary()["models"]["total"] == 72
-    assert catalog.summary()["experiments"]["total"] == 28
-    assert catalog.summary()["features"]["total"] == 37
+    assert catalog.summary()["models"]["total"] == 75
+    assert catalog.summary()["experiments"]["total"] == 29
+    assert catalog.summary()["features"]["total"] == 39
 
 
 def test_new_architecture_families_are_present_with_truthful_readiness():
@@ -19,6 +19,7 @@ def test_new_architecture_families_are_present_with_truthful_readiness():
     models = {value.id: value for value in catalog.models}
     expected = {
         "preparation_resource_scheduler": Readiness.IMPLEMENTED,
+        "exact_preparation_scheduler": Readiness.BASELINE_AVAILABLE,
         "preparation_profile_compiler": Readiness.IMPLEMENTED,
         "robust_pareto_optimizer": Readiness.BASELINE_AVAILABLE,
         "planner_scenario_stress_test": Readiness.BASELINE_AVAILABLE,
@@ -30,6 +31,8 @@ def test_new_architecture_families_are_present_with_truthful_readiness():
         "bayesian_popularity_recommender": Readiness.BASELINE_AVAILABLE,
         "item_knn_recommender": Readiness.BASELINE_AVAILABLE,
         "mmr_diversity_reranker": Readiness.BASELINE_AVAILABLE,
+        "fefo_inventory_simulator": Readiness.BASELINE_AVAILABLE,
+        "forecast_inventory_pipeline": Readiness.BASELINE_AVAILABLE,
         "capability_registry_validator": Readiness.IMPLEMENTED,
     }
     for identifier, readiness in expected.items():
@@ -82,6 +85,16 @@ def test_new_datasets_experiments_and_features_are_connected():
     dataset_ids = {value.id for value in catalog.datasets}
     experiment_ids = {value.id for value in catalog.experiments}
     feature_ids = {value.id for value in catalog.features}
+    preparation_experiment = next(
+        value
+        for value in catalog.experiments
+        if value.id == "preparation_scheduler_benchmark"
+    )
+    inventory_experiment = next(
+        value
+        for value in catalog.experiments
+        if value.id == "inventory_simulation_replay"
+    )
 
     assert {
         "internal_preparation_profiles",
@@ -95,14 +108,21 @@ def test_new_datasets_experiments_and_features_are_connected():
         "preparation_scheduler_benchmark",
         "preparation_evidence_coverage",
         "ranking_diversity_benchmark",
+        "inventory_simulation_replay",
+        "forecast_inventory_closed_loop",
         "capability_registry_validation",
     } <= experiment_ids
+    assert "exact_preparation_scheduler" in preparation_experiment.models
+    assert "fefo_inventory_simulator" in inventory_experiment.models
     assert {
         "preparation_profiles",
         "preparation_task_compilation",
         "dependency_dag_scheduling",
+        "exact_preparation_benchmark",
         "robust_scenario_planning",
         "forecast_backtesting",
         "ranking_diversification",
+        "inventory_simulator",
+        "forecast_inventory_evaluation",
         "runtime_capability_validation",
     } <= feature_ids
