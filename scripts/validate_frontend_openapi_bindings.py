@@ -76,30 +76,32 @@ def _type_union_values(source: str, name: str) -> set[str]:
     )
     if match is None:
         raise ValueError(f"TypeScript union not found: {name}")
-    values = set(re.findall(r'["\']([^"\']+)["\']', match.group(1)))
+    values = set(re.findall(r"[\"']([^\"']+)[\"']", match.group(1)))
     if not values:
         raise ValueError(f"TypeScript union contains no string literals: {name}")
     return values
 
 
-def _binding_block(source: str, name: str) -> str:
-    match = re.search(rf"^  {re.escape(name)}\s*:", source, flags=re.MULTILINE)
+def _binding_block(object_source: str, name: str) -> str:
+    match = re.search(
+        rf"^  {re.escape(name)}\s*:",
+        object_source,
+        flags=re.MULTILINE,
+    )
     if match is None:
         raise ValueError(f"Frontend API binding not found: {name}")
     start = match.start()
     next_binding = re.search(
         r"^  [A-Za-z_][A-Za-z0-9_]*\s*:",
-        source[match.end() :],
+        object_source[match.end() :],
         flags=re.MULTILINE,
     )
     end = (
         match.end() + next_binding.start()
         if next_binding is not None
-        else source.find("\n};", match.end())
+        else len(object_source)
     )
-    if end < 0:
-        end = len(source)
-    return source[start:end]
+    return object_source[start:end]
 
 
 def _enum_from_openapi(schema: dict[str, Any]) -> set[str]:
@@ -189,38 +191,52 @@ def validate_frontend_openapi_bindings(
             "observed": sorted(observed),
         }
 
+    object_blocks: dict[str, str] = {}
     operation_report: list[dict[str, Any]] = []
     for operation in contract.get("operations", []):
         path = str(operation["openapi_path"])
         method = str(operation["method"]).lower()
+        object_name = str(operation["object"])
         binding = str(operation["binding"])
         fragment = str(operation["source_fragment"])
         path_value = paths.get(path)
-        actual_methods = {
-            key.lower()
-            for key in path_value
-            if isinstance(path_value, dict) and key.lower() in HTTP_METHODS
-        } if isinstance(path_value, dict) else set()
+        actual_methods = (
+            {
+                key.lower()
+                for key in path_value
+                if key.lower() in HTTP_METHODS
+            }
+            if isinstance(path_value, dict)
+            else set()
+        )
         if method not in actual_methods:
             errors.append(f"OpenAPI operation is missing: {method.upper()} {path}")
         try:
-            block = _binding_block(source, binding)
+            object_block = object_blocks.setdefault(
+                object_name,
+                _extract_braced_block(source, f"export const {object_name} ="),
+            )
+            block = _binding_block(object_block, binding)
         except ValueError as exc:
             errors.append(str(exc))
             continue
         if fragment not in block:
             errors.append(
-                f"Frontend binding {binding} does not contain declared route fragment: {fragment}"
+                f"Frontend binding {object_name}.{binding} does not contain declared route fragment: {fragment}"
             )
-        method_match = re.search(r'method\s*:\s*["\']([A-Za-z]+)["\']', block)
+        method_match = re.search(
+            r"method\s*:\s*[\"']([A-Za-z]+)[\"']",
+            block,
+        )
         observed_method = method_match.group(1).lower() if method_match else "get"
         if observed_method != method:
             errors.append(
-                f"Frontend binding {binding} method drift: expected {method}; observed {observed_method}"
+                f"Frontend binding {object_name}.{binding} method drift: expected {method}; observed {observed_method}"
             )
         operation_report.append(
             {
                 "path": path,
+                "object": object_name,
                 "binding": binding,
                 "expected_method": method,
                 "observed_method": observed_method,
