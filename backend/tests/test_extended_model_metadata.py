@@ -13,4 +13,5 @@ def test_extended_models_are_registered_on_shared_metadata():
         "ingredient_conversion_versions",
         "storage_policy_versions",
         "leftover_storage_policy_evidence",
+        "evidence_lifecycle_events",
     } <= set(Base.metadata.tables)
