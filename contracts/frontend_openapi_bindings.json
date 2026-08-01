@@ -1,0 +1,53 @@
+{
+  "contract_version": "2026-08-01.1",
+  "typescript_source": "frontend/src/lib/platformApi.ts",
+  "schemas": {
+    "IngredientConversionVersionView": "IngredientConversionVersion",
+    "StoragePolicyVersionView": "StoragePolicyVersion",
+    "ConversionApplicationResult": "ReviewedConversionResult",
+    "EvidenceLifecycleEventView": "EvidenceLifecycleEvent"
+  },
+  "enums": {
+    "EvidenceRecordStatus": "EvidenceRecordStatus",
+    "EvidenceTargetKind": "EvidenceTargetKind",
+    "EvidenceLifecycleAction": "EvidenceLifecycleAction"
+  },
+  "operations": [
+    {
+      "openapi_path": "/api/v1/food-evidence/history/conversions",
+      "method": "get",
+      "binding": "conversions",
+      "source_fragment": "/food-evidence/history/conversions?${params.toString()}"
+    },
+    {
+      "openapi_path": "/api/v1/food-evidence/history/convert-reviewed",
+      "method": "post",
+      "binding": "convertReviewed",
+      "source_fragment": "/food-evidence/history/convert-reviewed"
+    },
+    {
+      "openapi_path": "/api/v1/food-evidence/history/storage-policies",
+      "method": "get",
+      "binding": "storagePolicies",
+      "source_fragment": "/food-evidence/history/storage-policies?${params.toString()}"
+    },
+    {
+      "openapi_path": "/api/v1/food-evidence/history/storage-policies/{policy_key}/active-reviewed",
+      "method": "get",
+      "binding": "activeStoragePolicy",
+      "source_fragment": "/food-evidence/history/storage-policies/${encode(policyKey)}/active-reviewed"
+    },
+    {
+      "openapi_path": "/api/v1/food-evidence/history/lifecycle-events",
+      "method": "get",
+      "binding": "lifecycleEvents",
+      "source_fragment": "/food-evidence/history/lifecycle-events?${params.toString()}"
+    },
+    {
+      "openapi_path": "/api/v1/food-evidence/history/households/{household_id}/leftovers/{leftover_id}/storage-policy",
+      "method": "get",
+      "binding": "leftoverStoragePolicy",
+      "source_fragment": "/food-evidence/history/households/${encode(id)}/leftovers/${leftoverId}/storage-policy"
+    }
+  ]
+}
