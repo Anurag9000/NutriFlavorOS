@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from copy import deepcopy
 
 import pytest
 from fastapi import HTTPException
@@ -204,9 +204,12 @@ def test_approval_detects_request_response_and_combined_hash_tampering(db):
         payload=payload,
     )
     row = db.get(DBPersistedPreparationSchedule, request_tampered.id)
-    row.schedule_request_payload["tasks"][0]["duration_minutes"] = 25
+    tampered_request = deepcopy(row.schedule_request_payload)
+    tampered_request["tasks"][0]["duration_minutes"] = 25
+    row.schedule_request_payload = tampered_request
     db.add(row)
     db.commit()
+    db.expire_all()
     with pytest.raises(HTTPException) as exc:
         transition_schedule(
             db,
@@ -218,12 +221,15 @@ def test_approval_detects_request_response_and_combined_hash_tampering(db):
         )
     assert exc.value.detail["code"] == "schedule_request_hash_mismatch"
 
-    # Restore the request and tamper only with the stored response.
+    row = db.get(DBPersistedPreparationSchedule, request_tampered.id)
     row.schedule_request_payload = payload.schedule_request.model_dump(mode="json")
-    row.schedule_payload["scheduled"][0]["start_minute"] = 5
-    row.schedule_payload["scheduled"][0]["finish_minute"] = 25
+    tampered_response = deepcopy(row.schedule_payload)
+    tampered_response["scheduled"][0]["start_minute"] = 5
+    tampered_response["scheduled"][0]["finish_minute"] = 25
+    row.schedule_payload = tampered_response
     db.add(row)
     db.commit()
+    db.expire_all()
     with pytest.raises(HTTPException) as exc:
         transition_schedule(
             db,
@@ -235,10 +241,12 @@ def test_approval_detects_request_response_and_combined_hash_tampering(db):
         )
     assert exc.value.detail["code"] == "stored_schedule_replay_mismatch"
 
+    row = db.get(DBPersistedPreparationSchedule, request_tampered.id)
     row.schedule_payload = payload.schedule_response.model_dump(mode="json")
     row.schedule_hash = "f" * 64
     db.add(row)
     db.commit()
+    db.expire_all()
     with pytest.raises(HTTPException) as exc:
         transition_schedule(
             db,
