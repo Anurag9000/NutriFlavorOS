@@ -1,29 +1,32 @@
 # NutriFlavorOS
 
 NutriFlavorOS is an **experimental household food-planning, inventory,
-preparation-operations, immutable-evidence, and governed research platform**.
-It combines deterministic meal planning, transactional pantry and leftover
-workflows, role-aware collaboration, reviewed evidence histories,
-dependency-aware preparation scheduling, ranking evaluation, demand
-forecasting, and perishable-inventory replay.
+reviewed preparation-operations, immutable-evidence, and governed research
+platform**. It combines deterministic meal planning, transactional household
+food state, role-aware collaboration, explicit preparation resources,
+replayable schedules, evidence histories, offline ranking and forecasting, and
+perishable-inventory evaluation.
 
-> **Safety status:** NutriFlavorOS is not clinically validated, is not a medical
-> device, and must not autonomously diagnose, treat, manage allergies or
-> medication interactions, declare food safe, or make procurement decisions.
-> Experimental and high-risk capabilities remain disabled until their declared
-> data, validation, calibration, human-review, artifact, approval, rollback,
-> and monitoring gates are complete.
+> **Safety boundary:** NutriFlavorOS is not clinically validated, is not a
+> medical device, does not verify allergies or medication interactions, does
+> not declare food safe, does not observe whether a person is present, and does
+> not control appliances. Experimental and high-risk capabilities remain gated
+> until their declared data, validation, human-review, approval, rollback, and
+> monitoring requirements are complete.
 
-## Repository contract
+## Synchronized repository contract
 
 Development is performed directly on `main` in coherent commits. Code, tests,
-migrations, fixtures, capability registrations, catalog declarations, CI, and
-public documentation must remain synchronized. The repository does not use
-feature pull requests or automated dependency-update branches.
+migrations, fixtures, OpenAPI contracts, frontend bindings, capability
+registrations, catalog declarations, CI, and public documentation must evolve
+together. The repository does not use feature pull requests or automated
+dependency-update branches.
 
-- Database migration head: **`20260801_0008`**.
-- OpenAPI release contract: **`2026-08-01.3`**.
-- Frontend/OpenAPI binding contract: **`2026-08-01.2`**.
+- Database migration head: **`20260801_0011`**.
+- API version: **`0.7.0`**.
+- OpenAPI release contract: **`2026-08-01.4`**.
+- Food-evidence frontend binding contract: **`2026-08-01.2`**.
+- Preparation-operations frontend binding contract: **`2026-08-01.1`**.
 - Effective governed research catalog: **`2026-08-01.3`**.
 
 ## Product platform
@@ -32,151 +35,151 @@ feature pull requests or automated dependency-update branches.
 
 - Argon2 password hashing and signed JWT bearer tokens.
 - Startup refusal for missing or weak signing secrets.
-- Authenticated self-only user resources.
-- Explicit profile-completion state; signup never fabricates physiological
-  values or nutrition targets.
-- Owner, editor, and viewer household roles with object-access `404` behavior.
-- Email-bound, expiring invitation tokens stored only as hashes.
-- One-time invitation token handoff, replacement, revocation, exact-email
-  acceptance, and retry-safe repeated acceptance.
-- Linked accounts require accepted invitations; ordinary member operations
-  cannot transfer ownership.
+- Explicit profile-completion state; signup does not fabricate physiology or
+  nutrition targets.
+- Owner, editor, and viewer household roles.
+- Unauthorized household object access returns `404`.
+- Email-bound, expiring invitation secrets are stored only as hashes.
+- Invitation replacement, revocation, exact-email acceptance, and retry-safe
+  repeated acceptance.
+- Ordinary membership workflows cannot transfer ownership.
 
 ### Transactional household food state
 
-- Pantry lots with canonical ingredient, display name, quantity interval,
-  unit, source, expiry/open timestamps, metadata, and optimistic version.
+- Pantry lots with canonical/display names, quantity intervals, units,
+  source, expiry/open timestamps, metadata, and optimistic versions.
 - Leftovers linked to real recipes and optional source plans.
 - Append-only purchase, consumption, discard, adjustment, leftover,
   reservation, and reservation-commit events.
-- Full request fingerprints written atomically with inventory events.
-- Contradictory idempotency-key reuse and ambiguous legacy keys fail closed.
-- Negative-stock and cross-dimensional subtraction prevention.
+- Full request fingerprints written atomically with inventory mutations.
+- Contradictory idempotency-key reuse fails closed.
+- Negative stock and incompatible-dimension subtraction prevention.
 - Earliest-expiry allocation and expired-stock exclusion.
-- Stock reservations with active, released, consumed, and expired states.
-- Cross-plan overbooking prevention and PostgreSQL concurrency probes.
-- Shopping reconciliation, batch-preparation grouping, and audit-event views.
+- Active, released, consumed, and expired stock reservations.
+- Cross-plan overbooking prevention and PostgreSQL race probes.
+- Shopping reconciliation and batch-preparation grouping.
 
 ### Meal planning
 
 - Deterministic horizon-level beam search.
 - Hard allergy and dietary filtering before optimization.
-- Joint calorie, macro, taste, cost, cuisine, variety, repeat, and pantry
-  objective components.
+- Joint calorie, macro, taste, cost, cuisine, variety, repetition, and pantry
+  objectives.
 - Household target aggregation from complete linked profiles or explicit
   member overrides.
 - Structured infeasibility and disclosed non-safety relaxation diagnostics.
 - Persisted plan schema, portions, warnings, provenance, and optimizer
   diagnostics.
 - Optional pantry reservation after household plan generation.
-- Pareto, optional CP-SAT, optional MILP, robust scenario stress, and
-  worst-case robust enumeration as offline comparators.
+- Pareto, optional CP-SAT/MILP, robust stress, and worst-case enumeration as
+  offline comparators.
 
 ## Immutable reviewed evidence
 
-### Preparation evidence
+### Preparation profiles
 
 Preparation timing, dependencies, resource demands, and unattended-cooking
-suitability are never inferred from recipe titles. Each preparation profile
-retains recipe and schema versions, reviewed serving range, task DAG, duration
-interval, resource demands, activity/supervision declarations, source,
-reviewer, UTC review time, SHA-256 content hash, supersession link, and active
-state.
+suitability are never inferred from titles. Each reviewed profile retains its
+recipe/schema versions, serving range, task DAG, duration interval, resource
+demands, activity and supervision declarations, source, reviewer, UTC review
+time, SHA-256 content hash, supersession link, and active state.
 
-Identical same-version registration is idempotent. Contradictory reuse is
-rejected. One active reviewed profile is permitted per recipe. Batch imports
-are all-or-nothing and emit integrity-checked manifests.
-
-```bash
-python scripts/import_preparation_profiles.py reviewed-profiles.json
-python scripts/import_preparation_profiles.py reviewed-profiles.json \
-  --apply --operator reviewer@example.org
-```
+Identical same-version registration is idempotent. Contradictory reuse fails.
+One active reviewed profile is permitted per recipe. Batch imports are atomic
+and produce integrity-checked manifests.
 
 ### Conversion and storage-policy evidence
 
-Migration `20260801_0007` introduced immutable histories for:
+Migration `20260801_0007` introduced immutable ingredient-specific conversion
+versions, storage-policy versions, and exact leftover-to-policy-version links.
+Automatic conversion and automatic leftover expiry require exact active
+reviewed evidence and return or retain the evidence ID, version, hash, source,
+reviewer, and assumptions used.
 
-- ingredient-specific unit conversions;
-- reviewed storage policies;
-- exact leftover-to-storage-policy-version links.
-
-Each immutable version retains its natural key, version, source provenance,
-evidence status, reviewer, UTC review time, content hash, supersession link,
-and active state. Automatic conversion requires one exact active reviewed
-record and returns the evidence ID, version, hash, source, reviewer, and output
-interval.
-
-A new leftover selects one active reviewed policy version, validates storage
-state and expiry bounds, persists the exact version link, and writes the
-policy ID/version/hash into the inventory event in the same transaction.
-Frozen `quality_guidance` is never converted into a safety-expiry timestamp.
-
-Reviewed conversions and policies can be validated and imported together:
+Migration `20260801_0008` added append-only deactivation and rejection events.
+Reactivation is deliberately unsupported; corrected evidence must be
+registered as a new immutable version that supersedes the latest reviewed
+predecessor, including a withdrawn predecessor.
 
 ```bash
 python scripts/import_food_evidence.py reviewed-food-evidence.json
 python scripts/import_food_evidence.py reviewed-food-evidence.json \
   --apply --operator reviewer@example.org
-```
 
-The importer performs typed preflight, deterministic natural-key locking,
-all-or-nothing registration, idempotent reapplication, exact supersession,
-source-file hashing, and durable pre- and post-apply manifests.
-
-### Append-only evidence lifecycle
-
-Migration `20260801_0008` adds audited deactivation and rejection without
-rewriting immutable evidence content. Each lifecycle event records the exact
-target, action, actor, reason, metadata, idempotency key, request fingerprint,
-prior active state, and creation time.
-
-```bash
 python scripts/manage_food_evidence_lifecycle.py lifecycle-actions.json
 python scripts/manage_food_evidence_lifecycle.py lifecycle-actions.json \
   --apply --operator reviewer@example.org
 ```
 
-Lifecycle documents are atomic. Identical retries collapse to the original
-events; contradictory idempotency-key reuse fails. Reactivation is deliberately
-unsupported: corrected evidence must be registered as a new version that
-supersedes the latest reviewed predecessor, including an inactive predecessor.
+Dry runs are lock-free snapshots. Apply mode acquires deterministic locks,
+performs all-or-nothing writes, supports idempotent reapplication, and emits
+pre- and post-commit manifests.
 
-### Authenticated evidence APIs
+## Deterministic preparation scheduling
 
-- `GET /api/v1/food-evidence/history/conversions`
-- `POST /api/v1/food-evidence/history/convert-reviewed`
-- `GET /api/v1/food-evidence/history/storage-policies`
-- `GET /api/v1/food-evidence/history/storage-policies/{key}/active-reviewed`
-- `GET /api/v1/food-evidence/history/lifecycle-events`
-- `GET /api/v1/food-evidence/history/households/{household_id}/leftovers/{leftover_id}/storage-policy`
+The scheduler accepts only explicit data:
 
-Product clients can inspect immutable history and apply already-reviewed exact
-conversions. They cannot register, supersede, reject, deactivate, or reactivate
-global evidence.
+- resources with capacity and one or more non-overlapping availability windows;
+- tasks with duration, earliest start, deadline, priority, resource demands,
+  dependencies, and provenance metadata.
 
-## Preparation scheduling
+It rejects duplicate/unknown/self/cyclic dependencies, missing resources,
+invalid capacity, overlapping windows, and out-of-horizon declarations. The
+heuristic and bounded exact comparator enforce common containing windows across
+all demanded resources, prevent tasks spanning unavailable gaps, propagate
+blocked dependencies, and report makespan, utilization, peak usage, critical
+path bounds, unscheduled reasons, and search diagnostics.
 
-- Explicit resources with capacity and availability windows.
-- Explicit tasks with duration, earliest start, deadline, priority, resource
-  demands, dependencies, and metadata.
-- Duplicate, unknown, self, and cyclic dependency rejection.
-- Deterministic topological ready-set scheduling.
-- Cumulative interval-capacity checks.
-- Dependency-constrained starts and blocked downstream propagation.
-- Missing-resource, capacity, availability, deadline, dependency-window, and
-  infeasibility diagnostics.
-- Makespan, utilization, peak usage, critical-path lower bound, and search
-  diagnostics.
-- Fail-closed reviewed-profile compile-and-schedule endpoint.
-- Partial scheduling only through explicit `allow_partial=true`.
-- Evidence versions and hashes propagated into tasks and diagnostics.
-- Exact bounded branch-and-bound comparator with task/node budgets and proven
-  optimal makespan when search completes.
-
-Integrated endpoint:
+Integrated reviewed-profile endpoint:
 
 `POST /api/v1/preparation/compile-and-schedule`
+
+## Persisted household preparation operations
+
+Migrations `20260801_0009`–`20260801_0011` add the governed operational layer.
+
+### Reviewed resource calendars
+
+- Immutable household calendar versions.
+- Explicit resource definitions, capacities, kinds, and multiple availability
+  windows.
+- Canonical UTC review timestamps and deterministic content hashes.
+- One active reviewed calendar per household.
+- Idempotent registration and exact supersession lineage.
+- Activating a successor invalidates every draft or approved schedule linked to
+  the predecessor in the same household transaction.
+
+### Replayable persisted schedules
+
+- Complete deterministic request and response payloads.
+- Request hash, calendar hash, occurrence-set version/hash, optional source-plan
+  version, preparation-profile versions, and combined schedule hash.
+- Server replay before persistence and again before approval.
+- Draft, approved, invalidated, completed, and cancelled states with optimistic
+  versions.
+- Append-only created/approved/invalidated/completed/cancelled events.
+- Owner-only approval and invalidation; owner/editor completion and cancellation;
+  viewer read access.
+- Legacy `0009` schedules remain readable but approval fails closed when the
+  original request is missing. An exact matching creation retry may safely
+  backfill that request because the original fingerprint already binds it.
+
+Migration `20260801_0011` enforces lifecycle consistency at the database layer:
+active calendars must be reviewed, approved/completed schedules require
+approver provenance, invalidated schedules require timestamp and reason, and
+event action/status pairs must be valid with nonblank reasons.
+
+Authenticated APIs are under:
+
+`/api/v1/households/{household_id}/preparation-operations`
+
+The protected React workspace at `/preparation/operations` provides household
+selection, reviewed calendar registration, calendar history, replayable
+schedule ingestion, role-aware transitions, exact hashes, legacy approval
+warnings, scheduled-task timing, and append-only event history. It does not
+control appliances or claim execution occurred.
+
+See [Preparation Operations](docs/PREPARATION_OPERATIONS.md).
 
 ## Active frontend
 
@@ -187,20 +190,20 @@ The routed React/TypeScript application includes:
 - personal meal planner;
 - household members, invitations, pantry, leftovers, reservations, shopping,
   batch preparation, and inventory events;
-- active-reviewed immutable policy selection for newly recorded leftovers;
-- exact leftover policy ID, version, hash, reviewer, source, scope, and active
-  or withdrawn state;
-- strictly typed manual preparation editor;
-- separate immutable reviewed-evidence preparation pipeline;
-- research catalog, capability, conversion history, storage-policy history,
-  lifecycle-event history, and evidence-version views;
-- typed lifecycle target/action contracts and filtered lifecycle API binding;
+- active-reviewed policy selection for new leftovers;
+- exact leftover policy ID/version/hash/reviewer/source/scope and withdrawn
+  state;
+- manual preparation editor and reviewed-profile pipeline;
+- persisted preparation-operations workspace;
+- research catalog, runtime capability metadata, immutable conversion/policy
+  histories, and lifecycle events;
 - shared authenticated HTTP transport;
 - lazy protected routes, skip link, keyboard navigation, and reduced-motion
   handling.
 
-The obsolete parallel JSX application and duplicate providers/pages/API client
-have been removed.
+Both evidence and preparation-operations clients are checked mechanically
+against generated OpenAPI for exact top-level fields, enum values, route
+fragments, and HTTP methods.
 
 ## Governed research catalog
 
@@ -217,102 +220,30 @@ research only, blocked by data, blocked by validation, or announced. Runtime
 importability never means product enablement, training evidence, accuracy, or
 clinical validation.
 
-### Executable offline families
+Executable offline families include TF-IDF/BM25 retrieval, popularity and
+content/item-kNN/matrix-factorization ranking, MMR diversity, temporal ranking
+evaluation, seasonal and intermittent-demand forecasting, uncertainty
+baselines, Pareto/CP-SAT/MILP/robust planning, exact preparation comparison,
+FEFO perishable-inventory replay, and forecast-to-inventory evaluation.
+Policy-learning methods remain offline research only.
 
-Retrieval and ranking:
+## Validation matrix
 
-- TF-IDF and BM25;
-- popularity and Bayesian-smoothed popularity;
-- content preference, item-kNN, matrix factorization, and MMR reranking;
-- temporal leave-last-out evaluation with hard candidate filtering,
-  Recall/HitRate/MRR/NDCG, coverage, novelty, diversity, group metrics, and
-  hard-violation audits.
-
-Forecasting and uncertainty:
-
-- moving average, seasonal naive, simple exponential smoothing, damped Holt,
-  Croston, and TSB;
-- rolling-origin MAE, RMSE, sMAPE, and MASE where defined;
-- ridge regression, Kaplan-Meier, Mahalanobis OOD, and split conformal
-  intervals.
-
-Planning and operations:
-
-- beam, pantry-aware, Pareto, optional CP-SAT/MILP, robust stress, and robust
-  enumeration;
-- reviewed preparation compiler and dependency-aware scheduler;
-- exact bounded preparation scheduler;
-- deterministic FEFO perishable-inventory replay;
-- forecast-to-inventory closed-loop evaluation.
-
-Policy research remains offline: Bradley-Terry, LinUCB, and Beta-Bernoulli
-Thompson sampling.
-
-See [Governed Research Platform](docs/RESEARCH_PLATFORM.md).
-
-## Benchmark protocols
-
-```bash
-python scripts/benchmark_planners.py \
-  --generate-seed 17 --slots 4 --options-per-slot 3 --repeats 3 \
-  --max-objective-gap 1.0 \
-  --output reports/experiments/planner-benchmark.json
-
-python scripts/benchmark_preparation_schedulers.py \
-  benchmarks/preparation_scheduler_small.json \
-  --require-heuristic-complete --require-exact-optimal \
-  --maximum-gap-minutes 0 \
-  --output reports/experiments/preparation-scheduler.json
-
-python scripts/benchmark_rankers.py \
-  --generate-seed 17 --user-count 18 --item-group-count 3 \
-  --items-per-group 8 --interactions-per-user 6 --k 5 \
-  --maximum-hard-violations 0 \
-  --output reports/experiments/ranking-benchmark.json
-
-python scripts/benchmark_forecasters.py \
-  --generate-seed 17 --length 84 --season-length 7 \
-  --intermittent-probability 0.25 --minimum-train-size 28 \
-  --horizon 7 --step 7 \
-  --output reports/experiments/forecast-benchmark.json
-
-python scripts/simulate_inventory.py \
-  benchmarks/inventory_small.json \
-  --minimum-fill-rate 1.0 --maximum-waste-units 1.0 \
-  --maximum-stockout-units 0.0 \
-  --output reports/experiments/inventory-simulation.json
-
-python scripts/evaluate_forecast_inventory.py \
-  benchmarks/forecast_inventory_small.json \
-  --require-model seasonal_naive \
-  --require-model tsb_intermittent_demand \
-  --output reports/experiments/forecast-inventory.json
-```
-
-Forecast error, service level, stockout, waste, ranking accuracy, diversity,
-and coverage leaders are reported separately. No benchmark automatically
-selects a runtime model or procurement policy.
-
-## Direct-main validation
-
-The workflow runs:
+The direct-`main` workflow runs:
 
 - Python compileall and all backend tests;
-- repository cross-contract validation;
-- generated OpenAPI path/schema/authentication validation;
-- generated OpenAPI-to-TypeScript schema, enum, route, and method validation;
-- planner, exact preparation, ranking, forecasting, inventory, and
-  forecast-inventory gates;
+- repository, Alembic-chain, catalog import-order, OpenAPI, and both frontend
+  binding gates;
+- planner, preparation, ranking, forecasting, inventory, and closed-loop gates;
 - fresh SQLite and PostgreSQL migrations;
-- reviewed food-evidence dry-run/apply/idempotent-reapply manifests;
-- evidence lifecycle dry-run/apply/idempotent-reapply manifests;
-- PostgreSQL inventory, reservation, request-idempotency,
-  preparation-evidence, immutable-evidence, and lifecycle concurrency probes;
-- frontend lint, Vitest, and TypeScript/Vite build;
+- reviewed evidence dry-run/apply/idempotent-reapply manifests;
+- PostgreSQL inventory, reservation, request-idempotency, preparation-evidence,
+  immutable-evidence, evidence-lifecycle, and preparation-operations race probes;
+- frontend lint, Vitest, and Vite/TypeScript build;
 - container build;
-- retained machine-readable backend validation reports.
+- retained machine-readable backend reports.
 
-A committed test or synthetic result is not a safety claim. The exact workflow
+A committed test or synthetic fixture is not a safety claim. The exact workflow
 run for a commit must be inspected before describing that commit as green.
 
 ## Local setup
@@ -327,31 +258,10 @@ alembic upgrade head
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Frontend:
-
 ```bash
 cd frontend
 npm ci
 npm run dev
-```
-
-## Container deployment
-
-```bash
-docker build -t nutriflavos .
-docker volume create nutriflavos-data
-
-docker run --rm \
-  -v nutriflavos-data:/app/data \
-  -e DATABASE_URL="sqlite:////app/data/nutriflavor.db" \
-  nutriflavos alembic upgrade head
-
-docker run --rm -p 8000:8000 \
-  -v nutriflavos-data:/app/data \
-  -e SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')" \
-  -e DATABASE_URL="sqlite:////app/data/nutriflavor.db" \
-  -e AUTO_CREATE_SCHEMA=false \
-  nutriflavos
 ```
 
 PostgreSQL is recommended for hosted or concurrent deployments.
@@ -364,25 +274,26 @@ PostgreSQL is recommended for hosted or concurrent deployments.
   provenance coverage is sufficient.
 - Sustainability remains disabled without geography, production method,
   functional unit, source, and uncertainty coverage.
-- Preparation capacity is not yet jointly optimized with meal selection.
-- Real recipes need reviewed preparation profiles before automatic compilation.
-- Forecasting, ranking benchmarks, and inventory replay are offline tools, not
-  autonomous personalization or procurement.
+- Preparation capacity is persisted and scheduled but is not yet jointly
+  optimized with meal selection.
+- Real recipes still require reviewed preparation profiles.
+- Forecasting, ranking, and inventory replay remain offline evaluation tools,
+  not autonomous personalization or procurement.
 - Vision, multimodal nutrition, constrained generation, graph-neural
   substitution, continual personalization, causal analysis, and privacy attacks
   remain gated research programs.
-- Social, leaderboard, achievement, and predictive-purchase surfaces remain
-  disabled.
+- Social, leaderboard, achievement, predictive-purchase, autonomous appliance,
+  and execution-verification surfaces remain disabled.
+- Authenticated Playwright end-to-end and automated accessibility coverage remain
+  to be completed.
+- The latest exact GitHub Actions run must still be observed before claiming the
+  current `main` commit is green.
 
-## Status and roadmap
+## Documentation
 
 - [Exhaustive Implementation Status](docs/IMPLEMENTATION_STATUS.md)
 - [Engineering and Research Roadmap](docs/ROADMAP.md)
 - [Governed Research Platform](docs/RESEARCH_PLATFORM.md)
+- [Preparation Operations](docs/PREPARATION_OPERATIONS.md)
 - [Optimizer Benchmarks](docs/OPTIMIZER_BENCHMARKS.md)
 - [Household Access and Evidence](docs/HOUSEHOLD_ACCESS_AND_EVIDENCE.md)
-
-Immediate priorities are to inspect and close one exact complete workflow,
-audit the complete Alembic chain and isolated catalog import order, persist
-reviewed household resource calendars and approved schedules, and add
-authenticated Playwright and accessibility coverage.
