@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import AppLayout from "@/components/AppLayout";
+import LeftoverPolicyProvenance from "@/components/household/LeftoverPolicyProvenance";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
-  evidenceApi,
+  evidenceHistoryApi,
   householdApi,
   type Household,
   type HouseholdInvitation,
@@ -20,7 +21,7 @@ import {
   type Leftover,
   type PantryItem,
   type Reservation,
-  type StoragePolicy,
+  type StoragePolicyVersion,
 } from "@/lib/platformApi";
 import {
   AlertCircle,
@@ -190,8 +191,11 @@ export default function HouseholdPage() {
     enabled: Boolean(effectiveSelectedId) && detailQ.data?.role === "owner",
   });
   const policiesQ = useQuery({
-    queryKey: ["food-evidence", "storage-policies"],
-    queryFn: () => evidenceApi.storagePolicies(),
+    queryKey: ["food-evidence-history", "storage-policies", "active-reviewed"],
+    queryFn: () => evidenceHistoryApi.storagePolicies({
+      activeOnly: true,
+      reviewedOnly: true,
+    }),
     staleTime: 30 * 60_000,
   });
   const shoppingQ = useQuery({
@@ -208,9 +212,12 @@ export default function HouseholdPage() {
   });
 
   const role = detailQ.data?.role ?? selected?.current_role;
-  const pageError = householdsQ.error || detailQ.error;
+  const pageError = householdsQ.error || detailQ.error || policiesQ.error;
   const policies = (policiesQ.data ?? []).filter(
-    (policy) => policy.storage_state === (leftoverFrozen ? "frozen" : "refrigerated"),
+    (policy) =>
+      policy.active &&
+      policy.evidence_status === "reviewed" &&
+      policy.storage_state === (leftoverFrozen ? "frozen" : "refrigerated"),
   );
   const reservationsByPlan = useMemo(() => {
     const grouped = new Map<number, Reservation[]>();
@@ -669,7 +676,7 @@ export default function HouseholdPage() {
             <TabsContent value="leftovers" className="space-y-4">
               {canEdit(role) && (
                 <Card>
-                  <CardHeader><CardTitle className="text-base">Record a leftover batch</CardTitle><CardDescription>Recipe IDs must exist. Expiry is derived only from a matching reviewed safety policy; frozen quality guidance is not treated as a safety expiry.</CardDescription></CardHeader>
+                  <CardHeader><CardTitle className="text-base">Record a leftover batch</CardTitle><CardDescription>Recipe IDs must exist. Expiry is derived only from the exact active reviewed policy version selected at commit time; frozen quality guidance is not treated as a safety expiry.</CardDescription></CardHeader>
                   <CardContent>
                     <form className="grid gap-3 md:grid-cols-2" onSubmit={(event) => { event.preventDefault(); createLeftover.mutate(); }}>
                       <div className="space-y-1"><Label htmlFor="leftover-recipe">Recipe ID</Label><Input id="leftover-recipe" value={leftoverRecipeId} onChange={(event) => setLeftoverRecipeId(event.target.value)} required /></div>
@@ -677,7 +684,7 @@ export default function HouseholdPage() {
                       <div className="space-y-1"><Label htmlFor="leftover-cooked">Cooked at</Label><Input id="leftover-cooked" type="datetime-local" value={leftoverCookedAt} onChange={(event) => setLeftoverCookedAt(event.target.value)} required /></div>
                       <div className="space-y-1"><Label htmlFor="leftover-expiry">Explicit expiry (optional)</Label><Input id="leftover-expiry" type="datetime-local" value={leftoverExpiresAt} onChange={(event) => setLeftoverExpiresAt(event.target.value)} /></div>
                       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={leftoverFrozen} onChange={(event) => { setLeftoverFrozen(event.target.checked); setLeftoverPolicy(""); }} />Frozen</label>
-                      <div className="space-y-1"><Label htmlFor="leftover-policy">Reviewed storage policy</Label><select id="leftover-policy" value={leftoverPolicy} onChange={(event) => setLeftoverPolicy(event.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="">No policy</option>{policies.map((policy: StoragePolicy) => <option key={policy.policy_key} value={policy.policy_key}>{policy.food_category} · {policy.policy_key}</option>)}</select></div>
+                      <div className="space-y-1"><Label htmlFor="leftover-policy">Active reviewed storage policy</Label><select id="leftover-policy" value={leftoverPolicy} onChange={(event) => setLeftoverPolicy(event.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="">No policy</option>{policies.map((policy: StoragePolicyVersion) => <option key={policy.id} value={policy.policy_key}>{policy.food_category} · {policy.policy_key} · version {policy.policy_version} · reviewed by {policy.reviewed_by ?? "unknown"}</option>)}</select></div>
                       <div className="space-y-1 md:col-span-2"><Label htmlFor="leftover-notes">Notes</Label><Textarea id="leftover-notes" value={leftoverNotes} onChange={(event) => setLeftoverNotes(event.target.value)} maxLength={1000} /></div>
                       <Button className="md:w-fit" type="submit" disabled={createLeftover.isPending}>Record leftovers</Button>
                     </form>
@@ -691,7 +698,8 @@ export default function HouseholdPage() {
                     <CardContent className="space-y-3 p-4">
                       <div className="flex justify-between gap-2"><span className="font-medium">Recipe {leftover.recipe_id}</span><Badge variant="outline">{leftover.frozen ? "frozen" : "refrigerated"}</Badge></div>
                       <p>{leftover.portions_available} portions · v{leftover.version}</p>
-                      <p className="text-xs text-muted-foreground">Cooked {formatDate(leftover.cooked_at)} · expires {formatDate(leftover.expires_at)} · policy {leftover.storage_policy_key ?? "not assigned"}</p>
+                      <p className="text-xs text-muted-foreground">Cooked {formatDate(leftover.cooked_at)} · expires {formatDate(leftover.expires_at)}</p>
+                      <LeftoverPolicyProvenance householdId={effectiveSelectedId} leftover={leftover} />
                       {leftover.notes && <p className="text-xs text-muted-foreground">{leftover.notes}</p>}
                       {canEdit(role) && <div className="space-y-2 border-t pt-3"><Label htmlFor={`leftover-amount-${leftover.id}`}>Portions consumed</Label><Input id={`leftover-amount-${leftover.id}`} type="number" min="0.01" step="0.01" value={leftoverAmounts[leftover.id] ?? ""} onChange={(event) => setLeftoverAmounts((current) => ({ ...current, [leftover.id]: event.target.value }))} /><Button type="button" size="sm" variant="outline" onClick={() => consumeLeftover.mutate(leftover)}>Consume portions</Button></div>}
                     </CardContent>
