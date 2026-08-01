@@ -22,7 +22,8 @@ public documentation must remain synchronized. The repository does not use
 feature pull requests or automated dependency-update branches.
 
 - Database migration head: **`20260801_0008`**.
-- OpenAPI release contract: **`2026-08-01.2`**.
+- OpenAPI release contract: **`2026-08-01.3`**.
+- Frontend/OpenAPI binding contract: **`2026-08-01.2`**.
 - Effective governed research catalog: **`2026-08-01.3`**.
 
 ## Product platform
@@ -186,10 +187,14 @@ The routed React/TypeScript application includes:
 - personal meal planner;
 - household members, invitations, pantry, leftovers, reservations, shopping,
   batch preparation, and inventory events;
+- active-reviewed immutable policy selection for newly recorded leftovers;
+- exact leftover policy ID, version, hash, reviewer, source, scope, and active
+  or withdrawn state;
 - strictly typed manual preparation editor;
 - separate immutable reviewed-evidence preparation pipeline;
 - research catalog, capability, conversion history, storage-policy history,
-  and evidence-version views;
+  lifecycle-event history, and evidence-version views;
+- typed lifecycle target/action contracts and filtered lifecycle API binding;
 - shared authenticated HTTP transport;
 - lazy protected routes, skip link, keyboard navigation, and reduced-motion
   handling.
@@ -295,6 +300,7 @@ The workflow runs:
 - Python compileall and all backend tests;
 - repository cross-contract validation;
 - generated OpenAPI path/schema/authentication validation;
+- generated OpenAPI-to-TypeScript schema, enum, route, and method validation;
 - planner, exact preparation, ranking, forecasting, inventory, and
   forecast-inventory gates;
 - fresh SQLite and PostgreSQL migrations;
@@ -377,7 +383,6 @@ PostgreSQL is recommended for hosted or concurrent deployments.
 - [Household Access and Evidence](docs/HOUSEHOLD_ACCESS_AND_EVIDENCE.md)
 
 Immediate priorities are to inspect and close one exact complete workflow,
-finish frontend exact leftover-policy and lifecycle provenance, persist reviewed
-household resource calendars and approved schedules, add generated frontend
-schema drift validation, and add authenticated Playwright/accessibility
-coverage.
+audit the complete Alembic chain and isolated catalog import order, persist
+reviewed household resource calendars and approved schedules, and add
+authenticated Playwright and accessibility coverage.
