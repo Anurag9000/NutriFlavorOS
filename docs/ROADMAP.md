@@ -3,11 +3,12 @@
 **Roadmap date:** 2026-08-01  
 **Execution rule:** implement directly on `main` in coherent commits. Keep code,
 tests, migrations, benchmark fixtures, capability registrations, catalog
-records, public status documents, and this roadmap synchronized.
+records, CI, public status documents, and this roadmap synchronized.
 
 Current platform contract:
 
-- database migration head `20260801_0007`;
+- database migration head `20260801_0008`;
+- OpenAPI release contract `2026-08-01.2`;
 - effective catalog `2026-08-01.3`;
 - 37 task contracts;
 - 30 dataset families;
@@ -27,12 +28,12 @@ Unless an item is explicitly research-only, completion requires:
 
 1. validated typed contract;
 2. deterministic or seeded behavior;
-3. unit, adversarial, and failure-path tests;
+3. unit, adversarial, concurrency, and failure-path tests where applicable;
 4. persistence, API, and UI integration where applicable;
 5. migration and rollback constraints for stored state;
 6. authorization, privacy, and abuse review;
 7. provenance and uncertainty representation;
-8. benchmark protocol and acceptance thresholds;
+8. benchmark or operational acceptance criteria;
 9. catalog/capability registration with truthful readiness;
 10. documentation, limitations, and rollback path;
 11. no fabricated fallback, silent relaxation, or automatic promotion.
@@ -147,21 +148,57 @@ Completed:
 - cards, splits, metrics, drift, manifests, and experiment-run state;
 - cross-process artifact registry and promotion stages;
 - repository cross-contract validator;
+- generated OpenAPI path/schema/authentication validator;
 - direct-main validation spanning backend, benchmarks, migrations,
   concurrency, frontend, container, and retained reports.
 
+## C9 — Manifest-driven immutable food evidence
+
+Completed:
+
+- typed joint conversion/storage import document;
+- source-file and content hashing;
+- reviewer/operator identity retention;
+- non-mutating database preflight;
+- deterministic lock ordering;
+- one all-or-nothing transaction;
+- idempotent reapplication;
+- contradictory version rejection;
+- exact active and inactive predecessor lineage;
+- durable pending/final/failure manifests;
+- honest already-committed manifest failure states;
+- canonical CI fixture and dry-run/apply/reapply sequence.
+
+## C10 — Append-only evidence lifecycle
+
+Completed:
+
+- migration `20260801_0008`;
+- append-only exact-target lifecycle ledger;
+- deactivation and rejection actions;
+- actor, reason, metadata, idempotency key, request fingerprint, and prior state;
+- atomic multi-action documents;
+- actor/operator matching;
+- retry collapse and contradictory-key rejection;
+- invalid-target rollback;
+- corrected successor lineage after withdrawal;
+- read-only authenticated lifecycle history;
+- lifecycle API mutation prohibition through OpenAPI contract;
+- canonical lifecycle fixture and dry-run/apply/reapply CI sequence;
+- PostgreSQL identical retry, contradictory reuse, and withdrawal/successor
+  race probes.
+
 # P0 — Immediate correctness and validation closure
 
-## P0.1 Inspect and close the latest complete workflow
+## P0.1 Inspect and close one exact complete workflow
 
 Tasks:
 
 - identify the exact latest `main` commit and its Actions run;
 - inspect backend, migration, PostgreSQL, frontend, and container logs;
 - repair every observed failure without weakening a required gate;
-- retain reports containing commit SHA, migration head, catalog version,
-  benchmark fingerprints, test counts, and container digest;
-- document failure triage and rerun procedures.
+- inspect retained reports and commit identity;
+- document failure-triage and rerun procedures.
 
 Acceptance:
 
@@ -171,35 +208,43 @@ Acceptance:
 
 ## P0.2 Repository-contract hardening
 
-Tasks:
+Completed:
 
-- add a direct unit test for `validate_repository_contracts()`;
-- validate benchmark schemas, not only JSON-object shape;
-- validate the complete Alembic revision chain and single head;
-- generate public count/version blocks from one canonical metadata source;
-- verify catalog extension import order in isolated Python processes;
-- retain the contract report as a workflow artifact.
+- direct regression for `validate_repository_contracts()`;
+- exact migration-head and matching-file checks;
+- immutable table requirements;
+- catalog/capability bidirectional checks;
+- public count/version checks;
+- typed food-evidence import fixture;
+- typed lifecycle fixture;
+- retained contract report.
 
-Acceptance:
+Remaining:
 
-- catalog, capabilities, docs, migration head, required tables, and fixtures
-  cannot drift without CI failure.
+- validate every benchmark through an explicit Pydantic/JSON schema rather than
+  only script-level parsing;
+- validate the complete Alembic revision chain and detect internal forks;
+- generate public metadata blocks from one canonical source;
+- verify catalog extension import order in isolated Python processes.
 
 ## P0.3 Strict frontend/OpenAPI closure
 
-Tasks:
+Completed:
 
-- generate FastAPI OpenAPI JSON in CI;
-- snapshot API paths and response schemas;
-- validate frontend interfaces against generated schemas;
+- generated FastAPI OpenAPI validation in CI;
+- required path and exact-method checks;
+- authenticated-operation checks;
+- immutable-evidence mutation-boundary checks;
+- required provenance and lifecycle schema fields;
+- OpenAPI release contract `2026-08-01.2`.
+
+Remaining:
+
+- generate frontend types from OpenAPI or validate handwritten interfaces
+  mechanically against it;
 - enable stricter TypeScript options incrementally;
-- eliminate compatibility exports only after import-tree proof;
-- add nullability, enum, and `204/205` drift tests.
-
-Acceptance:
-
-- renamed, removed, or newly nullable backend fields fail frontend contract
-  validation before release.
+- eliminate compatibility exports after import-tree proof;
+- add explicit nullability, enum, `204`, and `205` transport drift tests.
 
 ## P0.4 Property and metamorphic testing
 
@@ -209,7 +254,7 @@ Targets:
 - inventory intervals and conservation;
 - reservations and idempotency;
 - preparation DAG, capacity, and evidence versions;
-- immutable conversion and storage histories;
+- immutable conversion/storage histories and lifecycle;
 - exact scheduler and heuristic comparison;
 - inventory replay and closed loop;
 - ranking filters and temporal leakage;
@@ -222,43 +267,14 @@ Properties:
 - adding usable stock cannot increase stockout under the same demand path;
 - identical idempotent retries cannot change state;
 - hard exclusions can only remove ranking candidates;
-- superseded evidence remains readable but not active;
+- superseded or withdrawn evidence remains readable but not active;
 - one natural evidence key has at most one active reviewed version;
-- immutable leftover links do not change when the active policy later changes.
+- immutable leftover links do not change when active policy state changes;
+- lifecycle events never rewrite content hashes or source provenance.
 
-# P1 — Complete immutable evidence operations
+# P1 — Product evidence completion
 
-## P1.1 Reviewed conversion import manifests
-
-Add:
-
-- source file SHA-256;
-- importer protocol/version and repository commit;
-- operator and reviewer identities;
-- complete natural keys and content hashes;
-- non-mutating database preflight;
-- atomic all-or-nothing registration;
-- per-row action/outcome records;
-- durable pre-apply manifest;
-- honest post-commit manifest-write failure state;
-- PostgreSQL concurrent import probe.
-
-Acceptance:
-
-- every imported version set is traceable to one file hash and one transaction.
-
-## P1.2 Reviewed storage-policy import and lifecycle
-
-Add equivalent manifest-driven operations for storage policies:
-
-- register reviewed versions;
-- reject/deactivate a version while preserving history;
-- supersede through a new reviewed version;
-- require operator/reviewer identities;
-- attach source-document metadata and optional signatures;
-- prohibit mutation of content after registration.
-
-## P1.3 Evidence coverage dashboard
+## P1.1 Evidence coverage dashboard
 
 Metrics:
 
@@ -266,24 +282,43 @@ Metrics:
 - conversion coverage by ingredient and unit direction;
 - storage-policy coverage by category and storage state;
 - review age and stale-evidence counts;
-- unreviewed, legacy, contradictory, and inactive records;
+- unreviewed, legacy, contradictory, inactive, rejected, and superseded records;
 - automatic-operation coverage versus abstention rate;
-- leftovers linked to exact immutable versions.
+- leftovers linked to exact immutable versions;
+- lifecycle activity by reason and age.
 
-## P1.4 Frontend immutable evidence migration
+Acceptance:
+
+- every percentage has an explicit denominator and query timestamp;
+- coverage never implies correctness or safety.
+
+## P1.2 Frontend immutable evidence completion
 
 Tasks:
 
-- move research evidence views to history endpoints;
-- show record/policy versions, content hashes, reviewer, review time, and
-  supersession state;
-- show exact policy provenance beside every leftover;
-- preserve the legacy compatibility surface only until all consumers migrate;
-- add browser tests for exact provenance and inactive-version history.
+- show exact policy ID, policy version, content hash, reviewer, and review time
+  beside every leftover;
+- load lifecycle events in the research evidence surface;
+- show rejection/deactivation reason and actor;
+- use active reviewed immutable policy versions in the leftover selector;
+- retain inactive history for audit;
+- add browser tests for exact provenance and withdrawn-version history;
+- remove legacy policy/conversion consumers after import-tree proof.
+
+## P1.3 Signed evidence documents
+
+Tasks:
+
+- optional detached signatures for import and lifecycle documents;
+- signer identity and trust-root policy;
+- signature verification before preflight;
+- signed manifest retention;
+- explicit unsigned-development mode;
+- no claim that hashing alone authenticates a publisher.
 
 # P1 — Complete preparation operations
 
-## P1.5 Persist household resource calendars and schedules
+## P1.4 Persist household resource calendars and schedules
 
 Models:
 
@@ -296,12 +331,12 @@ Models:
 
 Rules:
 
-- changing the plan, servings, evidence version, or resource calendar
-  invalidates dependent schedules;
+- changing plan, servings, evidence version, or resource calendar invalidates
+  dependent schedules;
 - approval is explicit;
 - no background execution or appliance control.
 
-## P1.6 Plan-to-occurrence generation
+## P1.5 Plan-to-occurrence generation
 
 Tasks:
 
@@ -312,7 +347,7 @@ Tasks:
 - never auto-submit generated occurrences;
 - persist the confirmed occurrence set with the plan version.
 
-## P1.7 Active labor, passive time, supervision, and transitions
+## P1.6 Active labor, passive time, supervision, and transitions
 
 Extend task evidence with:
 
@@ -331,7 +366,7 @@ Research comparators:
 - active-labor heuristic;
 - setup-aware local search.
 
-## P1.8 Joint plan and schedule repair
+## P1.7 Joint plan and schedule repair
 
 Architectures:
 
@@ -352,7 +387,7 @@ Metrics:
 
 # P1 — Forecasting and inventory policy expansion
 
-## P1.9 Forecast baselines and uncertainty
+## P1.8 Forecast baselines and uncertainty
 
 Add:
 
@@ -375,7 +410,7 @@ Experiments:
 - interval coverage/width;
 - subgroup performance by frequency and shelf life.
 
-## P1.10 Inventory costs and stochastic scenarios
+## P1.9 Inventory costs and stochastic scenarios
 
 Add:
 
@@ -399,7 +434,7 @@ Policies:
 - robust interval policy;
 - explicit cost trade-off frontier.
 
-## P1.11 Closed-loop forecast/policy benchmark
+## P1.10 Closed-loop forecast/policy benchmark
 
 Require:
 
@@ -412,7 +447,7 @@ Require:
 
 # P1 — Recommendation and preference platform
 
-## P1.12 Real-data ranking protocol
+## P1.11 Real-data ranking protocol
 
 Data requirements:
 
@@ -436,7 +471,7 @@ Potential models:
 - uncertainty-aware abstention;
 - cold-start metadata encoder.
 
-## P1.13 Consent-based preference workflow
+## P1.12 Consent-based preference workflow
 
 Tasks:
 
@@ -569,61 +604,23 @@ compatibility, conversion evidence, and human approval.
 No product bandit until propensities, support, consent, safety constraints,
 kill switch, rollback, and human approval exist.
 
-## P3.5 Continual personalization
+## P3.5 Clinical and health-outcome research
 
-- replay buffers;
-- adapters or per-user lightweight models;
-- drift and reset/delete propagation;
-- forgetting, transfer, calibration, subgroup, privacy, and deletion metrics.
+Any nutrition/health outcome, medication interaction, allergy-safety, or
+condition-specific recommendation remains disabled until formal clinical
+protocols, external validation, governance, monitoring, and regulatory review
+are complete.
 
-Request-time online mutation remains prohibited.
+# Current execution order
 
-## P3.6 N-of-1, causal, privacy, and federated research
-
-- Bayesian N-of-1 simulation;
-- interrupted time series and sensitivity analyses;
-- membership and attribute inference, inversion, and gradient leakage;
-- differential privacy accounting;
-- federated simulation and secure aggregation feasibility.
-
-These remain blocked by consent, longitudinal measurement, preregistration,
-clinical review, privacy review, and external validation.
-
-## P3.7 Sustainability
-
-- geography-aware LCA mapping;
-- production and transport provenance;
-- functional-unit normalization;
-- uncertainty intervals;
-- AGRIBALYSE, ecoinvent, and water-footprint adapters;
-- ingredient entity resolution;
-- scenario comparison instead of one authoritative score.
-
-# Documentation synchronization checklist
-
-Every substantive implementation commit must consider updates to:
-
-- `README.md`;
-- `docs/IMPLEMENTATION_STATUS.md`;
-- `docs/ROADMAP.md`;
-- `docs/RESEARCH_PLATFORM.md`;
-- relevant domain documents;
-- Alembic head and schema verifier;
-- capability registry;
-- effective research catalog;
-- tests and benchmark fixtures;
-- CI commands and repository-contract validator.
-
-# Next direct-main implementation order
-
-1. inspect and close the latest complete workflow;
-2. add direct repository-contract regression and fixture schema validation;
-3. add immutable conversion and storage import/deactivation manifests;
-4. expose exact leftover policy provenance in the frontend;
-5. persist household resource calendars and approved schedules;
-6. add OpenAPI/frontend drift validation;
-7. add Playwright and axe authenticated flows;
-8. expand inventory costs and stochastic closed-loop policies;
-9. add real-data consent and ranking workflows;
-10. continue high-risk research only through explicit data, evaluation,
-    artifact, approval, rollback, and monitoring gates.
+1. Close one exact green direct-main workflow without weakening gates.
+2. Complete frontend immutable policy/lifecycle provenance and browser tests.
+3. Add generated frontend/OpenAPI schema drift validation.
+4. Implement persisted household resource calendars and approved schedules.
+5. Add plan-to-occurrence review and schedule invalidation.
+6. Add authenticated Playwright/PostgreSQL and axe coverage.
+7. Build evidence coverage/abstention dashboards.
+8. Expand stochastic inventory and closed-loop policy evaluation.
+9. Build consent-based real-data ranking workflows.
+10. Continue P2/P3 research only through explicit data, validation, artifact,
+    approval, rollback, and monitoring gates.
