@@ -8,7 +8,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { evidenceApi, researchApi, type StoragePolicy } from "@/lib/platformApi";
+import {
+  evidenceHistoryApi,
+  researchApi,
+  type IngredientConversionVersion,
+  type StoragePolicyVersion,
+} from "@/lib/platformApi";
 import { Beaker, Database, FlaskConical, Info, ShieldCheck } from "lucide-react";
 
 const collections = ["tasks", "datasets", "models", "experiments", "features"] as const;
@@ -32,11 +37,21 @@ function itemId(item: Record<string, unknown>, index: number): string {
   return stable === undefined ? `catalog-item-${index}` : String(stable);
 }
 
+function shortHash(value: string): string {
+  return value.length <= 16 ? value : `${value.slice(0, 12)}…${value.slice(-4)}`;
+}
+
+function dateLabel(value?: string | null): string {
+  if (!value) return "not reviewed";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
+}
+
 function statusVariant(value: unknown): "default" | "secondary" | "destructive" | "outline" {
   const normalized = String(value ?? "").toLowerCase();
   if (normalized.includes("broken") || normalized.includes("clinical") || normalized.includes("high")) return "destructive";
-  if (normalized.includes("available") || normalized.includes("executable") || normalized.includes("implemented")) return "default";
-  if (normalized.includes("research") || normalized.includes("optional") || normalized.includes("missing")) return "secondary";
+  if (normalized.includes("available") || normalized.includes("executable") || normalized.includes("implemented") || normalized === "reviewed") return "default";
+  if (normalized.includes("research") || normalized.includes("optional") || normalized.includes("missing") || normalized.includes("unverified")) return "secondary";
   return "outline";
 }
 
@@ -57,13 +72,13 @@ export default function ResearchPage() {
     staleTime: 5 * 60_000,
   });
   const policiesQ = useQuery({
-    queryKey: ["food-evidence", "storage-policies"],
-    queryFn: () => evidenceApi.storagePolicies(),
+    queryKey: ["food-evidence-history", "storage-policies", "all"],
+    queryFn: () => evidenceHistoryApi.storagePolicies({ activeOnly: false }),
     staleTime: 30 * 60_000,
   });
   const conversionsQ = useQuery({
-    queryKey: ["food-evidence", "conversions"],
-    queryFn: () => evidenceApi.conversions(),
+    queryKey: ["food-evidence-history", "conversions", "all"],
+    queryFn: () => evidenceHistoryApi.conversions({ activeOnly: false }),
     staleTime: 30 * 60_000,
   });
 
@@ -84,22 +99,22 @@ export default function ResearchPage() {
         <div>
           <h1 className="text-2xl font-bold">Research registry</h1>
           <p className="text-sm text-muted-foreground">
-            Versioned task, dataset, model, experiment, and feature contracts with explicit implementation and risk states.
+            Versioned task, dataset, model, experiment, feature, and evidence contracts with explicit implementation and risk states.
           </p>
         </div>
 
-        {(catalogQ.error || collectionQ.error) && (
+        {(catalogQ.error || collectionQ.error || policiesQ.error || conversionsQ.error) && (
           <Alert variant="destructive">
             <Info className="h-4 w-4" />
-            <AlertTitle>Research registry unavailable</AlertTitle>
-            <AlertDescription>{messageOf(catalogQ.error || collectionQ.error)}</AlertDescription>
+            <AlertTitle>Registry data unavailable</AlertTitle>
+            <AlertDescription>{messageOf(catalogQ.error || collectionQ.error || policiesQ.error || conversionsQ.error)}</AlertDescription>
           </Alert>
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
           {collections.map((name) => {
             const counts = summary[name] ?? {};
-            const total = Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0);
+            const total = Number(counts.total ?? 0);
             return (
               <Card key={name}>
                 <CardContent className="p-4">
@@ -123,7 +138,7 @@ export default function ResearchPage() {
           <ShieldCheck className="h-4 w-4" />
           <AlertTitle>Governance boundary</AlertTitle>
           <AlertDescription>
-            A catalog entry is not a trained or deployed model. HTTP routes validate metadata and diagnostics only; experiment execution remains an offline, whitelisted workflow with artifact, provenance, evaluation, and promotion gates.
+            A catalog entry or importable callable is not a trained or deployed model. Evidence history is read-only through the product API; registration and supersession remain reviewed offline operations.
           </AlertDescription>
         </Alert>
 
@@ -131,7 +146,7 @@ export default function ResearchPage() {
           <TabsList className="flex h-auto flex-wrap justify-start">
             <TabsTrigger value="catalog">Catalog</TabsTrigger>
             <TabsTrigger value="implemented">Implemented components</TabsTrigger>
-            <TabsTrigger value="evidence">Food evidence</TabsTrigger>
+            <TabsTrigger value="evidence">Immutable food evidence</TabsTrigger>
           </TabsList>
 
           <TabsContent value="catalog" className="space-y-4">
@@ -149,7 +164,7 @@ export default function ResearchPage() {
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="readiness">Readiness</Label>
-                  <Input id="readiness" placeholder="e.g. executable" value={readiness} onChange={(event) => setReadiness(event.target.value)} />
+                  <Input id="readiness" placeholder="e.g. baseline_available" value={readiness} onChange={(event) => setReadiness(event.target.value)} />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="risk">Risk</Label>
@@ -222,32 +237,65 @@ export default function ResearchPage() {
           </TabsContent>
 
           <TabsContent value="evidence" className="space-y-4">
+            <Alert>
+              <ShieldCheck className="h-4 w-4" />
+              <AlertTitle>Immutable history</AlertTitle>
+              <AlertDescription>
+                Active and superseded versions are shown together. Only an active reviewed exact conversion or policy is eligible for automatic product use.
+              </AlertDescription>
+            </Alert>
             <div className="grid gap-4 lg:grid-cols-2">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Database className="h-4 w-4" />Ingredient-specific conversions</CardTitle><CardDescription>Only reviewed, ingredient-specific conversion evidence can bridge incompatible units.</CardDescription></CardHeader>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base"><Database className="h-4 w-4" />Conversion versions</CardTitle>
+                  <CardDescription>Ingredient and unit-direction evidence with immutable versions and hashes.</CardDescription>
+                </CardHeader>
                 <CardContent className="space-y-2">
-                  {(conversionsQ.data ?? []).map((conversion) => (
+                  {(conversionsQ.data ?? []).map((conversion: IngredientConversionVersion) => (
                     <div key={conversion.id} className="rounded-md border p-3 text-sm">
-                      <div className="flex items-center justify-between gap-2"><span className="font-medium">{conversion.canonical_name}</span><Badge variant="outline">{conversion.evidence_status}</Badge></div>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-medium">{conversion.canonical_name}</span>
+                        <div className="flex gap-1">
+                          <Badge variant={statusVariant(conversion.evidence_status)}>{label(conversion.evidence_status)}</Badge>
+                          <Badge variant={conversion.active ? "default" : "secondary"}>{conversion.active ? "active" : "superseded/inactive"}</Badge>
+                        </div>
+                      </div>
                       <p>{conversion.from_unit} → {conversion.multiplier_min === conversion.multiplier_max ? conversion.multiplier_min : `${conversion.multiplier_min}–${conversion.multiplier_max}`} {conversion.to_unit}</p>
-                      <p className="text-xs text-muted-foreground">{conversion.source_name} · {conversion.source_version}</p>
+                      <p className="text-xs text-muted-foreground">Record {conversion.record_version} · source {conversion.source_version}</p>
+                      <p className="text-xs text-muted-foreground">Reviewed by {conversion.reviewed_by ?? "not recorded"} · {dateLabel(conversion.reviewed_at)}</p>
+                      <p className="text-xs text-muted-foreground">SHA-256 <code title={conversion.content_hash}>{shortHash(conversion.content_hash)}</code></p>
+                      {conversion.supersedes_conversion_id && <p className="text-xs text-muted-foreground">Supersedes record #{conversion.supersedes_conversion_id}</p>}
                     </div>
                   ))}
-                  {!conversionsQ.isLoading && (conversionsQ.data?.length ?? 0) === 0 && <p className="text-sm text-muted-foreground">No conversion evidence is registered.</p>}
+                  {!conversionsQ.isLoading && (conversionsQ.data?.length ?? 0) === 0 && <p className="text-sm text-muted-foreground">No immutable conversion versions are registered.</p>}
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Beaker className="h-4 w-4" />Reviewed storage policies</CardTitle><CardDescription>Policies retain their temperature assumptions, source, review date, and safety scope.</CardDescription></CardHeader>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base"><Beaker className="h-4 w-4" />Storage-policy versions</CardTitle>
+                  <CardDescription>Review assumptions and exact immutable provenance; no policy is a universal safety guarantee.</CardDescription>
+                </CardHeader>
                 <CardContent className="space-y-2">
-                  {(policiesQ.data ?? []).map((policy: StoragePolicy) => (
+                  {(policiesQ.data ?? []).map((policy: StoragePolicyVersion) => (
                     <div key={policy.id} className="rounded-md border p-3 text-sm">
-                      <div className="flex flex-wrap items-center justify-between gap-2"><span className="font-medium">{policy.food_category}</span><Badge variant="outline">{policy.storage_state}</Badge></div>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-medium">{policy.food_category}</span>
+                        <div className="flex gap-1">
+                          <Badge variant="outline">{policy.storage_state}</Badge>
+                          <Badge variant={policy.active ? "default" : "secondary"}>{policy.active ? "active" : "superseded/inactive"}</Badge>
+                        </div>
+                      </div>
                       <p>{policy.duration_min_hours ?? "?"}–{policy.duration_max_hours ?? "?"} hours{policy.maximum_temperature_c !== null && policy.maximum_temperature_c !== undefined ? ` at or below ${policy.maximum_temperature_c}°C` : ""}</p>
-                      <p className="text-xs text-muted-foreground">{policy.source_name} · reviewed {new Date(policy.reviewed_at).toLocaleDateString()}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{policy.safety_scope}</p>
+                      <p className="text-xs text-muted-foreground">Policy {policy.policy_key} · version {policy.policy_version}</p>
+                      <p className="text-xs text-muted-foreground">{policy.source_name} · source {policy.source_version}</p>
+                      <p className="text-xs text-muted-foreground">Reviewed by {policy.reviewed_by ?? "not recorded"} · {dateLabel(policy.reviewed_at)}</p>
+                      <p className="text-xs text-muted-foreground">Scope: {label(policy.safety_scope)}</p>
+                      <p className="text-xs text-muted-foreground">SHA-256 <code title={policy.content_hash}>{shortHash(policy.content_hash)}</code></p>
+                      {policy.supersedes_policy_id && <p className="text-xs text-muted-foreground">Supersedes policy record #{policy.supersedes_policy_id}</p>}
                     </div>
                   ))}
+                  {!policiesQ.isLoading && (policiesQ.data?.length ?? 0) === 0 && <p className="text-sm text-muted-foreground">No immutable storage-policy versions are registered.</p>}
                 </CardContent>
               </Card>
             </div>
