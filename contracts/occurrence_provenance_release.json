@@ -1,0 +1,15 @@
+{
+  "contract_version": "2026-08-01.1",
+  "migration_head": "20260801_0012",
+  "api_version": "0.8.0",
+  "occurrence_document": "preparation-occurrence-set-v1",
+  "requirements": [
+    "server_derived_occurrence_hash",
+    "household_binding",
+    "task_occurrence_recipe_servings_priority_deadline_binding",
+    "duration_policy_binding",
+    "profile_hash_binding",
+    "approval_time_revalidation",
+    "legacy_missing_document_fail_closed"
+  ]
+}
