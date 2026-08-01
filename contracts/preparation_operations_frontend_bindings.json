@@ -1,0 +1,93 @@
+{
+  "contract_version": "2026-08-01.1",
+  "typescript_source": "frontend/src/lib/preparationOperationsApi.ts",
+  "schemas": {
+    "ResourceCalendarVersionView": "ResourceCalendarVersionView",
+    "PersistedPreparationScheduleView": "PersistedPreparationScheduleView",
+    "PreparationScheduleEventView": "PreparationScheduleEventView"
+  },
+  "enums": {
+    "CalendarEvidenceStatus": "CalendarEvidenceStatus",
+    "PreparationScheduleStatus": "PreparationScheduleStatus",
+    "PreparationScheduleEventType": "PreparationScheduleEventType"
+  },
+  "operations": [
+    {
+      "openapi_path": "/api/v1/households/{household_id}/preparation-operations/resource-calendars",
+      "method": "post",
+      "object": "preparationOperationsApi",
+      "binding": "createCalendar",
+      "source_fragment": "${base(householdId)}/resource-calendars"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/preparation-operations/resource-calendars",
+      "method": "get",
+      "object": "preparationOperationsApi",
+      "binding": "calendars",
+      "source_fragment": "${base(householdId)}/resource-calendars?active_only=${activeOnly}"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/preparation-operations/resource-calendars/{calendar_id}",
+      "method": "get",
+      "object": "preparationOperationsApi",
+      "binding": "calendar",
+      "source_fragment": "${base(householdId)}/resource-calendars/${calendarId}"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/preparation-operations/schedules",
+      "method": "post",
+      "object": "preparationOperationsApi",
+      "binding": "createSchedule",
+      "source_fragment": "${base(householdId)}/schedules"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/preparation-operations/schedules",
+      "method": "get",
+      "object": "preparationOperationsApi",
+      "binding": "schedules",
+      "source_fragment": "${base(householdId)}/schedules${suffix}"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}",
+      "method": "get",
+      "object": "preparationOperationsApi",
+      "binding": "schedule",
+      "source_fragment": "${base(householdId)}/schedules/${scheduleId}"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/approve",
+      "method": "post",
+      "object": "preparationOperationsApi",
+      "binding": "approve",
+      "source_fragment": "${base(householdId)}/schedules/${scheduleId}/approve"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/complete",
+      "method": "post",
+      "object": "preparationOperationsApi",
+      "binding": "complete",
+      "source_fragment": "${base(householdId)}/schedules/${scheduleId}/complete"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/cancel",
+      "method": "post",
+      "object": "preparationOperationsApi",
+      "binding": "cancel",
+      "source_fragment": "${base(householdId)}/schedules/${scheduleId}/cancel"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/invalidate",
+      "method": "post",
+      "object": "preparationOperationsApi",
+      "binding": "invalidate",
+      "source_fragment": "${base(householdId)}/schedules/${scheduleId}/invalidate"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/events",
+      "method": "get",
+      "object": "preparationOperationsApi",
+      "binding": "events",
+      "source_fragment": "${base(householdId)}/schedules/${scheduleId}/events"
+    }
+  ]
+}
