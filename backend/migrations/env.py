@@ -8,6 +8,13 @@ from sqlalchemy import engine_from_config, pool
 
 from backend.database import Base
 
+# These modules declare tables on the shared Base but intentionally live outside
+# database.py to keep domain code separated. Alembic must import them before
+# binding target_metadata, otherwise autogeneration and metadata audits silently
+# omit preparation and immutable food-evidence tables.
+from backend import evidence_history_models as _evidence_history_models  # noqa: F401,E402
+from backend import preparation_models as _preparation_models  # noqa: F401,E402
+
 
 config = context.config
 
@@ -18,7 +25,10 @@ file_config = getattr(config, "file_config", None)
 if (
     config.config_file_name is not None
     and file_config is not None
-    and all(file_config.has_section(section) for section in ("loggers", "handlers", "formatters"))
+    and all(
+        file_config.has_section(section)
+        for section in ("loggers", "handlers", "formatters")
+    )
 ):
     fileConfig(config.config_file_name)
 
