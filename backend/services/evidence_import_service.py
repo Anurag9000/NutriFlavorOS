@@ -21,6 +21,8 @@ from backend.evidence_history_models import (
 )
 from backend.services.evidence_history_service import (
     _conversion_view,
+    _latest_reviewed_conversion,
+    _latest_reviewed_policy,
     _lock_evidence_key,
     _policy_view,
     conversion_content_hash,
@@ -149,21 +151,10 @@ def _conversion_preview(
             supersedes_record_id=existing.supersedes_conversion_id,
         )
 
-    current = None
+    predecessor = None
     if payload.active and payload.evidence_status == EvidenceRecordStatus.REVIEWED:
-        current = (
-            db.query(DBIngredientConversionVersion)
-            .filter(
-                DBIngredientConversionVersion.canonical_name == payload.canonical_name,
-                DBIngredientConversionVersion.from_unit == payload.from_unit,
-                DBIngredientConversionVersion.to_unit == payload.to_unit,
-                DBIngredientConversionVersion.evidence_status
-                == EvidenceRecordStatus.REVIEWED.value,
-                DBIngredientConversionVersion.active.is_(True),
-            )
-            .first()
-        )
-    if current is not None:
+        predecessor = _latest_reviewed_conversion(db, payload)
+    if predecessor is not None:
         action: PlannedAction = "register_and_supersede"
     elif payload.active and payload.evidence_status == EvidenceRecordStatus.REVIEWED:
         action = "register_active_reviewed"
@@ -178,7 +169,7 @@ def _conversion_preview(
         requested_active=payload.active,
         planned_action=action,
         existing_record_id=None,
-        supersedes_record_id=current.id if current is not None else None,
+        supersedes_record_id=(predecessor.id if predecessor is not None else None),
     )
 
 
@@ -213,19 +204,10 @@ def _policy_preview(
             supersedes_record_id=existing.supersedes_policy_id,
         )
 
-    current = None
+    predecessor = None
     if payload.active and payload.evidence_status == EvidenceRecordStatus.REVIEWED:
-        current = (
-            db.query(DBStoragePolicyVersion)
-            .filter(
-                DBStoragePolicyVersion.policy_key == payload.policy_key,
-                DBStoragePolicyVersion.evidence_status
-                == EvidenceRecordStatus.REVIEWED.value,
-                DBStoragePolicyVersion.active.is_(True),
-            )
-            .first()
-        )
-    if current is not None:
+        predecessor = _latest_reviewed_policy(db, payload)
+    if predecessor is not None:
         action: PlannedAction = "register_and_supersede"
     elif payload.active and payload.evidence_status == EvidenceRecordStatus.REVIEWED:
         action = "register_active_reviewed"
@@ -240,7 +222,7 @@ def _policy_preview(
         requested_active=payload.active,
         planned_action=action,
         existing_record_id=None,
-        supersedes_record_id=current.id if current is not None else None,
+        supersedes_record_id=(predecessor.id if predecessor is not None else None),
     )
 
 
@@ -313,18 +295,19 @@ def register_food_evidence_atomic(
                     raise RuntimeError("Idempotent conversion record disappeared during import")
                 conversion_rows.append(row)
                 continue
-            current = None
+            predecessor = None
             if preview.supersedes_record_id is not None:
-                current = db.get(
+                predecessor = db.get(
                     DBIngredientConversionVersion,
                     preview.supersedes_record_id,
                 )
-                if current is None or not current.active:
-                    raise RuntimeError("Conversion supersession target changed during import")
-                current.active = False
-                current.updated_at = now
-                db.add(current)
-                db.flush()
+                if predecessor is None:
+                    raise RuntimeError("Conversion supersession target disappeared during import")
+                if predecessor.active:
+                    predecessor.active = False
+                    predecessor.updated_at = now
+                    db.add(predecessor)
+                    db.flush()
             row = DBIngredientConversionVersion(
                 canonical_name=payload.canonical_name,
                 from_unit=payload.from_unit,
@@ -359,15 +342,19 @@ def register_food_evidence_atomic(
                     raise RuntimeError("Idempotent storage-policy record disappeared during import")
                 policy_rows.append(row)
                 continue
-            current = None
+            predecessor = None
             if preview.supersedes_record_id is not None:
-                current = db.get(DBStoragePolicyVersion, preview.supersedes_record_id)
-                if current is None or not current.active:
-                    raise RuntimeError("Storage-policy supersession target changed during import")
-                current.active = False
-                current.updated_at = now
-                db.add(current)
-                db.flush()
+                predecessor = db.get(
+                    DBStoragePolicyVersion,
+                    preview.supersedes_record_id,
+                )
+                if predecessor is None:
+                    raise RuntimeError("Storage-policy supersession target disappeared during import")
+                if predecessor.active:
+                    predecessor.active = False
+                    predecessor.updated_at = now
+                    db.add(predecessor)
+                    db.flush()
             row = DBStoragePolicyVersion(
                 policy_key=payload.policy_key,
                 policy_version=payload.policy_version,
