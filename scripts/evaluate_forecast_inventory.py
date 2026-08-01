@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare forecasting models through a common perishable-inventory replay."""
+"""Evaluate forecasting baselines through typed perishable-inventory replay."""
 
 from __future__ import annotations
 
@@ -7,83 +7,100 @@ import argparse
 import json
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict
+from typing import Dict
 
+from backend.domain.benchmark_fixtures import ForecastInventoryBenchmarkFixture
+from backend.research.forecast_baselines import (
+    CrostonForecaster,
+    DampedHoltForecaster,
+    MovingAverageForecaster,
+    SeasonalNaiveForecaster,
+    SimpleExponentialSmoothingForecaster,
+    TSBForecaster,
+)
 from backend.research.forecast_inventory_pipeline import (
+    ForecastInventoryEvaluation,
     compare_forecast_inventory_models,
 )
-from backend.research.inventory_simulation import SimulationLot
-from scripts.benchmark_forecasters import model_factories
 
 
-def _objects(raw: Any, key: str) -> list[dict]:
-    values = raw.get(key, [])
-    if not isinstance(values, list) or any(not isinstance(value, dict) for value in values):
-        raise ValueError(f"{key} must be a list of objects")
-    return values
-
-
-def load_evaluation(path: Path) -> dict:
+def load_document(path: Path) -> ForecastInventoryBenchmarkFixture:
     raw = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(raw, dict):
-        raise ValueError("evaluation input must be a JSON object")
-    required = {
-        "sku",
-        "history",
-        "actual_future",
-        "lead_time_days",
-        "shelf_life_days",
+    return ForecastInventoryBenchmarkFixture.model_validate(raw)
+
+
+def _factories(document: ForecastInventoryBenchmarkFixture) -> Dict[str, object]:
+    configuration = document.forecast_configuration
+    available = {
+        "moving_average": lambda: MovingAverageForecaster(
+            window=configuration.moving_window
+        ),
+        "seasonal_naive": lambda: SeasonalNaiveForecaster(
+            season_length=configuration.season_length
+        ),
+        "simple_exponential_smoothing": SimpleExponentialSmoothingForecaster,
+        "damped_holt": DampedHoltForecaster,
+        "croston_intermittent_demand": CrostonForecaster,
+        "tsb_intermittent_demand": TSBForecaster,
     }
-    missing = required - set(raw)
+    selected = document.models or list(available)
+    missing = sorted(set(selected) - set(available))
     if missing:
-        raise ValueError("missing required fields: " + ", ".join(sorted(missing)))
-    return raw
+        raise ValueError(
+            "Unknown forecast model identifiers: " + ", ".join(missing)
+        )
+    return {identifier: available[identifier] for identifier in selected}
+
+
+def _serialize(value: ForecastInventoryEvaluation) -> dict:
+    return {
+        "method": value.method,
+        "model_id": value.model_id,
+        "deterministic": value.deterministic,
+        "evaluation_fingerprint": value.evaluation_fingerprint,
+        "history": list(value.history),
+        "forecast": list(value.forecast),
+        "actual": list(value.actual),
+        "forecast_metrics": asdict(value.forecast_metrics),
+        "replenishment_policy": asdict(value.replenishment_policy),
+        "inventory_result": {
+            **{
+                key: item
+                for key, item in asdict(value.inventory_result).items()
+                if key not in {"per_sku", "events"}
+            },
+            "per_sku": [asdict(item) for item in value.inventory_result.per_sku],
+            "events": [asdict(item) for item in value.inventory_result.events],
+        },
+        "warnings": list(value.warnings),
+    }
 
 
 def build_report(path: Path) -> dict:
-    raw = load_evaluation(path)
-    configuration = dict(raw.get("forecast_configuration", {}))
-    factories = model_factories(
-        season_length=int(configuration.get("season_length", 7)),
-        moving_window=int(configuration.get("moving_window", 7)),
+    document = load_document(path)
+    evaluations = compare_forecast_inventory_models(
+        factories=_factories(document),
+        sku=document.sku,
+        history=document.history,
+        actual_future=document.actual_future,
+        initial_lots=document.initial_lot_domain_values(),
+        lead_time_days=document.lead_time_days,
+        shelf_life_days=document.shelf_life_days,
+        review_period_days=document.review_period_days,
+        safety_multiplier=document.safety_multiplier,
     )
-    requested = raw.get("models")
-    if requested is not None:
-        if not isinstance(requested, list) or any(not isinstance(value, str) for value in requested):
-            raise ValueError("models must be a list of model identifiers")
-        unknown = sorted(set(requested) - set(factories))
-        if unknown:
-            raise ValueError("unknown forecasting models: " + ", ".join(unknown))
-        factories = {identifier: factories[identifier] for identifier in sorted(set(requested))}
-
-    initial_lots = [
-        SimulationLot(**value) for value in _objects(raw, "initial_lots")
-    ]
-    results = compare_forecast_inventory_models(
-        factories=factories,
-        sku=str(raw["sku"]),
-        history=[float(value) for value in raw["history"]],
-        actual_future=[float(value) for value in raw["actual_future"]],
-        initial_lots=initial_lots,
-        lead_time_days=int(raw["lead_time_days"]),
-        shelf_life_days=int(raw["shelf_life_days"]),
-        review_period_days=int(raw.get("review_period_days", 1)),
-        safety_multiplier=float(raw.get("safety_multiplier", 1.0)),
-    )
-    serialized: Dict[str, dict] = {}
-    for identifier, value in results.items():
-        payload = asdict(value)
-        serialized[identifier] = payload
-
+    serialized = {
+        identifier: _serialize(value)
+        for identifier, value in sorted(evaluations.items())
+    }
     best_forecast = min(
         serialized,
         key=lambda identifier: (
             serialized[identifier]["forecast_metrics"]["mae"],
-            serialized[identifier]["forecast_metrics"]["rmse"],
             identifier,
         ),
     )
-    best_fill_rate = max(
+    best_inventory = max(
         serialized,
         key=lambda identifier: (
             serialized[identifier]["inventory_result"]["fill_rate"],
@@ -95,20 +112,23 @@ def build_report(path: Path) -> dict:
         serialized,
         key=lambda identifier: (
             serialized[identifier]["inventory_result"]["expired_units"],
-            serialized[identifier]["inventory_result"]["stockout_units"],
+            -serialized[identifier]["inventory_result"]["fill_rate"],
             identifier,
         ),
     )
     return {
-        "protocol_version": "forecast_to_inventory_replay_v1",
+        "protocol_version": "forecast_inventory_closed_loop_v1",
+        "sku": document.sku,
         "model_count": len(serialized),
         "models": serialized,
         "best_forecast_by_mae": best_forecast,
-        "best_inventory_by_fill_rate": best_fill_rate,
+        "best_inventory_by_fill_rate": best_inventory,
         "least_waste": least_waste,
-        "selection_warning": (
+        "limitations": [
+            "This benchmark is offline and never places runtime purchase orders.",
+            "Point forecasts are translated through an explicit fixed safety multiplier rather than a calibrated service-level guarantee.",
             "Forecast, service, and waste leaders are reported separately; no automatic procurement model is selected."
-        ),
+        ],
     }
 
 
