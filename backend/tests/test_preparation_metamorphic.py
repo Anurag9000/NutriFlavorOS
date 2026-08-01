@@ -4,6 +4,8 @@ import hashlib
 import json
 from copy import deepcopy
 
+import pytest
+
 from backend.domain.preparation import PreparationScheduleRequest
 from backend.domain.preparation_operations import PreparationOccurrenceSetDocument
 from backend.engines.prep_resource_scheduler import build_preparation_schedule
@@ -201,6 +203,41 @@ def test_expanding_availability_preserves_previously_feasible_tasks():
     assert [value.task_id for value in first.scheduled] == ["bake"]
     assert [value.task_id for value in second.scheduled] == ["bake"]
     assert second.scheduled[0].start_minute <= first.scheduled[0].start_minute
+
+
+def test_explicit_empty_windows_do_not_silently_become_full_availability():
+    payload = {
+        "horizon_minutes": 60,
+        "resources": [
+            {
+                "resource_id": "person",
+                "capacity": 1,
+                "availability_windows": [],
+            }
+        ],
+        "tasks": [],
+    }
+    with pytest.raises(ValueError, match="cannot be empty"):
+        PreparationScheduleRequest.model_validate(payload)
+
+
+def test_explicit_windows_cannot_mix_with_legacy_bounds():
+    payload = {
+        "horizon_minutes": 60,
+        "resources": [
+            {
+                "resource_id": "person",
+                "capacity": 1,
+                "available_from_minute": 0,
+                "availability_windows": [
+                    {"start_minute": 0, "end_minute": 60}
+                ],
+            }
+        ],
+        "tasks": [],
+    }
+    with pytest.raises(ValueError, match="cannot be combined"):
+        PreparationScheduleRequest.model_validate(payload)
 
 
 def test_occurrence_document_order_is_canonical_and_hash_stable():
