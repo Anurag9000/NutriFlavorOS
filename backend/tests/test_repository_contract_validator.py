@@ -31,5 +31,13 @@ def test_repository_contracts_are_synchronized():
     assert report["migration_files"] == [
         "backend/migrations/versions/20260801_0008_evidence_lifecycle.py"
     ]
+    assert report["alembic_chain"]["valid"] is True
+    assert report["alembic_chain"]["heads"] == ["20260801_0008"]
+    assert len(report["alembic_chain"]["bases"]) == 1
+    assert report["alembic_chain"]["linear_chain"][-1] == "20260801_0008"
+    assert (
+        report["alembic_chain"]["revision_count"]
+        == report["alembic_chain"]["migration_file_count"]
+    )
     assert report["valid"] is True, report["errors"]
     assert report["errors"] == []
