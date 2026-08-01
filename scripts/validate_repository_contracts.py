@@ -3,8 +3,8 @@
 
 This validator intentionally checks declarations, not model quality. It catches
 catalog/capability drift, stale migration heads, missing benchmark fixtures,
-missing release contracts, migration-chain defects, and stale public catalog
-declarations.
+missing release contracts, migration-chain defects, import-order drift, and
+stale public catalog declarations.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from backend.schema_verification import (
     CURRENT_REQUIRED_TABLES,
 )
 from scripts.validate_alembic_chain import validate_alembic_chain
+from scripts.validate_catalog_import_order import validate_catalog_import_order
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -214,6 +215,17 @@ def validate_repository_contracts() -> dict:
         f"Alembic chain: {value}" for value in alembic_report["errors"]
     )
 
+    import_order_report = validate_catalog_import_order()
+    errors.extend(
+        f"Catalog import order: {value}"
+        for value in import_order_report["errors"]
+    )
+    successful_import_scenarios = sorted(
+        name
+        for name, value in import_order_report["scenarios"].items()
+        if value["success"]
+    )
+
     return {
         "valid": not errors,
         "catalog_version": catalog.version,
@@ -237,6 +249,12 @@ def validate_repository_contracts() -> dict:
             "revision_count": alembic_report["revision_count"],
             "migration_file_count": alembic_report["migration_file_count"],
             "linear_chain": alembic_report["linear_chain"],
+        },
+        "catalog_import_order": {
+            "valid": import_order_report["valid"],
+            "canonical_scenario": import_order_report["canonical_scenario"],
+            "scenario_count": import_order_report["scenario_count"],
+            "successful_scenarios": successful_import_scenarios,
         },
         "errors": errors,
     }
