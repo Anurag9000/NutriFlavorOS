@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     String,
     UniqueConstraint,
     text,
@@ -51,9 +52,7 @@ class DBIngredientConversionVersion(Base):
             "from_unit",
             "to_unit",
             unique=True,
-            sqlite_where=text(
-                "active = 1 AND evidence_status = 'reviewed'"
-            ),
+            sqlite_where=text("active = 1 AND evidence_status = 'reviewed'"),
             postgresql_where=text(
                 "active IS TRUE AND evidence_status = 'reviewed'"
             ),
@@ -120,9 +119,7 @@ class DBStoragePolicyVersion(Base):
             "uq_active_reviewed_storage_policy_key",
             "policy_key",
             unique=True,
-            sqlite_where=text(
-                "active = 1 AND evidence_status = 'reviewed'"
-            ),
+            sqlite_where=text("active = 1 AND evidence_status = 'reviewed'"),
             postgresql_where=text(
                 "active IS TRUE AND evidence_status = 'reviewed'"
             ),
@@ -179,3 +176,61 @@ class DBLeftoverStoragePolicyEvidence(Base):
         index=True,
     )
     linked_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class DBEvidenceLifecycleEvent(Base):
+    __tablename__ = "evidence_lifecycle_events"
+    __table_args__ = (
+        CheckConstraint(
+            "evidence_kind IN ('conversion','storage_policy')",
+            name="ck_evidence_lifecycle_kind",
+        ),
+        CheckConstraint(
+            "action IN ('deactivated','rejected')",
+            name="ck_evidence_lifecycle_action",
+        ),
+        CheckConstraint(
+            "((conversion_version_id IS NOT NULL AND storage_policy_version_id IS NULL) "
+            "OR (conversion_version_id IS NULL AND storage_policy_version_id IS NOT NULL))",
+            name="ck_evidence_lifecycle_exactly_one_target",
+        ),
+        CheckConstraint(
+            "length(request_fingerprint) = 64",
+            name="ck_evidence_lifecycle_fingerprint_length",
+        ),
+        UniqueConstraint(
+            "idempotency_key",
+            name="uq_evidence_lifecycle_idempotency_key",
+        ),
+        Index(
+            "ix_evidence_lifecycle_conversion_created",
+            "conversion_version_id",
+            "created_at",
+        ),
+        Index(
+            "ix_evidence_lifecycle_policy_created",
+            "storage_policy_version_id",
+            "created_at",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    evidence_kind = Column(String, nullable=False, index=True)
+    conversion_version_id = Column(
+        Integer,
+        ForeignKey("ingredient_conversion_versions.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    storage_policy_version_id = Column(
+        Integer,
+        ForeignKey("storage_policy_versions.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    action = Column(String, nullable=False, index=True)
+    actor = Column(String, nullable=False)
+    reason = Column(String, nullable=False)
+    event_metadata = Column(JSON, nullable=False, default=dict)
+    idempotency_key = Column(String, nullable=False)
+    request_fingerprint = Column(String, nullable=False, index=True)
+    target_was_active = Column(Boolean, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
