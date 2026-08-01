@@ -50,7 +50,7 @@ def test_stale_alembic_revision_is_rejected(tmp_path, monkeypatch):
 
     with pytest.raises(
         RuntimeError,
-        match="Expected 20260801_0009; observed 20260731_0005",
+        match="Expected 20260801_0010; observed 20260731_0005",
     ):
         verify_runtime_schema(create_engine(url))
 
