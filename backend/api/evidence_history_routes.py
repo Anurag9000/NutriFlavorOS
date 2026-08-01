@@ -6,22 +6,25 @@ clients may inspect exact versions and apply only an active reviewed conversion.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from backend.database import DBUser, get_db
+from backend.database import DBLeftoverBatch, DBUser, get_db
 from backend.domain.evidence_history import (
     ConversionApplicationRequest,
     ConversionApplicationResult,
     IngredientConversionVersionView,
     StoragePolicyVersionView,
 )
+from backend.domain.household_access import HouseholdRole
 from backend.services.evidence_history_service import (
     active_reviewed_storage_policy,
     apply_reviewed_conversion,
     list_conversion_versions,
     list_storage_policy_versions,
+    storage_policy_for_leftover,
 )
+from backend.services.household_access_service import require_household_access
 from backend.utils.security import get_current_user
 
 
@@ -87,3 +90,41 @@ def active_storage_policy_route(
     _current_user: DBUser = Depends(get_current_user),
 ):
     return active_reviewed_storage_policy(db, policy_key)
+
+
+@router.get(
+    "/households/{household_id}/leftovers/{leftover_id}/storage-policy",
+    response_model=StoragePolicyVersionView,
+)
+def leftover_storage_policy_route(
+    household_id: str,
+    leftover_id: int,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    household, _ = require_household_access(
+        db,
+        household_id,
+        current_user.id,
+        HouseholdRole.VIEWER,
+    )
+    leftover = (
+        db.query(DBLeftoverBatch)
+        .filter(
+            DBLeftoverBatch.id == leftover_id,
+            DBLeftoverBatch.household_id == household.id,
+        )
+        .first()
+    )
+    if leftover is None:
+        raise HTTPException(status_code=404, detail="Resource not found")
+    policy = storage_policy_for_leftover(db, leftover.id)
+    if policy is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "leftover_storage_policy_evidence_unavailable",
+                "message": "This leftover has no immutable storage-policy version link",
+            },
+        )
+    return policy
