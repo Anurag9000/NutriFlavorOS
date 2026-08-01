@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 
 from backend.domain.evidence_import import FoodEvidenceImportDocument
+from backend.domain.evidence_lifecycle import EvidenceLifecycleBatchDocument
 from backend.research.capabilities import (
     assert_core_capabilities_valid,
     implementation_status,
@@ -38,6 +39,9 @@ EXPECTED_TYPED_FIXTURES = {
     "food_evidence_import": ROOT
     / "benchmarks"
     / "food_evidence_import_small.json",
+    "food_evidence_lifecycle": ROOT
+    / "benchmarks"
+    / "food_evidence_lifecycle_small.json",
 }
 EXPECTED_CONTRACT_FILES = {
     "openapi": ROOT / "contracts" / "openapi_required.json",
@@ -161,7 +165,11 @@ def validate_repository_contracts() -> dict:
             try:
                 if label == "food_evidence_import":
                     document = FoodEvidenceImportDocument.model_validate(value)
-                    typed_fixture_report[label] = document.document_version
+                elif label == "food_evidence_lifecycle":
+                    document = EvidenceLifecycleBatchDocument.model_validate(value)
+                else:  # pragma: no cover - guarded by the constant above
+                    raise ValueError(f"Unknown typed fixture label: {label}")
+                typed_fixture_report[label] = document.document_version
             except (TypeError, ValueError) as exc:
                 errors.append(
                     f"typed fixture validation failed for {path.relative_to(ROOT)}: {exc}"
