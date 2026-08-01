@@ -15,8 +15,13 @@ from sqlalchemy.engine import Engine
 from backend.database import REQUIRED_RUNTIME_TABLES, engine
 
 
-CURRENT_ALEMBIC_REVISION = "20260801_0006"
-CURRENT_REQUIRED_TABLES = REQUIRED_RUNTIME_TABLES | {"recipe_preparation_profiles"}
+CURRENT_ALEMBIC_REVISION = "20260801_0007"
+CURRENT_REQUIRED_TABLES = REQUIRED_RUNTIME_TABLES | {
+    "recipe_preparation_profiles",
+    "ingredient_conversion_versions",
+    "storage_policy_versions",
+    "leftover_storage_policy_evidence",
+}
 
 
 def verify_runtime_schema(
