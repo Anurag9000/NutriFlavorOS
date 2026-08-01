@@ -23,7 +23,7 @@ def test_repository_contracts_are_synchronized():
     assert report["typed_fixtures"] == {
         "food_evidence_import": "food-evidence-import-v1"
     }
-    assert report["release_contracts"] == {"openapi": "2026-08-01.1"}
+    assert report["release_contracts"] == {"openapi": "2026-08-01.2"}
     assert report["migration_files"] == [
         "backend/migrations/versions/20260801_0008_evidence_lifecycle.py"
     ]
