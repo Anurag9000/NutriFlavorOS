@@ -4,17 +4,20 @@ import type {
 } from "@/lib/preparationApi";
 import type {
   PersistedScheduleCreateRequest,
+  PreparationOccurrenceSetDocument,
   PreparationResource,
+  PreparationTask,
   ResourceCalendarVersionView,
 } from "@/lib/preparationOperationsApi";
 
 export const PREPARATION_OPERATIONS_HANDOFF_KEY =
-  "nutriflavos.preparation-operations.handoff.v1";
+  "nutriflavos.preparation-operations.handoff.v2";
 
 export interface PreparationOperationsHandoff {
-  document_version: "preparation-operations-handoff-v1";
+  document_version: "preparation-operations-handoff-v2";
   household_id: string;
   created_at: string;
+  occurrence_set_hash_preview: string;
   bundle: Omit<PersistedScheduleCreateRequest, "idempotency_key">;
 }
 
@@ -36,7 +39,9 @@ export function canonicalJson(value: unknown): string {
 
 export async function sha256Hex(value: unknown): Promise<string> {
   if (!globalThis.crypto?.subtle) {
-    throw new Error("This browser cannot calculate the required SHA-256 fingerprint");
+    throw new Error(
+      "This browser cannot calculate the required SHA-256 fingerprint",
+    );
   }
   const encoded = new TextEncoder().encode(canonicalJson(value));
   const digest = await globalThis.crypto.subtle.digest("SHA-256", encoded);
@@ -61,20 +66,110 @@ export function calendarPreparationResources(
     }));
 }
 
+function requireString(
+  metadata: Record<string, unknown>,
+  key: string,
+  taskId: string,
+): string {
+  const value = metadata[key];
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`Compiled task ${taskId} lacks ${key} provenance`);
+  }
+  return value;
+}
+
+function requireFiniteNumber(
+  metadata: Record<string, unknown>,
+  key: string,
+  taskId: string,
+): number {
+  const value = metadata[key];
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`Compiled task ${taskId} lacks ${key} provenance`);
+  }
+  return value;
+}
+
+function validateCompiledTaskProvenance(
+  task: PreparationTask,
+  occurrenceSet: PreparationOccurrenceSetDocument,
+): void {
+  const metadata = task.metadata ?? {};
+  const occurrenceId = requireString(metadata, "occurrence_id", task.task_id);
+  const recipeId = requireString(metadata, "recipe_id", task.task_id);
+  requireString(metadata, "profile_content_hash", task.task_id);
+  requireString(metadata, "profile_version", task.task_id);
+  requireFiniteNumber(metadata, "profile_id", task.task_id);
+  const servings = requireFiniteNumber(metadata, "servings", task.task_id);
+  const minimum = requireFiniteNumber(
+    metadata,
+    "duration_min_minutes",
+    task.task_id,
+  );
+  const maximum = requireFiniteNumber(
+    metadata,
+    "duration_max_minutes",
+    task.task_id,
+  );
+  const occurrence = occurrenceSet.occurrences.find(
+    (value) => value.occurrence_id === occurrenceId,
+  );
+  if (!occurrence) {
+    throw new Error(
+      `Compiled task ${task.task_id} references unknown occurrence ${occurrenceId}`,
+    );
+  }
+  if (
+    occurrence.recipe_id !== recipeId
+    || occurrence.servings !== servings
+    || occurrence.priority !== task.priority
+    || occurrence.required_finish_minute !== task.latest_finish_minute
+  ) {
+    throw new Error(
+      `Compiled task ${task.task_id} differs from its occurrence document`,
+    );
+  }
+  const expectedDuration =
+    occurrenceSet.duration_policy === "conservative_max" ? maximum : minimum;
+  if (task.duration_minutes !== expectedDuration) {
+    throw new Error(
+      `Compiled task ${task.task_id} differs from the duration policy`,
+    );
+  }
+}
+
 export async function buildPreparationOperationsHandoff(options: {
   householdId: string;
   calendar: ResourceCalendarVersionView;
   compileRequest: CompileAndScheduleRequest;
   compileResponse: CompileAndScheduleResponse;
   occurrenceSetVersion: string;
+  sourcePlanId?: number | null;
+  sourcePlanVersion?: number | null;
   notes?: string | null;
 }): Promise<PreparationOperationsHandoff> {
   const householdId = options.householdId.trim();
   const occurrenceSetVersion = options.occurrenceSetVersion.trim();
-  if (!householdId) throw new Error("Select a household before creating a handoff");
-  if (!occurrenceSetVersion) throw new Error("Occurrence-set version cannot be blank");
-  if (!options.calendar.active || options.calendar.evidence_status !== "reviewed") {
-    throw new Error("A handoff requires the household's active reviewed calendar");
+  if (!householdId) {
+    throw new Error("Select a household before creating a handoff");
+  }
+  if (!occurrenceSetVersion) {
+    throw new Error("Occurrence-set version cannot be blank");
+  }
+  if (
+    (options.sourcePlanId == null) !== (options.sourcePlanVersion == null)
+  ) {
+    throw new Error(
+      "Source plan ID and version must be supplied together",
+    );
+  }
+  if (
+    !options.calendar.active
+    || options.calendar.evidence_status !== "reviewed"
+  ) {
+    throw new Error(
+      "A handoff requires the household's active reviewed calendar",
+    );
   }
   if (
     options.compileResponse.execution_status !== "scheduled"
@@ -83,17 +178,23 @@ export async function buildPreparationOperationsHandoff(options: {
     || !options.compileResponse.schedule
     || options.compileResponse.schedule.unscheduled.length > 0
   ) {
-    throw new Error("Only a complete fail-closed pipeline result can be handed off");
+    throw new Error(
+      "Only a complete fail-closed pipeline result can be handed off",
+    );
   }
   if (options.compileRequest.allow_partial) {
-    throw new Error("Partial scheduling must be disabled for persisted operations");
+    throw new Error(
+      "Partial scheduling must be disabled for persisted operations",
+    );
   }
-  if (options.compileRequest.horizon_minutes !== options.calendar.horizon_minutes) {
+  if (
+    options.compileRequest.horizon_minutes
+    !== options.calendar.horizon_minutes
+  ) {
     throw new Error("Pipeline horizon does not match the active calendar");
   }
 
-  const resources = calendarPreparationResources(options.calendar);
-  const occurrenceDocument = {
+  const occurrenceSet: PreparationOccurrenceSetDocument = {
     document_version: "preparation-occurrence-set-v1",
     occurrence_set_version: occurrenceSetVersion,
     household_id: householdId,
@@ -102,31 +203,35 @@ export async function buildPreparationOperationsHandoff(options: {
       left.occurrence_id.localeCompare(right.occurrence_id),
     ),
   };
-  const occurrenceSetHash = await sha256Hex(occurrenceDocument);
+  const occurrenceSetHashPreview = await sha256Hex(occurrenceSet);
+  const tasks = options.compileResponse.compilation.tasks.map((task) => ({
+    ...task,
+    metadata: task.metadata ?? {},
+  }));
+  for (const task of tasks) {
+    validateCompiledTaskProvenance(task, occurrenceSet);
+  }
 
   return {
-    document_version: "preparation-operations-handoff-v1",
+    document_version: "preparation-operations-handoff-v2",
     household_id: householdId,
     created_at: new Date().toISOString(),
+    occurrence_set_hash_preview: occurrenceSetHashPreview,
     bundle: {
       calendar_version_id: options.calendar.id,
-      source_plan_id: null,
-      source_plan_version: null,
-      occurrence_set_version: occurrenceSetVersion,
-      occurrence_set_hash: occurrenceSetHash,
+      source_plan_id: options.sourcePlanId ?? null,
+      source_plan_version: options.sourcePlanVersion ?? null,
+      occurrence_set: occurrenceSet,
       profile_versions: Object.fromEntries(
-        Object.entries(options.compileResponse.compilation.profile_versions).sort(
-          ([left], [right]) => left.localeCompare(right),
-        ),
+        Object.entries(
+          options.compileResponse.compilation.profile_versions,
+        ).sort(([left], [right]) => left.localeCompare(right)),
       ),
       schedule_request: {
         horizon_minutes: options.compileRequest.horizon_minutes,
         granularity_minutes: options.compileRequest.granularity_minutes,
-        resources,
-        tasks: options.compileResponse.compilation.tasks.map((task) => ({
-          ...task,
-          metadata: task.metadata ?? {},
-        })),
+        resources: calendarPreparationResources(options.calendar),
+        tasks,
       },
       schedule_response: options.compileResponse.schedule,
       notes: options.notes?.trim() || null,
@@ -149,9 +254,10 @@ export function consumePreparationOperationsHandoff(): PreparationOperationsHand
   sessionStorage.removeItem(PREPARATION_OPERATIONS_HANDOFF_KEY);
   const parsed = JSON.parse(raw) as PreparationOperationsHandoff;
   if (
-    parsed.document_version !== "preparation-operations-handoff-v1"
+    parsed.document_version !== "preparation-operations-handoff-v2"
     || !parsed.household_id
-    || !parsed.bundle
+    || !parsed.occurrence_set_hash_preview?.match(/^[a-f0-9]{64}$/)
+    || !parsed.bundle?.occurrence_set
   ) {
     throw new Error("Stored preparation-operations handoff is invalid");
   }
