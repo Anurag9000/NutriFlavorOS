@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   collection: vi.fn(),
   conversions: vi.fn(),
   policies: vi.fn(),
+  lifecycleEvents: vi.fn(),
 }));
 
 vi.mock("@/components/AppLayout", () => ({
@@ -24,11 +25,14 @@ vi.mock("@/lib/platformApi", () => ({
   evidenceHistoryApi: {
     conversions: mocks.conversions,
     storagePolicies: mocks.policies,
+    lifecycleEvents: mocks.lifecycleEvents,
   },
 }));
 
 const conversionHash = "a".repeat(64);
 const policyHash = "b".repeat(64);
+const lifecycleTargetHash = "c".repeat(64);
+const lifecycleRequestHash = "d".repeat(64);
 
 function renderPage() {
   const client = new QueryClient({
@@ -121,6 +125,23 @@ beforeEach(() => {
       updated_at: "2026-08-01T00:00:00Z",
     },
   ]);
+  mocks.lifecycleEvents.mockResolvedValue([
+    {
+      id: 31,
+      target_kind: "storage_policy",
+      target_id: 19,
+      action: "rejected",
+      actor: "Evidence operator",
+      reason: "Source scope no longer supports future automatic use",
+      metadata: { ticket: "EVIDENCE-31" },
+      idempotency_key: "lifecycle-policy-19",
+      request_fingerprint: lifecycleRequestHash,
+      target_record_version: "official-2026-06-01",
+      target_content_hash: lifecycleTargetHash,
+      target_was_active: true,
+      created_at: "2026-08-01T01:00:00Z",
+    },
+  ]);
 });
 
 describe("Research registry", () => {
@@ -135,7 +156,7 @@ describe("Research registry", () => {
     expect(screen.queryByText("74")).not.toBeInTheDocument();
   });
 
-  it("shows immutable evidence versions hashes reviewers and supersession", async () => {
+  it("shows immutable versions and append-only lifecycle provenance", async () => {
     renderPage();
     await screen.findByText("Exact Preparation Scheduler");
     fireEvent.click(screen.getByRole("tab", { name: "Immutable food evidence" }));
@@ -152,7 +173,17 @@ describe("Research registry", () => {
     expect(screen.getByTitle(policyHash)).toBeInTheDocument();
     expect(screen.getByText(/Supersedes policy record #19/)).toBeInTheDocument();
 
+    expect(screen.getByText(/storage policy #19/i)).toBeInTheDocument();
+    expect(screen.getByText("rejected")).toBeInTheDocument();
+    expect(screen.getByText(/Evidence operator/)).toBeInTheDocument();
+    expect(screen.getByText(/Source scope no longer supports/)).toBeInTheDocument();
+    expect(screen.getByText(/official-2026-06-01/)).toBeInTheDocument();
+    expect(screen.getByTitle(lifecycleTargetHash)).toBeInTheDocument();
+    expect(screen.getByTitle(lifecycleRequestHash)).toBeInTheDocument();
+    expect(screen.getByLabelText("Lifecycle metadata for event 31")).toHaveTextContent("EVIDENCE-31");
+
     expect(mocks.conversions).toHaveBeenCalledWith({ activeOnly: false });
     expect(mocks.policies).toHaveBeenCalledWith({ activeOnly: false });
+    expect(mocks.lifecycleEvents).toHaveBeenCalledWith({ limit: 500 });
   });
 });
