@@ -1,11 +1,12 @@
 # Governed Research Platform
 
-NutriFlavorOS separates runtime product behavior from offline research
-evaluation. A source file, importable callable, catalog entry, synthetic
-fixture, or passing benchmark is **not** evidence that a method was trained,
-promoted, clinically validated, or enabled for users.
+NutriFlavorOS separates runtime product behavior from offline research and
+evidence operations. A source file, importable callable, catalog entry,
+synthetic fixture, passing test, or benchmark report is **not** evidence that a
+method was trained, promoted, clinically validated, or enabled for users.
 
-- Current database migration head: **`20260801_0007`**.
+- Database migration head: **`20260801_0008`**.
+- OpenAPI release contract: **`2026-08-01.2`**.
 - Effective research catalog: **`2026-08-01.3`**.
 
 ## Catalog inventory
@@ -60,17 +61,34 @@ for every implemented or baseline-available method. The verifier records:
 `runtime_available=true` means only that an offline callable imports in the
 current environment. `runtime_enabled` remains false for research methods.
 
-`scripts/validate_repository_contracts.py` additionally checks:
+`scripts/validate_repository_contracts.py` checks:
 
 - bidirectional catalog/capability coherence;
 - importability of every core callable;
 - catalog version and collection counts in public documentation;
 - current Alembic revision and exactly one matching migration file;
-- required immutable-evidence tables in the runtime schema contract;
-- required benchmark fixture presence and JSON-object shape.
+- required preparation and immutable-evidence tables;
+- benchmark fixture presence and JSON-object shape;
+- typed reviewed-evidence import fixture validation;
+- typed evidence-lifecycle fixture validation;
+- OpenAPI release-contract version declaration.
 
 ```bash
 python scripts/validate_repository_contracts.py
+```
+
+`scripts/validate_openapi_contracts.py` generates the actual FastAPI OpenAPI
+document and checks:
+
+- API version;
+- required paths and exact HTTP methods;
+- authentication requirements;
+- immutable-evidence mutation boundaries;
+- required provenance and lifecycle schema fields;
+- authentication security-scheme presence.
+
+```bash
+python scripts/validate_openapi_contracts.py
 ```
 
 ## Executable offline baseline families
@@ -276,9 +294,7 @@ python scripts/evaluate_forecast_inventory.py \
 The forecast leader, fill-rate leader, and least-waste leader remain separate.
 No procurement policy is selected automatically.
 
-## Immutable reviewed evidence
-
-### Preparation profiles
+## Immutable reviewed preparation evidence
 
 Every reviewed preparation profile retains recipe ID, immutable profile
 version, schema version, serving range, task DAG, duration interval, resource
@@ -306,9 +322,9 @@ The importer writes a source-file hash, operator, reviewer identities, natural
 keys, content hashes, planned actions, outcomes, commit identity, and manifest
 hash. A durable pre-apply manifest is written before database mutation.
 
-### Conversion and storage-policy histories
+## Immutable conversion and storage-policy histories
 
-Migration `20260801_0007` introduces immutable conversion versions, immutable
+Migration `20260801_0007` introduced immutable conversion versions, immutable
 storage-policy versions, and exact leftover-to-policy-version links.
 
 Reviewed records retain natural evidence keys, immutable versions, source
@@ -316,21 +332,94 @@ provenance, UTC review metadata, SHA-256 hashes, supersession links, and active
 state. One active reviewed conversion exists per ingredient/unit direction and
 one active reviewed policy exists per policy key.
 
-Registration uses PostgreSQL transaction advisory locks per natural key, which
+Registration uses PostgreSQL transaction advisory locks per natural key. This
 protects the first-version race that row locks cannot cover. Identical
 concurrent retries collapse, contradictory same-version content conflicts, and
-concurrent successor versions form one supersession chain with one active
-review.
+concurrent successor versions form one chain with one active review.
 
-Automatic immutable conversion requires an exact active reviewed record and
-returns its evidence ID, version, and content hash. New leftovers validate
-against one active reviewed storage policy and persist the exact policy link
-and event-ledger provenance in the same transaction. Frozen quality guidance
-is not converted into a safety expiry.
+Automatic conversion requires an exact active reviewed record and returns its
+evidence ID, version, and hash. New leftovers validate against one active
+reviewed storage policy and persist the exact policy link and event-ledger
+provenance atomically. Frozen quality guidance is not converted into a safety
+expiry.
 
-The public API is read-only except for applying an already reviewed exact
-conversion. Global evidence registration and supersession remain offline
-reviewed operations.
+### Joint manifest-driven imports
+
+`scripts/import_food_evidence.py` validates and registers conversion and policy
+versions together.
+
+```bash
+python scripts/import_food_evidence.py reviewed-food-evidence.json
+python scripts/import_food_evidence.py reviewed-food-evidence.json \
+  --apply --operator reviewer@example.org
+```
+
+The protocol includes:
+
+- typed document version;
+- source-file SHA-256;
+- importer version and repository commit;
+- operator and reviewer identities;
+- exact natural/version keys and content hashes;
+- non-mutating database preflight;
+- deterministic natural-key lock order;
+- one atomic database transaction;
+- idempotent existing-version outcomes;
+- exact supersession IDs;
+- durable pending manifest;
+- honest post-commit manifest-write failure state.
+
+The canonical fixture is `benchmarks/food_evidence_import_small.json`.
+
+## Append-only immutable evidence lifecycle
+
+Migration `20260801_0008` adds `evidence_lifecycle_events` for audited
+`deactivated` and `rejected` actions. Lifecycle operations never rewrite
+registered content, provenance, hashes, or historical leftover links.
+
+Each event retains:
+
+- exact conversion or storage-policy target;
+- action;
+- actor and reason;
+- arbitrary JSON metadata;
+- globally unique idempotency key;
+- SHA-256 request fingerprint;
+- whether the target was active;
+- creation time.
+
+```bash
+python scripts/manage_food_evidence_lifecycle.py lifecycle-actions.json
+python scripts/manage_food_evidence_lifecycle.py lifecycle-actions.json \
+  --apply --operator reviewer@example.org
+```
+
+The lifecycle protocol provides typed preflight, actor/operator equality,
+deterministic idempotency and natural-key locking, all-or-nothing mutation,
+durable pending/final manifests, retry collapse, contradictory-key rejection,
+and honest committed-state reporting.
+
+Reactivation is prohibited. A corrected active record must be a new immutable
+version. Its supersession link points to the latest reviewed predecessor even
+when that predecessor was already deactivated or rejected.
+
+The canonical lifecycle fixture is
+`benchmarks/food_evidence_lifecycle_small.json`.
+
+## Read-only evidence product surface
+
+Authenticated product clients may:
+
+- list conversion history;
+- apply an already reviewed exact conversion;
+- list storage-policy history;
+- resolve one active reviewed policy;
+- list append-only lifecycle events;
+- resolve exact policy provenance for an authorized household leftover.
+
+No product route registers, supersedes, rejects, deactivates, or reactivates
+global evidence. Lifecycle history is `GET` only and is enforced by the OpenAPI
+contract.
 
 ## Integrated preparation pipeline
 
@@ -380,6 +469,7 @@ The validation workflow runs:
 
 - Python compileall and all backend tests;
 - repository contract validation;
+- generated OpenAPI validation;
 - planner benchmark;
 - exact preparation comparison;
 - temporal ranking benchmark;
@@ -387,8 +477,10 @@ The validation workflow runs:
 - perishable inventory replay;
 - forecast-to-inventory replay;
 - fresh SQLite and PostgreSQL migrations;
-- inventory, reservation, request-idempotency, preparation-evidence, and
-  immutable food-evidence PostgreSQL concurrency probes;
+- reviewed food-evidence dry-run/apply/idempotent-reapply manifests;
+- lifecycle dry-run/apply/idempotent-reapply manifests;
+- inventory, reservation, request-idempotency, preparation-evidence,
+  immutable-version, and lifecycle PostgreSQL concurrency probes;
 - frontend lint, tests, and build;
 - container build;
 - retained machine-readable backend reports.
