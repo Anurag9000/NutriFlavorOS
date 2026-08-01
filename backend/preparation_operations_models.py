@@ -156,6 +156,11 @@ class DBPersistedPreparationSchedule(Base):
             name="ck_persisted_schedule_creation_fingerprint_length",
         ),
         CheckConstraint(
+            "((schedule_request_payload IS NULL AND schedule_request_hash IS NULL) OR "
+            "(schedule_request_payload IS NOT NULL AND length(schedule_request_hash) = 64))",
+            name="ck_persisted_schedule_request_provenance_pair",
+        ),
+        CheckConstraint(
             "((source_plan_id IS NULL AND source_plan_version IS NULL) OR "
             "(source_plan_id IS NOT NULL AND source_plan_version IS NOT NULL))",
             name="ck_persisted_schedule_plan_source_pair",
@@ -184,7 +189,7 @@ class DBPersistedPreparationSchedule(Base):
     calendar_content_hash = Column(String, nullable=False)
     source_plan_id = Column(
         Integer,
-        ForeignKey("meal_plans.id", ondelete="SET NULL"),
+        ForeignKey("meal_plans.id", ondelete="RESTRICT"),
         nullable=True,
         index=True,
     )
@@ -192,6 +197,8 @@ class DBPersistedPreparationSchedule(Base):
     occurrence_set_version = Column(String, nullable=False)
     occurrence_set_hash = Column(String, nullable=False)
     profile_versions = Column(JSON, nullable=False, default=dict)
+    schedule_request_payload = Column(JSON, nullable=True)
+    schedule_request_hash = Column(String, nullable=True, index=True)
     schedule_payload = Column(JSON, nullable=False)
     schedule_hash = Column(String, nullable=False, index=True)
     status = Column(String, nullable=False, default="draft", index=True)
