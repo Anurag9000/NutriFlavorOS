@@ -70,8 +70,10 @@ class IngredientConversionVersionInput(BaseModel):
 
 class IngredientConversionVersionView(IngredientConversionVersionInput):
     id: int
+    evidence_status: EvidenceRecordStatus
     content_hash: str
     supersedes_conversion_id: Optional[int]
+    active: bool
     created_at: datetime
     updated_at: datetime
 
@@ -138,8 +140,10 @@ class StoragePolicyVersionInput(BaseModel):
 
 class StoragePolicyVersionView(StoragePolicyVersionInput):
     id: int
+    evidence_status: EvidenceRecordStatus
     content_hash: str
     supersedes_policy_id: Optional[int]
+    active: bool
     created_at: datetime
     updated_at: datetime
 
