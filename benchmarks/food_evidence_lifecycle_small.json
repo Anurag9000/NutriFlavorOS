@@ -1,0 +1,29 @@
+{
+  "document_version": "evidence-lifecycle-v1",
+  "actions": [
+    {
+      "target_kind": "conversion",
+      "target_id": 1,
+      "action": "deactivated",
+      "actor": "github-actions",
+      "reason": "Synthetic CI lifecycle fixture withdraws the conversion from future automatic use.",
+      "idempotency_key": "ci-lifecycle-conversion-v1",
+      "metadata": {
+        "fixture": "food_evidence_lifecycle_small",
+        "synthetic": true
+      }
+    },
+    {
+      "target_kind": "storage_policy",
+      "target_id": 1,
+      "action": "rejected",
+      "actor": "github-actions",
+      "reason": "Synthetic CI lifecycle fixture rejects the policy after import-contract validation.",
+      "idempotency_key": "ci-lifecycle-policy-v1",
+      "metadata": {
+        "fixture": "food_evidence_lifecycle_small",
+        "synthetic": true
+      }
+    }
+  ]
+}
