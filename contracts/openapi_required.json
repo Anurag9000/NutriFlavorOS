@@ -1,0 +1,98 @@
+{
+  "contract_version": "2026-08-01.1",
+  "api_version": "0.6.0",
+  "paths": {
+    "/api/v1/food-evidence/history/conversions": {
+      "methods": ["get"],
+      "authenticated": true
+    },
+    "/api/v1/food-evidence/history/convert-reviewed": {
+      "methods": ["post"],
+      "authenticated": true
+    },
+    "/api/v1/food-evidence/history/storage-policies": {
+      "methods": ["get"],
+      "authenticated": true
+    },
+    "/api/v1/food-evidence/history/storage-policies/{policy_key}/active-reviewed": {
+      "methods": ["get"],
+      "authenticated": true
+    },
+    "/api/v1/food-evidence/history/households/{household_id}/leftovers/{leftover_id}/storage-policy": {
+      "methods": ["get"],
+      "authenticated": true
+    },
+    "/api/v1/preparation/compile-and-schedule": {
+      "methods": ["post"],
+      "authenticated": true
+    },
+    "/api/v1/research/catalog": {
+      "methods": ["get"],
+      "authenticated": true
+    }
+  },
+  "schemas": {
+    "IngredientConversionVersionView": {
+      "required": [
+        "id",
+        "canonical_name",
+        "from_unit",
+        "to_unit",
+        "record_version",
+        "multiplier_min",
+        "multiplier_max",
+        "source_name",
+        "source_url",
+        "source_version",
+        "evidence_status",
+        "content_hash",
+        "active",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "StoragePolicyVersionView": {
+      "required": [
+        "id",
+        "policy_key",
+        "policy_version",
+        "food_category",
+        "storage_state",
+        "source_name",
+        "source_url",
+        "source_version",
+        "evidence_status",
+        "safety_scope",
+        "content_hash",
+        "active",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "ConversionApplicationResult": {
+      "required": [
+        "canonical_name",
+        "from_unit",
+        "to_unit",
+        "input_quantity_min",
+        "input_quantity_max",
+        "output_quantity_min",
+        "output_quantity_max",
+        "conversion_record_id",
+        "conversion_record_version",
+        "conversion_content_hash",
+        "source_name",
+        "source_url",
+        "source_version",
+        "evidence_status"
+      ]
+    },
+    "CompileAndScheduleResponse": {
+      "required": ["compilation", "partial", "execution_status"]
+    }
+  },
+  "forbidden_mutation_prefixes": [
+    "/api/v1/food-evidence/history/conversions",
+    "/api/v1/food-evidence/history/storage-policies"
+  ]
+}
