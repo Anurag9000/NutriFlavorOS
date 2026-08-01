@@ -53,5 +53,32 @@ class PersistedScheduleCreateRequest(StrictPreparationOperationsModel):
             raise ValueError("schedule request and response horizons differ")
         if self.schedule_request.granularity_minutes != self.schedule_response.granularity_minutes:
             raise ValueError("schedule request and response granularity differs")
+
+        normalized: Dict[str, str] = {}
+        for raw_key, raw_value in self.profile_versions.items():
+            key = raw_key.strip()
+            value = raw_value.strip()
+            if not key or not value:
+                raise ValueError("profile_versions keys and values cannot be blank")
+            normalized[key] = value
+        self.profile_versions = dict(sorted(normalized.items()))
+
+        task_hashes = {
+            str(task.metadata.get("profile_content_hash"))
+            for task in self.schedule_request.tasks
+            if task.metadata.get("profile_content_hash") is not None
+        }
+        malformed_hashes = sorted(
+            value
+            for value in task_hashes
+            if len(value) != 64 or any(character not in "0123456789abcdef" for character in value)
+        )
+        if malformed_hashes:
+            raise ValueError("task profile_content_hash values must be lowercase SHA-256 digests")
+        if self.profile_versions and not task_hashes:
+            raise ValueError(
+                "profile_versions require task-level profile_content_hash provenance"
+            )
+
         self.notes = self.notes.strip() if self.notes else None
         return self
