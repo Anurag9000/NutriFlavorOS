@@ -26,7 +26,9 @@ from backend.domain.inventory import (
     InventoryEventType,
     LeftoverCreate,
 )
+from backend.evidence_history_models import DBLeftoverStoragePolicyEvidence
 from backend.models import PlanResponse
+from backend.services.evidence_history_service import active_reviewed_storage_policy
 from backend.services.inventory_service import (
     _event,
     _resolve_prior_leftover_event,
@@ -177,18 +179,7 @@ def create_leftover(
     expires_at = payload.expires_at
     expected_storage_state = "frozen" if payload.frozen else "refrigerated"
     if payload.storage_policy_key:
-        policy = (
-            db.query(DBStoragePolicy)
-            .filter(
-                DBStoragePolicy.policy_key == payload.storage_policy_key,
-                DBStoragePolicy.active.is_(True),
-            )
-            .first()
-        )
-        if policy is None:
-            raise HTTPException(
-                status_code=422, detail="Unknown reviewed storage policy"
-            )
+        policy = active_reviewed_storage_policy(db, payload.storage_policy_key)
         if policy.storage_state != expected_storage_state:
             raise HTTPException(
                 status_code=422,
@@ -204,10 +195,7 @@ def create_leftover(
             policy_limit = payload.cooked_at + timedelta(
                 hours=float(policy.duration_max_hours)
             )
-            if (
-                expires_at is not None
-                and _as_utc(expires_at) > _as_utc(policy_limit)
-            ):
+            if expires_at is not None and _as_utc(expires_at) > _as_utc(policy_limit):
                 raise HTTPException(
                     status_code=422,
                     detail={
@@ -228,9 +216,10 @@ def create_leftover(
             else ""
         )
         suffix = (
-            f"Storage policy {policy.policy_key} assumes {policy.storage_state} "
-            f"storage{limit_text}; inspect food, cold-chain history, packaging, "
-            "power loss, and vulnerable-person considerations."
+            f"Storage policy {policy.policy_key} version {policy.policy_version} "
+            f"assumes {policy.storage_state} storage{limit_text}; inspect food, "
+            "cold-chain history, packaging, power loss, and vulnerable-person "
+            "considerations."
         )
         if policy.safety_scope == "quality_guidance":
             suffix += " The duration is quality guidance and is not a safety expiry."
@@ -252,6 +241,15 @@ def create_leftover(
     )
     db.add(value)
     db.flush()
+    if policy is not None:
+        db.add(
+            DBLeftoverStoragePolicyEvidence(
+                leftover_id=value.id,
+                storage_policy_version_id=policy.id,
+                linked_at=now,
+            )
+        )
+        db.flush()
     _event(
         db,
         household_id=household.id,
@@ -262,6 +260,13 @@ def create_leftover(
         unit="portion",
         metadata={
             "storage_policy_key": payload.storage_policy_key,
+            "storage_policy_version_id": policy.id if policy is not None else None,
+            "storage_policy_version": (
+                policy.policy_version if policy is not None else None
+            ),
+            "storage_policy_content_hash": (
+                policy.content_hash if policy is not None else None
+            ),
             "storage_state": expected_storage_state,
             "recipe_id": payload.recipe_id,
             "result_version": 1,
