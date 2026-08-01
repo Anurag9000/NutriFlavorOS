@@ -18,8 +18,14 @@ from backend.domain.preparation_operations import (
     ResourceCalendarVersionView,
     ScheduleStateTransitionRequest,
 )
+from backend.domain.preparation_operations_coverage import (
+    PreparationOperationsCoverageView,
+)
 from backend.domain.preparation_operations_runtime import PersistedScheduleCreateRequest
 from backend.services.household_access_service import require_household_access
+from backend.services.preparation_operations_coverage_service import (
+    get_preparation_operations_coverage,
+)
 from backend.services.preparation_operations_service import (
     create_persisted_schedule,
     get_persisted_schedule,
@@ -52,6 +58,22 @@ def _access(
         role,
     )
     return household, membership
+
+
+@router.get(
+    "/coverage",
+    response_model=PreparationOperationsCoverageView,
+)
+def get_preparation_operations_coverage_route(
+    household_id: str,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    _access(db, household_id, current_user.id, HouseholdRole.VIEWER)
+    return get_preparation_operations_coverage(
+        db,
+        household_id=household_id,
+    )
 
 
 @router.post(
