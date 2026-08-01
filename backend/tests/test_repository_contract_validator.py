@@ -39,5 +39,18 @@ def test_repository_contracts_are_synchronized():
         report["alembic_chain"]["revision_count"]
         == report["alembic_chain"]["migration_file_count"]
     )
+    assert report["catalog_import_order"] == {
+        "valid": True,
+        "canonical_scenario": "package_first",
+        "scenario_count": 6,
+        "successful_scenarios": [
+            "capabilities_first",
+            "catalog_first",
+            "explicit_extension_repeated",
+            "extension_module_first",
+            "mixed_reimports",
+            "package_first",
+        ],
+    }
     assert report["valid"] is True, report["errors"]
     assert report["errors"] == []
