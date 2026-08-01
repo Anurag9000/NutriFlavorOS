@@ -28,6 +28,10 @@ jobs:
         run: >-
           python scripts/validate_repository_contracts.py
           --output /tmp/repository_contracts.json
+      - name: Isolated catalog import-order gate
+        run: >-
+          python scripts/validate_catalog_import_order.py
+          --output /tmp/catalog_import_order.json
       - name: Generated OpenAPI contract gate
         run: >-
           python scripts/validate_openapi_contracts.py
