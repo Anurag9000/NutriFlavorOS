@@ -22,11 +22,11 @@ def upgrade() -> None:
             "ck_resource_calendar_review_state",
             "((evidence_status = 'reviewed' AND reviewed_at IS NOT NULL "
             "AND reviewed_by IS NOT NULL AND length(trim(reviewed_by)) > 0) OR "
-            "(evidence_status = 'draft' AND active = 0))",
+            "(evidence_status = 'draft' AND NOT active))",
         )
         batch_op.create_check_constraint(
             "ck_resource_calendar_active_reviewed",
-            "active = 0 OR evidence_status = 'reviewed'",
+            "NOT active OR evidence_status = 'reviewed'",
         )
 
     with op.batch_alter_table("persisted_preparation_schedules") as batch_op:
