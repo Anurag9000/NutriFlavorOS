@@ -11,6 +11,8 @@ export type EvidenceRecordStatus =
   | "external_unverified"
   | "reviewed"
   | "legacy_unreviewed";
+export type EvidenceTargetKind = "conversion" | "storage_policy";
+export type EvidenceLifecycleAction = "deactivated" | "rejected";
 
 export interface QuantityRange {
   quantity_min: number;
@@ -262,6 +264,22 @@ export interface StoragePolicyVersion {
   updated_at: string;
 }
 
+export interface EvidenceLifecycleEvent {
+  id: number;
+  target_kind: EvidenceTargetKind;
+  target_id: number;
+  action: EvidenceLifecycleAction;
+  actor: string;
+  reason: string;
+  metadata: Record<string, unknown>;
+  idempotency_key: string;
+  request_fingerprint: string;
+  target_record_version: string;
+  target_content_hash: string;
+  target_was_active: boolean;
+  created_at: string;
+}
+
 export interface ReviewedConversionResult {
   canonical_name: string;
   from_unit: string;
@@ -404,6 +422,19 @@ export const evidenceHistoryApi = {
     request<StoragePolicyVersion>(
       `/food-evidence/history/storage-policies/${encode(policyKey)}/active-reviewed`,
     ),
+  lifecycleEvents: (options: {
+    targetKind?: EvidenceTargetKind;
+    targetId?: number;
+    limit?: number;
+  } = {}) => {
+    const params = new URLSearchParams();
+    if (options.targetKind) params.set("target_kind", options.targetKind);
+    if (options.targetId !== undefined) params.set("target_id", String(options.targetId));
+    params.set("limit", String(options.limit ?? 500));
+    return request<EvidenceLifecycleEvent[]>(
+      `/food-evidence/history/lifecycle-events?${params.toString()}`,
+    );
+  },
 };
 
 export const substitutionApi = {
