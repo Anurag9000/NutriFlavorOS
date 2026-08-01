@@ -53,7 +53,7 @@ class CompileAndScheduleRequest(BaseModel):
 class CompileAndScheduleResponse(BaseModel):
     compilation: BuildPreparationTasksResponse
     schedule: Optional[PreparationScheduleResponse] = None
-    partial: bool = False
+    partial: bool
     execution_status: Literal[
         "scheduled",
         "blocked_unresolved",
