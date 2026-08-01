@@ -1,220 +1,246 @@
 # Governed Research Platform
 
-NutriFlavorOS separates **runtime product behavior** from **offline research evaluation**. The research platform is designed to prevent a source file, catalog entry, synthetic result, or importable class from being mistaken for a trained, promoted, clinically valid, or product-enabled capability.
+NutriFlavorOS separates runtime product behavior from offline research
+evaluation. A source file, importable callable, catalog entry, synthetic
+fixture, or passing benchmark is **not** evidence that a method was trained,
+promoted, clinically validated, or enabled for users.
 
-## Current catalog
+- Current database migration head: **`20260801_0007`**.
+- Effective research catalog: **`2026-08-01.3`**.
 
-Catalog version: `2026-08-01.1`
+## Catalog inventory
 
-- **37 task contracts**
-- **30 dataset families**
-- **72 model and algorithm families**
-- **28 experiment contracts**
-- **37 product/research feature contracts**
+The governed catalog defines:
 
-Readiness values are explicit:
+- **37 task contracts**;
+- **30 dataset families**;
+- **75 model/algorithm families**;
+- **29 experiment contracts**;
+- **39 feature contracts**.
 
-- `implemented`
-- `baseline_available`
-- `adapter_available`
-- `research_only`
-- `blocked_data`
-- `blocked_validation`
-- `announced`
+Readiness values are `implemented`, `baseline_available`,
+`adapter_available`, `research_only`, `blocked_data`, `blocked_validation`, and
+`announced`. Risk values are `low`, `moderate`, `high`, and `clinical`.
 
-Risk values are explicit:
+Every experiment requires data provenance and reproducibility. High-risk and
+clinical experiments additionally require human review. High-risk and clinical
+models cannot be default enabled.
 
-- `low`
-- `moderate`
-- `high`
-- `clinical`
+## Base catalog and validated extensions
 
-No high-risk or clinical model is default enabled. Every experiment requires data provenance and reproducibility gates; high-risk and clinical experiments additionally require human review.
+The historical base declaration remains in `backend/research/catalog.py`.
+`backend/research/catalog_extensions.py` applies the current additive extension
+once when `backend.research` loads. The extension reconstructs the complete
+Pydantic catalog, so duplicate IDs, broken references, invalid feature
+dependencies, missing risk gates, and prohibited high-risk defaults are
+revalidated on the effective catalog.
 
-## Runtime capability verification
+The current extension adds:
 
-`backend/research/capabilities.py` is the executable capability inventory. Each entry declares:
+- exact bounded preparation scheduling;
+- deterministic FEFO inventory replay;
+- forecast-to-inventory closed-loop evaluation;
+- their experiment and feature connections.
 
-- module path;
-- callable symbol;
-- declared status;
-- dependency class;
-- whether the dependency is installed;
-- whether the module imports;
-- whether the symbol exists and is callable;
-- runtime availability;
-- runtime enablement.
+Repeated extension application is idempotent and covered by catalog
+reconstruction tests.
 
-`runtime_available=true` means only that an offline callable can be imported in the current environment. `runtime_enabled` remains false for research methods.
+## Mechanical capability verification
 
-CI verifies:
+`backend/research/capabilities.py` declares the real module and callable symbol
+for every implemented or baseline-available method. The verifier records:
 
-- every catalogued implemented/baseline model has a capability registration;
-- every capability registration has a catalog model;
-- every core registration imports and resolves to a callable;
-- optional CP-SAT/MILP registrations remain valid when their dependency is absent.
+- dependency class and installation state;
+- module import success;
+- symbol presence and callability;
+- declared and observed status;
+- offline runtime availability;
+- product runtime enablement.
 
-## Executable baseline families
+`runtime_available=true` means only that an offline callable imports in the
+current environment. `runtime_enabled` remains false for research methods.
 
-### Retrieval
+`scripts/validate_repository_contracts.py` additionally checks:
 
-- TF-IDF cosine retrieval.
-- BM25 retrieval.
+- bidirectional catalog/capability coherence;
+- importability of every core callable;
+- catalog version and collection counts in public documentation;
+- current Alembic revision and exactly one matching migration file;
+- required immutable-evidence tables in the runtime schema contract;
+- required benchmark fixture presence and JSON-object shape.
 
-### Recommendation and ranking
+```bash
+python scripts/validate_repository_contracts.py
+```
 
-- popularity;
+## Executable offline baseline families
+
+### Retrieval and ranking
+
+- TF-IDF cosine retrieval;
+- BM25 retrieval;
+- popularity ranking;
 - Bayesian-smoothed popularity;
-- content preference;
-- item-kNN collaborative filtering;
+- explicit-content preference ranking;
+- item-kNN collaborative ranking;
 - matrix factorization;
 - MMR diversity reranking.
 
-### Preference and policy research
+The ranking evaluator uses per-user temporal leave-last-out splitting, unseen
+and hard-allowed candidate sets, duplicate and unknown recommendation
+rejection, and post-ranking hard-violation audits. It reports Recall@K,
+HitRate@K, MRR, NDCG, catalog coverage, novelty, intra-list diversity,
+user-group metrics, and deterministic fingerprints.
 
-- Bradley–Terry pairwise preferences;
+### Preferences and policy research
+
+- Bradley-Terry pairwise preference model;
 - LinUCB;
 - Beta-Bernoulli Thompson sampling.
 
-These are offline comparators. They do not authorize request-time policy learning or deployment.
+These remain offline comparators. Their presence does not establish logging
+propensities, overlap, consent, safe policy improvement, or product approval.
 
-### Forecasting
+### Forecasting, uncertainty, and survival
 
 - moving average;
 - seasonal naive;
-- simple exponential smoothing;
-- damped Holt trend;
+- simple exponential smoothing with deterministic alpha selection;
+- damped Holt linear trend;
 - Croston intermittent demand;
 - TSB intermittent demand;
-- rolling-origin backtesting.
-
-The backtest reports MAE, RMSE, sMAPE, and MASE where the seasonal-naive scale is defined. It preserves origins, actuals, and predictions.
-
-### Regression, uncertainty, and OOD
-
+- rolling-origin evaluation;
 - ridge regression;
-- split conformal intervals;
+- Kaplan-Meier expiry baseline;
 - Mahalanobis OOD scoring;
-- Kaplan–Meier expiry/survival baseline.
+- split conformal regression intervals.
+
+Rolling-origin reports retain forecast, actual, and origin arrays and calculate
+MAE, RMSE, sMAPE, and MASE where a valid seasonal-naive scale exists.
 
 ### Language and graph rules
 
-- ingredient quantity parsing;
-- instruction dependency DAG parsing;
-- substitution graph suggestions.
+- conservative ingredient parser;
+- instruction dependency DAG parser;
+- culinary substitution graph baseline.
 
-### Planning and operations
+### Planning, scheduling, and operations
 
 - deterministic weekly beam search;
 - household pantry-aware optimization;
-- Pareto enumeration;
+- pure-Python Pareto enumeration;
 - optional OR-Tools CP-SAT;
 - optional PuLP/CBC MILP;
-- scenario stress testing;
+- planner scenario stress testing;
 - worst-case robust enumeration;
-- dependency-aware preparation scheduling;
-- reviewed preparation profile compilation;
-- deterministic FEFO perishable-inventory replay simulation.
+- immutable reviewed preparation-profile compiler;
+- dependency-aware product preparation scheduler;
+- exact branch-and-bound scheduler for bounded aligned-start fixtures;
+- deterministic FEFO perishable-inventory replay;
+- forecast-to-inventory closed-loop evaluation.
 
-## Planner benchmark protocol
+## Planner benchmark
 
-`scripts/benchmark_planners.py` supports:
-
-- deterministic synthetic scenario generation;
-- versioned input fingerprints;
-- repeated solver execution;
-- common objective re-evaluation;
-- slot-selection validity;
-- hard budget checks;
-- deterministic replay checks;
-- elapsed-time distributions;
-- objective-gap thresholds;
-- required solver/dependency gates;
-- machine-readable JSON reports.
-
-Canonical fixture: `benchmarks/planner_small.json`.
-
-Example:
+`scripts/benchmark_planners.py` provides deterministic synthetic generation,
+SHA-256 input fingerprints, repeated execution, common-objective
+re-evaluation, complete-slot and hard-budget checks, deterministic replay,
+timing summaries, optional-dependency gates, objective-gap thresholds, and
+machine-readable reports.
 
 ```bash
 python scripts/benchmark_planners.py \
-  --generate-seed 17 \
-  --slots 4 \
-  --options-per-slot 3 \
-  --repeats 3 \
+  --generate-seed 17 --slots 4 --options-per-slot 3 --repeats 3 \
   --max-objective-gap 1.0 \
   --output reports/experiments/planner-benchmark.json
 ```
 
-Hard allergy/dietary filtering is expected upstream and must be identical for every compared solver.
+Hard allergy and dietary filtering must occur before every compared solver.
 
-## Forecast benchmark protocol
+## Preparation heuristic versus exact search
 
-`scripts/benchmark_forecasters.py` supports:
+`backend/research/exact_preparation_scheduler.py` performs exhaustive
+aligned-start branch-and-bound search for bounded fixtures. It uses the same
+validated dependency DAG, deadlines, resource windows, and cumulative
+capacities as the deterministic product heuristic.
 
-- deterministic seasonal/intermittent synthetic generation;
-- input series SHA-256 fingerprint;
-- common rolling origins and horizons;
-- six baseline factories;
-- complete prediction/actual/origin retention;
-- required-model checks;
-- maximum-MAE regression threshold;
-- machine-readable report and optional retained input series.
+Its objective is lexicographic:
 
-Example:
+1. minimum makespan;
+2. minimum total start time;
+3. deterministic task/start signature.
+
+The solver has explicit task and node budgets. It reports infeasible and
+search-limit outcomes instead of silently returning a partial optimum.
+
+```bash
+python scripts/benchmark_preparation_schedulers.py \
+  benchmarks/preparation_scheduler_small.json \
+  --require-heuristic-complete --require-exact-optimal \
+  --maximum-gap-minutes 0 \
+  --output reports/experiments/preparation-scheduler.json
+```
+
+Exact optimality applies only to the bounded aligned-start fixture contract and
+the configured search budget.
+
+## Ranking benchmark
+
+`scripts/benchmark_rankers.py` creates or loads a leakage-safe fixture and
+compares popularity, Bayesian popularity, item-kNN, and MMR on the same
+candidate filters and temporal split.
+
+```bash
+python scripts/benchmark_rankers.py \
+  --generate-seed 17 --user-count 18 --item-group-count 3 \
+  --items-per-group 8 --interactions-per-user 6 --k 5 \
+  --require-model bayesian_popularity_recommender \
+  --require-model item_knn_recommender \
+  --require-model mmr_diversity_reranker \
+  --maximum-hard-violations 0 \
+  --output reports/experiments/ranking-benchmark.json
+```
+
+Accuracy, novelty, diversity, and coverage are never collapsed into a single
+product-selection claim.
+
+## Forecast benchmark
+
+`scripts/benchmark_forecasters.py` provides deterministic
+seasonal/intermittent series generation, a SHA-256 series fingerprint, common
+rolling origins and horizons, six baseline factories, complete
+prediction/actual/origin retention, required-model checks, MAE regression
+thresholds, and JSON reports.
 
 ```bash
 python scripts/benchmark_forecasters.py \
-  --generate-seed 17 \
-  --length 84 \
-  --season-length 7 \
-  --intermittent-probability 0.25 \
-  --minimum-train-size 28 \
-  --horizon 7 \
-  --step 7 \
+  --generate-seed 17 --length 84 --season-length 7 \
+  --intermittent-probability 0.25 --minimum-train-size 28 \
+  --horizon 7 --step 7 \
   --require-model seasonal_naive \
   --require-model tsb_intermittent_demand \
   --output reports/experiments/forecast-benchmark.json
 ```
 
-Forecast accuracy is not treated as evidence of lower operational waste or stockouts. Closed-loop inventory replay remains a separate experiment.
+Forecast accuracy is not assumed to imply lower stockout or waste.
 
-## Perishable inventory simulation protocol
+## Perishable inventory replay
 
-`backend/research/inventory_simulation.py` evaluates explicit:
-
-- initial lots;
-- expiry days;
-- demand events;
-- reorder points;
-- order-up-to levels;
-- positive supplier lead times;
-- replenishment shelf lives;
-- simulation horizon.
+`backend/research/inventory_simulation.py` accepts explicit initial lots,
+expiry days, demand events, reorder points, order-up-to levels, positive
+supplier lead times, replenishment shelf lives, and a replay horizon.
 
 Daily sequence:
 
-1. arrivals;
-2. expiry removal;
-3. FEFO demand allocation;
-4. stockout recording;
-5. reorder decision;
-6. end-of-day inventory accounting.
+1. receive arrivals;
+2. remove expired lots;
+3. allocate realized demand FEFO;
+4. record unfulfilled demand;
+5. place explicit policy orders;
+6. record end-of-day inventory.
 
-Reported metrics:
-
-- demand and fulfilled units;
-- stockout units and events;
-- expired/waste units;
-- ordered and ending units;
-- fill rate;
-- demand-event service level;
-- average on-hand inventory;
-- per-SKU metrics;
-- deterministic event ledger;
-- SHA-256 input fingerprint.
-
-CLI:
+It reports demand, fulfillment, stockouts, expired waste, orders, ending
+inventory, fill rate, demand-event service level, average on-hand inventory,
+per-SKU metrics, a deterministic event ledger, and an input fingerprint.
 
 ```bash
 python scripts/simulate_inventory.py \
@@ -225,182 +251,163 @@ python scripts/simulate_inventory.py \
   --output reports/experiments/inventory-simulation.json
 ```
 
-The simulator never writes to household inventory.
+The simulator never mutates household inventory.
 
-## Reviewed preparation evidence
+## Forecast-to-inventory closed loop
 
-Preparation evidence is versioned separately from recipes.
+`backend/research/forecast_inventory_pipeline.py` evaluates the offline chain:
 
-Every profile retains:
+1. fit a declared forecasting baseline;
+2. forecast a fixed future horizon;
+3. translate the forecast through an explicit base-stock rule;
+4. replay the same realized demand through FEFO inventory;
+5. report forecast and operational outcomes separately.
 
-- recipe ID;
-- immutable profile version;
-- schema version;
-- reviewed serving range;
-- task-template DAG;
-- minimum/maximum durations;
-- resource demands;
-- active-work flag;
-- unattended-cooking declaration or explicit unknown;
-- source name/URL/version;
-- evidence status;
-- review timestamp and reviewer;
-- SHA-256 content hash;
-- supersession link;
-- active state.
+```bash
+python scripts/evaluate_forecast_inventory.py \
+  benchmarks/forecast_inventory_small.json \
+  --require-model seasonal_naive \
+  --require-model tsb_intermittent_demand \
+  --minimum-best-fill-rate 0.80 \
+  --maximum-least-waste 2.0 \
+  --output reports/experiments/forecast-inventory.json
+```
+
+The forecast leader, fill-rate leader, and least-waste leader remain separate.
+No procurement policy is selected automatically.
+
+## Immutable reviewed evidence
+
+### Preparation profiles
+
+Every reviewed preparation profile retains recipe ID, immutable profile
+version, schema version, serving range, task DAG, duration interval, resource
+demands, active-work and unattended-cooking declarations, source provenance,
+reviewer, UTC review time, SHA-256 content hash, supersession link, and active
+state.
 
 Rules:
 
-- reviewed timestamps must be timezone-aware and normalize to UTC;
-- the same `(recipe_id, profile_version)` with identical content is idempotent;
-- contradictory reuse is rejected;
-- one active reviewed profile per recipe is enforced in the database;
-- new active reviewed versions deactivate and supersede the prior review;
-- ordinary API users cannot mutate global evidence;
-- import is performed through the offline validated CLI;
-- duration and resource values are never inferred from a title or instruction string.
-
-Import dry run:
+- identical same-version retries return the original record;
+- contradictory same-version content is rejected;
+- one active reviewed profile per recipe is database-enforced;
+- new reviewed versions deactivate and supersede the prior active review;
+- evidence-file imports are all-or-nothing;
+- ordinary API users cannot mutate global preparation evidence;
+- PostgreSQL probes cover identical, contradictory, and successor races.
 
 ```bash
 python scripts/import_preparation_profiles.py reviewed-profiles.json
+python scripts/import_preparation_profiles.py reviewed-profiles.json \
+  --apply --operator reviewer@example.org
 ```
 
-Apply after review:
+The importer writes a source-file hash, operator, reviewer identities, natural
+keys, content hashes, planned actions, outcomes, commit identity, and manifest
+hash. A durable pre-apply manifest is written before database mutation.
 
-```bash
-python scripts/import_preparation_profiles.py reviewed-profiles.json --apply
-```
+### Conversion and storage-policy histories
 
-## Integrated evidence-to-schedule pipeline
+Migration `20260801_0007` introduces immutable conversion versions, immutable
+storage-policy versions, and exact leftover-to-policy-version links.
 
-`POST /api/v1/preparation/compile-and-schedule` combines:
+Reviewed records retain natural evidence keys, immutable versions, source
+provenance, UTC review metadata, SHA-256 hashes, supersession links, and active
+state. One active reviewed conversion exists per ingredient/unit direction and
+one active reviewed policy exists per policy key.
 
-1. reviewed profile lookup;
-2. serving-range validation;
-3. task DAG namespacing;
-4. conservative or sensitivity duration selection;
-5. resource scheduling;
-6. provenance propagation.
+Registration uses PostgreSQL transaction advisory locks per natural key, which
+protects the first-version race that row locks cannot cover. Identical
+concurrent retries collapse, contradictory same-version content conflicts, and
+concurrent successor versions form one supersession chain with one active
+review.
 
-Default behavior is fail-closed. If any occurrence lacks an eligible profile, is outside the reviewed serving range, or otherwise cannot compile, no schedule is created. Partial execution requires explicit `allow_partial=true`; unresolved occurrences remain in the response and diagnostics.
+Automatic immutable conversion requires an exact active reviewed record and
+returns its evidence ID, version, and content hash. New leftovers validate
+against one active reviewed storage policy and persist the exact policy link
+and event-ledger provenance in the same transaction. Frozen quality guidance
+is not converted into a safety expiry.
 
-## Dataset contracts
+The public API is read-only except for applying an already reviewed exact
+conversion. Global evidence registration and supersession remain offline
+reviewed operations.
 
-Implemented local/synthetic families include:
+## Integrated preparation pipeline
 
-- internal recipes;
-- internal inventory;
-- internal reservations;
-- internal preparation profiles;
-- internal experiment runs;
-- synthetic contract fixtures;
-- synthetic demand series;
-- synthetic planner scenarios;
-- synthetic ranking interactions.
+`POST /api/v1/preparation/compile-and-schedule` performs active reviewed
+profile selection, serving-range validation, task namespacing, conservative or
+disclosed sensitivity duration selection, deterministic scheduling, and
+evidence-provenance propagation.
 
-External families are catalog contracts only until acquisition, licensing, hashing, card creation, and review are complete. They include USDA FoodData Central, Recipe1M+, Nutrition5k, Food-101, FoodSeg103, UECFOOD256, VireoFood172, Grocery Store Dataset, Open Food Facts, NHANES, EPIC-KITCHENS, Ego4D, AGRIBALYSE, ecoinvent, Water Footprint data, Food2K, ISIA Food-500, and announced DishSeg24k.
+Default behavior is fail closed. Any unresolved occurrence blocks the schedule.
+Partial scheduling requires explicit `allow_partial=true`; unresolved records
+remain in the response and schedule diagnostics.
 
-## Dataset splits and leakage controls
+## Dataset contracts and leakage controls
 
-Supported deterministic split contracts include:
+Implemented local/synthetic families include internal recipes, inventory,
+reservations, preparation profiles, experiment runs, synthetic contract
+fixtures, demand series, planner scenarios, and ranking interactions.
 
-- group-aware holdout;
-- temporal split;
-- rolling-origin time-series evaluation;
-- versioned scenario fixture split.
+External records are contracts only until acquisition, license review, hashing,
+cards, quality audits, and approval are complete. Catalogued families include
+USDA FoodData Central, Recipe1M+, Nutrition5k, Food-101, FoodSeg103,
+UECFOOD256, VireoFood172, Grocery Store Dataset, Open Food Facts, NHANES,
+EPIC-KITCHENS, Ego4D, AGRIBALYSE, ecoinvent, Water Footprint data, Food2K,
+ISIA Food-500, and announced DishSeg24k.
 
-Future adapters must define:
+Supported deterministic split contracts include group-aware holdout, temporal
+holdout, rolling-origin evaluation, and versioned scenario fixtures. Future
+adapters must declare grouping entity, timestamp semantics, duplicate policy,
+source-version boundary, split fingerprint, and leakage audit.
 
-- grouping entity;
-- timestamp semantics;
-- duplicate/near-duplicate policy;
-- source-version boundary;
-- train/validation/test fingerprint;
-- leakage audit.
+## Cards, manifests, and artifact registry
 
-## Metrics
+Dataset/model cards retain source, license, tasks, modalities, risk, readiness,
+prerequisites, limitations, and intended offline use. Experiment manifests
+retain identifiers, seeds, validated configuration, environment snapshots,
+dataset/model fingerprints, metrics, warnings, and artifacts.
 
-The metrics layer includes retrieval/ranking, forecasting, regression, calibration, uncertainty, segmentation, drift, and offline-policy measures. Experiment contracts identify primary metrics, but metric presence does not establish appropriateness; each experiment must justify its metric set and risk-sensitive failure modes.
-
-## Cards, manifests, registry, and artifacts
-
-### Dataset cards
-
-Cards retain source, license, tasks, modalities, personal-data status, version, readiness, and limitations.
-
-### Model cards
-
-Cards retain family, tasks, risk, readiness, prerequisites, limitations, and intended offline use.
-
-### Manifests
-
-Experiment manifests retain:
-
-- experiment/model identifiers;
-- seed;
-- validated config;
-- environment snapshot;
-- dataset/model fingerprints;
-- metrics;
-- warnings;
-- artifacts.
-
-### Artifact registry
-
-The registry provides:
-
-- dataset/model registration;
-- SHA-256 integrity verification;
-- registered, candidate, champion, archived, and rejected stages;
-- risk-dependent promotion gates;
-- cross-process file locking;
-- fsync and atomic replacement;
-- single champion with archived prior winner;
-- rollback information.
-
-Promotion is always explicit. Drift or benchmark success cannot retrain or promote automatically.
-
-## Offline runner
-
-The runner accepts only whitelisted baseline identifiers and guarded data paths. It rejects arbitrary experiment code and user runtime-data paths. The API validates experiment configs and previews manifests but does not execute arbitrary jobs.
+The artifact registry provides SHA-256 verification,
+registered/candidate/champion/archived/rejected stages, risk-dependent promotion
+gates, cross-process locking, fsync and atomic replacement, one champion,
+archived prior winners, and rollback metadata. Drift or benchmark success
+cannot retrain or promote automatically.
 
 ## Direct-main validation
 
 The validation workflow runs:
 
-- Python compileall;
-- all backend tests;
-- planner benchmark gate;
-- forecasting benchmark gate;
-- inventory replay gate;
-- fresh SQLite migration;
-- fresh PostgreSQL migration;
-- PostgreSQL inventory/reservation concurrency probe;
-- full-request idempotency concurrency probe;
+- Python compileall and all backend tests;
+- repository contract validation;
+- planner benchmark;
+- exact preparation comparison;
+- temporal ranking benchmark;
+- forecasting benchmark;
+- perishable inventory replay;
+- forecast-to-inventory replay;
+- fresh SQLite and PostgreSQL migrations;
+- inventory, reservation, request-idempotency, preparation-evidence, and
+  immutable food-evidence PostgreSQL concurrency probes;
 - frontend lint, tests, and build;
-- container build.
+- container build;
+- retained machine-readable backend reports.
 
-No statement in this document claims the latest run is green unless an exact workflow result is inspected.
+This document does not claim the latest commit is green unless its exact
+workflow result has been inspected.
 
 ## Promotion requirements
 
-Before any research method becomes a runtime candidate, it requires:
+Before any research method becomes a runtime candidate, it requires licensed
+or consented versioned data, leakage-safe splits, baseline comparison,
+deterministic or seeded replay, appropriate uncertainty/calibration, subgroup
+and OOD evaluation where relevant, an integrity-checked artifact, cards and
+limitations, risk-proportional human review, explicit candidate/champion
+decision, rollback/kill switch, and product-specific authorization and
+monitoring.
 
-1. licensed/consented/versioned data;
-2. leakage-safe split;
-3. baseline comparison;
-4. deterministic or seeded replay;
-5. appropriate uncertainty and calibration;
-6. subgroup and OOD evaluation where relevant;
-7. integrity-checked artifact;
-8. card and limitations;
-9. human review proportional to risk;
-10. explicit candidate/champion decision;
-11. rollback path and kill switch;
-12. product-specific authorization and monitoring.
-
-Clinical-risk capabilities additionally require formal clinical governance and external validation. Synthetic success is never sufficient.
+Clinical-risk capabilities additionally require formal clinical governance and
+external validation. Synthetic success is never sufficient.
 
 See also:
 
