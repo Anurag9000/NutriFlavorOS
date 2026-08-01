@@ -184,5 +184,5 @@ class ConversionApplicationResult(BaseModel):
     source_url: str
     source_version: str
     evidence_status: EvidenceRecordStatus
-    reviewed_at: Optional[datetime]
-    reviewed_by: Optional[str]
+    reviewed_at: datetime
+    reviewed_by: str
