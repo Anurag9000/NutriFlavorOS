@@ -1,10 +1,11 @@
 {
-  "contract_version": "2026-08-02.1",
+  "contract_version": "2026-08-02.2",
   "typescript_source": "frontend/src/lib/preparationOperationsApi.ts",
   "schemas": {
     "RecipePreparationOccurrence": "RecipePreparationOccurrence",
     "PreparationOccurrenceSetDocument": "PreparationOccurrenceSetDocument",
     "PersistedScheduleCreateRequest": "PersistedScheduleCreateRequest",
+    "PreparationOperationsCoverageView": "PreparationOperationsCoverageView",
     "ResourceCalendarVersionView": "ResourceCalendarVersionView",
     "PersistedPreparationScheduleView": "PersistedPreparationScheduleView",
     "PreparationScheduleEventView": "PreparationScheduleEventView"
@@ -16,6 +17,13 @@
     "PreparationScheduleEventType": "PreparationScheduleEventType"
   },
   "operations": [
+    {
+      "openapi_path": "/api/v1/households/{household_id}/preparation-operations/coverage",
+      "method": "get",
+      "object": "preparationOperationsApi",
+      "binding": "coverage",
+      "source_fragment": "${base(householdId)}/coverage"
+    },
     {
       "openapi_path": "/api/v1/households/{household_id}/preparation-operations/resource-calendars",
       "method": "post",
