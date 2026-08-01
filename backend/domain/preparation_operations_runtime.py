@@ -7,6 +7,8 @@ before accepting or approving a schedule.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from typing import Dict, Optional
 
@@ -26,6 +28,16 @@ from backend.domain.preparation_operations import (
 PROFILE_HASH_PATTERN = re.compile(r"(?:^|/)sha256:([a-f0-9]{64})$")
 
 
+def _canonical_hash(value: object) -> str:
+    raw = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
 class PersistedScheduleCreateRequest(StrictPreparationOperationsModel):
     calendar_version_id: int = Field(ge=1)
     source_plan_id: Optional[int] = Field(default=None, ge=1)
@@ -41,6 +53,14 @@ class PersistedScheduleCreateRequest(StrictPreparationOperationsModel):
         pattern=r"^[A-Za-z0-9_.:-]+$",
     )
 
+    @property
+    def occurrence_set_version(self) -> str:
+        return self.occurrence_set.occurrence_set_version
+
+    @property
+    def occurrence_set_hash(self) -> str:
+        return _canonical_hash(self.occurrence_set.model_dump(mode="json"))
+
     @model_validator(mode="after")
     def validate_source_versions(self):
         if (self.source_plan_id is None) != (self.source_plan_version is None):
@@ -49,9 +69,15 @@ class PersistedScheduleCreateRequest(StrictPreparationOperationsModel):
             )
         if self.schedule_response.unscheduled:
             raise ValueError("persisted schedules must be complete")
-        if self.schedule_request.horizon_minutes != self.schedule_response.horizon_minutes:
+        if (
+            self.schedule_request.horizon_minutes
+            != self.schedule_response.horizon_minutes
+        ):
             raise ValueError("schedule request and response horizons differ")
-        if self.schedule_request.granularity_minutes != self.schedule_response.granularity_minutes:
+        if (
+            self.schedule_request.granularity_minutes
+            != self.schedule_response.granularity_minutes
+        ):
             raise ValueError("schedule request and response granularity differs")
 
         normalized: Dict[str, str] = {}
@@ -76,7 +102,8 @@ class PersistedScheduleCreateRequest(StrictPreparationOperationsModel):
         outside = sorted(
             value.occurrence_id
             for value in occurrences.values()
-            if value.required_finish_minute > self.schedule_request.horizon_minutes
+            if value.required_finish_minute
+            > self.schedule_request.horizon_minutes
         )
         if outside:
             raise ValueError(
@@ -114,7 +141,8 @@ class PersistedScheduleCreateRequest(StrictPreparationOperationsModel):
 
             profile_hash = str(metadata.get("profile_content_hash") or "")
             if len(profile_hash) != 64 or any(
-                character not in "0123456789abcdef" for character in profile_hash
+                character not in "0123456789abcdef"
+                for character in profile_hash
             ):
                 raise ValueError(
                     "task profile_content_hash values must be lowercase SHA-256 digests"
@@ -135,7 +163,8 @@ class PersistedScheduleCreateRequest(StrictPreparationOperationsModel):
             )
             if task.duration_minutes != expected_duration:
                 raise ValueError(
-                    f"task {task.task_id} duration differs from occurrence-set duration policy"
+                    f"task {task.task_id} duration differs from occurrence-set "
+                    "duration policy"
                 )
 
         missing_occurrences = sorted(set(occurrences) - observed_occurrences)
@@ -146,7 +175,8 @@ class PersistedScheduleCreateRequest(StrictPreparationOperationsModel):
             )
         if profile_hashes != task_hashes:
             raise ValueError(
-                "profile_versions hashes must exactly match task profile_content_hash values"
+                "profile_versions hashes must exactly match task "
+                "profile_content_hash values"
             )
         if set(self.profile_versions) != {
             value.recipe_id for value in occurrences.values()
@@ -155,5 +185,7 @@ class PersistedScheduleCreateRequest(StrictPreparationOperationsModel):
                 "profile_versions recipe IDs must exactly match occurrence recipe IDs"
             )
 
+        if self.occurrence_set.household_id.strip() == "":
+            raise ValueError("occurrence set household_id cannot be blank")
         self.notes = self.notes.strip() if self.notes else None
         return self
