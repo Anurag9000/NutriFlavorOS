@@ -1,0 +1,41 @@
+{
+  "document_version": "food-evidence-import-v1",
+  "conversion_versions": [
+    {
+      "canonical_name": "cooked rice",
+      "from_unit": "cup",
+      "to_unit": "g",
+      "record_version": "ci-reviewed-v1",
+      "multiplier_min": 120.0,
+      "multiplier_max": 125.0,
+      "source_name": "NutriFlavorOS canonical CI fixture",
+      "source_url": "https://example.invalid/nutriflavos/ci/conversion/cooked-rice-cup-g",
+      "source_version": "ci-fixture-v1",
+      "evidence_status": "reviewed",
+      "reviewed_at": "2026-08-01T00:00:00Z",
+      "reviewed_by": "NutriFlavorOS CI fixture reviewer",
+      "notes": "Synthetic contract fixture; not real culinary evidence.",
+      "active": true
+    }
+  ],
+  "storage_policy_versions": [
+    {
+      "policy_key": "ci_fixture_refrigerated",
+      "policy_version": "ci-reviewed-v1",
+      "food_category": "synthetic CI fixture food",
+      "storage_state": "refrigerated",
+      "duration_min_hours": 24.0,
+      "duration_max_hours": 24.0,
+      "maximum_temperature_c": 4.0,
+      "source_name": "NutriFlavorOS canonical CI fixture",
+      "source_url": "https://example.invalid/nutriflavos/ci/storage-policy",
+      "source_version": "ci-fixture-v1",
+      "evidence_status": "reviewed",
+      "reviewed_at": "2026-08-01T00:00:00Z",
+      "reviewed_by": "NutriFlavorOS CI fixture reviewer",
+      "safety_scope": "synthetic_test_only",
+      "notes": "Synthetic contract fixture; not food-safety guidance.",
+      "active": true
+    }
+  ]
+}
