@@ -52,11 +52,11 @@ class DBResourceCalendarVersion(Base):
         CheckConstraint(
             "((evidence_status = 'reviewed' AND reviewed_at IS NOT NULL "
             "AND reviewed_by IS NOT NULL AND length(trim(reviewed_by)) > 0) OR "
-            "(evidence_status = 'draft' AND active = 0))",
+            "(evidence_status = 'draft' AND NOT active))",
             name="ck_resource_calendar_review_state",
         ),
         CheckConstraint(
-            "active = 0 OR evidence_status = 'reviewed'",
+            "NOT active OR evidence_status = 'reviewed'",
             name="ck_resource_calendar_active_reviewed",
         ),
         Index(
