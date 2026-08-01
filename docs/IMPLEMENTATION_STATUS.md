@@ -3,7 +3,8 @@
 **Status date:** 2026-08-01  
 **Development policy:** direct commits to `main`; no feature pull requests or
 automated dependency-update branches.  
-**Database migration head:** `20260801_0007`  
+**Database migration head:** `20260801_0008`  
+**OpenAPI release contract:** `2026-08-01.2`  
 **Effective research catalog:** `2026-08-01.3`
 
 Current governed inventory:
@@ -18,7 +19,7 @@ This ledger distinguishes implemented product behavior, executable offline
 baselines, adapters, research-only designs, data-blocked work,
 validation-blocked work, and clinical-risk work. An importable class, source
 file, synthetic fixture, or successful test is never by itself a product,
-accuracy, or safety claim.
+accuracy, validation, or safety claim.
 
 ## Status definitions
 
@@ -51,8 +52,13 @@ accuracy, or safety claim.
 
 ### Remaining
 
-- Verified email, password reset, token rotation/revocation, MFA, auth rate
-  limits, administrative support tooling, and full data export/delete lifecycle.
+- Verified email.
+- Password reset.
+- Token rotation/revocation.
+- MFA.
+- Authentication rate limits.
+- Administrative support tooling.
+- Full data export/delete lifecycle.
 
 ## 2. Database, migrations, and deployment integrity
 
@@ -60,24 +66,28 @@ accuracy, or safety claim.
 
 - Transactional SQLAlchemy persistence for product and research state.
 - SQLite local and PostgreSQL hosted/concurrent paths.
-- Alembic chain through `20260801_0007`.
+- Alembic chain through `20260801_0008`.
 - Hosted startup requires the exact head and rejects ORM-only schemas.
 - Runtime schema verification requires preparation profiles, immutable
-  conversion versions, immutable storage-policy versions, and exact leftover
-  evidence links.
+  conversion versions, immutable storage-policy versions, exact leftover
+  evidence links, and lifecycle events.
 - Constraints for roles, statuses, event types, positive versions, quantity
   intervals, serving multipliers, target bounds, conversion ranges, storage
-  ranges, evidence statuses, hashes, serving ranges, and active reviewed
-  uniqueness.
+  ranges, evidence statuses, hashes, serving ranges, active reviewed
+  uniqueness, lifecycle target exclusivity, and lifecycle fingerprints.
 - Fail-closed household-state migration preflight.
 - Preparation profile version/hash backfill.
 - Conservative immutable food-evidence backfill.
+- Focused `0007 → 0008 → 0007` lifecycle migration regression.
 - Fresh SQLite and PostgreSQL migration jobs.
 
 ### Remaining
 
-- Backup/restore drills, point-in-time recovery, large-table migration
-  rehearsal, retention/purge jobs, and production pool/read-replica guidance.
+- Backup/restore drills.
+- Point-in-time recovery.
+- Large-table migration rehearsal.
+- Retention/purge jobs.
+- Production pool/read-replica guidance.
 
 ## 3. Household access and collaboration
 
@@ -98,8 +108,10 @@ accuracy, or safety claim.
 
 ### Remaining
 
-- Reviewed ownership transfer, household archive/deletion, invitation delivery,
-  and user-facing audit export/filtering.
+- Reviewed ownership transfer.
+- Household archive/deletion.
+- Invitation delivery.
+- User-facing audit export/filtering.
 
 ## 4. Pantry, leftovers, inventory ledger, and reservations
 
@@ -124,8 +136,12 @@ accuracy, or safety claim.
 
 ### Remaining
 
-- Reviewed cross-unit allocation, receipt/barcode import, lot split/merge UI,
-  recall/quarantine state, offline conflicts, and bulk reconciliation reports.
+- Reviewed cross-unit allocation in all inventory paths.
+- Receipt/barcode import.
+- Lot split/merge UI.
+- Recall/quarantine state.
+- Offline conflict handling.
+- Bulk reconciliation reports.
 
 ## 5. Immutable storage-policy and leftover evidence
 
@@ -141,7 +157,8 @@ accuracy, or safety claim.
 - One active reviewed version per policy key through a partial unique index.
 - Identical same-version retry returns the original record.
 - Contradictory same-version content fails.
-- New reviewed version deactivates and supersedes the prior active review.
+- New reviewed versions supersede the latest reviewed predecessor, including a
+  predecessor already deactivated or rejected.
 - PostgreSQL transaction advisory locking serializes each natural key,
   including the no-existing-row race.
 - Built-in reviewed policies seed as immutable `official-2026-07-31` versions.
@@ -153,10 +170,10 @@ accuracy, or safety claim.
 - Exact policy ID, version, and hash are written into the leftover event.
 - Exact leftover-to-policy-version link is written in the same transaction.
 - Frozen quality guidance does not create a safety-expiry timestamp.
+- Authorized household API resolves exact historical policy provenance.
 
 ### Remaining or blocked
 
-- Reviewed policy authoring, rejection, deactivation, and signed import tooling.
 - Broader food-specific policy coverage.
 - Cooling and time-temperature instrumentation.
 - Sensor integration.
@@ -185,14 +202,72 @@ accuracy, or safety claim.
 
 ### Remaining
 
-- Offline reviewed conversion import manifests and explicit deactivation/reject
-  commands.
 - More reviewed density, portion, and package evidence.
 - Ambiguous-parse review UI.
 - Provenance-aware micronutrient normalization.
-- Full migration of frontend consumers away from the legacy compatibility API.
+- Complete removal of legacy compatibility consumers after import-tree proof.
 
-## 7. Ingredients and recipes
+## 7. Manifest-driven immutable food-evidence import
+
+### Implemented
+
+- Typed `food-evidence-import-v1` document.
+- Joint conversion and storage-policy import.
+- Source-file SHA-256.
+- Importer version and repository commit.
+- Operator and reviewer identities.
+- Complete natural/version keys and content hashes.
+- Non-mutating database preflight.
+- Deterministic natural-key lock order.
+- One all-or-nothing transaction across both evidence families.
+- Idempotent existing-version outcomes.
+- Contradictory same-version rejection.
+- Exact active/inactive predecessor supersession.
+- Durable pre-apply manifest.
+- Per-row planned action, outcome, record ID, active state, and supersession ID.
+- Honest post-commit manifest-write failure state.
+- Canonical typed CI fixture.
+- CI dry-run, apply, and idempotent-reapply sequence.
+- Service and CLI failure-boundary tests.
+
+### Remaining
+
+- Optional cryptographic document signatures and signer trust policy.
+- External object-store retention for production manifests.
+- Production operator access controls outside the application process.
+
+## 8. Append-only immutable evidence lifecycle
+
+### Implemented
+
+- Migration `20260801_0008` and `evidence_lifecycle_events`.
+- Exact conversion-or-policy target constraint.
+- `deactivated` and `rejected` actions.
+- Actor, reason, JSON metadata, prior active state, and creation time.
+- Globally unique idempotency key.
+- SHA-256 request fingerprint.
+- Atomic multi-action batches.
+- Deterministic idempotency and natural-key locks.
+- Identical retry collapse.
+- Contradictory idempotency-key rejection.
+- Invalid-target whole-batch rollback.
+- No evidence-content mutation.
+- Reactivation prohibited; correction requires a new immutable successor.
+- Durable dry-run, pending, applied, failed, and post-commit-failure manifests.
+- Actor/operator equality in apply mode.
+- Read-only authenticated lifecycle-history API.
+- Lifecycle path is `GET` only in the OpenAPI release contract.
+- PostgreSQL probes for identical retries, contradictory reuse, and concurrent
+  withdrawal/successor registration.
+- Historical leftover links remain readable after policy withdrawal.
+
+### Remaining
+
+- Optional signed lifecycle documents.
+- Administrative lifecycle review UI remains intentionally absent from the
+  product API.
+
+## 9. Ingredients and recipes
 
 ### Implemented
 
@@ -209,10 +284,11 @@ accuracy, or safety claim.
 
 ### Remaining
 
-- Recipe quality/coverage dashboard, reviewed parse workflow, and normalized
-  micronutrient provenance.
+- Recipe quality/coverage dashboard.
+- Reviewed parse workflow.
+- Normalized micronutrient provenance.
 
-## 8. Personal and household meal planning
+## 10. Personal and household meal planning
 
 ### Implemented
 
@@ -239,11 +315,14 @@ accuracy, or safety claim.
 
 ### Remaining
 
-- Joint meal/resource optimization, schedule-driven repair,
-  distributionally robust or chance-constrained planning, exact lot allocation,
-  Pareto UI, and representative scale benchmarks.
+- Joint meal/resource optimization.
+- Schedule-driven repair.
+- Distributionally robust or chance-constrained planning.
+- Exact lot allocation.
+- Pareto UI.
+- Representative-scale benchmarks.
 
-## 9. Preparation evidence and scheduling
+## 11. Preparation evidence and scheduling
 
 ### Implemented product path
 
@@ -289,7 +368,7 @@ accuracy, or safety claim.
   and multi-person calendars.
 - Joint plan/schedule repair and product-scale exact/relaxation methods.
 
-## 10. Frontend
+## 12. Frontend
 
 ### Implemented
 
@@ -301,23 +380,36 @@ accuracy, or safety claim.
 - Role-based mutation controls.
 - One-time invitation token retention.
 - Strict manual preparation editor and immutable preparation-evidence pipeline.
+- Immutable conversion and storage-policy history views.
+- Version, hash, reviewer, review time, active state, and supersession display.
+- Correct catalog total rendering without readiness double counting.
 - Shared transport and browser-environment Vitest tests.
 - Skip link, keyboard navigation, labels, and reduced-motion behavior.
 
 ### Remaining
 
-- Immutable conversion/storage history UI and exact leftover-policy provenance.
+- Exact policy version/hash displayed beside every leftover.
+- Lifecycle event history in the research screen.
+- Active-reviewed immutable policy selector in the household leftover form.
 - Full authenticated Playwright/PostgreSQL suite.
 - Automated axe audit.
-- OpenAPI/client drift generation.
-- Offline/PWA strategy, internationalization, and visual regression.
+- Generated frontend schema drift validation beyond backend OpenAPI contracts.
+- Offline/PWA strategy.
+- Internationalization.
+- Visual regression.
 
-## 11. Ranking and recommendation evaluation
+## 13. Ranking and recommendation evaluation
 
 ### Implemented offline baselines
 
-- TF-IDF, BM25, popularity, Bayesian popularity, content preference, item-kNN,
-  matrix factorization, and MMR.
+- TF-IDF.
+- BM25.
+- Popularity.
+- Bayesian popularity.
+- Content preference.
+- Item-kNN.
+- Matrix factorization.
+- MMR.
 
 ### Implemented protocol
 
@@ -334,11 +426,15 @@ accuracy, or safety claim.
 
 ### Remaining
 
-- Real consented temporal interactions, user-kNN, implicit ALS/BPR, sequential
-  models, calibration, uncertainty/abstention, and product-safe preference
-  workflows.
+- Real consented temporal interactions.
+- User-kNN.
+- Implicit ALS/BPR.
+- Sequential models.
+- Calibration.
+- Uncertainty/abstention.
+- Product-safe preference workflows.
 
-## 12. Forecasting, inventory replay, and closed-loop evaluation
+## 14. Forecasting, inventory replay, and closed-loop evaluation
 
 ### Implemented forecasting
 
@@ -364,11 +460,19 @@ accuracy, or safety claim.
 
 ### Remaining
 
-- SBA, ADIDA, IMAPA, Theta, optional ARIMA/ETS, forecast intervals,
-  hierarchical reconciliation, economic costs, stochastic lead times,
-  substitutions, storage capacity, and richer policy frontiers.
+- SBA.
+- ADIDA and IMAPA.
+- Theta.
+- Optional ARIMA/ETS.
+- Forecast intervals.
+- Hierarchical reconciliation.
+- Economic costs.
+- Stochastic lead times.
+- Substitutions.
+- Storage capacity.
+- Richer policy frontiers.
 
-## 13. Research governance and catalog
+## 15. Research governance and catalog
 
 ### Implemented
 
@@ -379,8 +483,11 @@ accuracy, or safety claim.
 - Dataset/model cards, deterministic splits, metrics, drift, manifests, and
   experiment-run state.
 - Cross-process artifact registry with integrity checks and promotion stages.
-- Repository contract validator covering catalog, capabilities, docs, migration
-  head, required tables, and benchmark fixtures.
+- Repository contract validator covering catalog, capabilities, docs,
+  migration head, required tables, benchmark fixtures, typed evidence fixtures,
+  and release-contract versions.
+- Generated OpenAPI validator covering paths, methods, security, immutable
+  mutation boundaries, and required provenance/lifecycle fields.
 
 ### External dataset status
 
@@ -391,7 +498,28 @@ accuracy, or safety claim.
 - Other external dataset records remain contracts until license, acquisition,
   hashing, cards, quality, privacy, and approval are complete.
 
-## 14. Safety-blocked work
+## 16. Validation contract and honesty
+
+Direct-main validation includes:
+
+- Python compileall and all backend tests;
+- repository contract validation;
+- generated OpenAPI validation;
+- planner, exact preparation, ranking, forecasting, inventory, and closed-loop
+  benchmark gates;
+- fresh SQLite and PostgreSQL migrations;
+- reviewed food-evidence dry-run/apply/idempotent-reapply manifests;
+- lifecycle dry-run/apply/idempotent-reapply manifests;
+- PostgreSQL inventory, reservation, request-idempotency,
+  preparation-evidence, immutable-version, and lifecycle concurrency probes;
+- frontend lint, tests, and build;
+- container build;
+- retained backend JSON reports.
+
+This ledger does **not** claim that the latest complete workflow is green until
+the exact run is inspected.
+
+## 17. Safety-blocked work
 
 Still disabled or research-only:
 
@@ -408,36 +536,18 @@ Still disabled or research-only:
 - privacy-sensitive modeling;
 - request-time model training or promotion.
 
-## 15. Validation contract and honesty
+## 18. Immediate unfinished work
 
-Direct-main validation includes:
-
-- Python compileall and all backend tests;
-- repository contract validation;
-- planner, exact preparation, ranking, forecasting, inventory, and closed-loop
-  benchmark gates;
-- fresh SQLite and PostgreSQL migrations;
-- PostgreSQL inventory, reservation, request-idempotency,
-  preparation-evidence, and immutable food-evidence concurrency probes;
-- frontend lint, tests, and build;
-- container build;
-- retained backend JSON reports.
-
-This ledger does **not** claim that the latest complete workflow is green until
-the exact run is inspected.
-
-## 16. Immediate unfinished work
-
-1. Inspect and repair the latest complete direct-main workflow.
-2. Fix any migration, test, benchmark, frontend, or container failures revealed
-   by that exact run.
-3. Add reviewed immutable conversion and storage-policy import/deactivation
-   operations with manifests.
-4. Expose exact leftover policy version/hash in the household frontend.
+1. Inspect and repair one exact complete direct-main workflow run.
+2. Expose exact leftover policy ID/version/hash and lifecycle events in the
+   frontend.
+3. Move the household policy selector to active reviewed immutable versions.
+4. Add generated frontend/OpenAPI schema drift validation.
 5. Persist reviewed household resource calendars and approved schedules.
-6. Add OpenAPI/frontend drift validation.
-7. Add authenticated Playwright and axe coverage.
-8. Expand inventory costs, stochastic policies, and closed-loop evaluation.
-9. Build consent-based real-data ranking workflows.
-10. Continue high-risk research only through explicit data, evaluation,
+6. Add authenticated Playwright/PostgreSQL and axe coverage.
+7. Expand reviewed conversion and storage-policy coverage.
+8. Add evidence coverage and abstention dashboards.
+9. Expand stochastic inventory costs and closed-loop evaluation.
+10. Build consent-based real-data ranking workflows.
+11. Continue high-risk research only through explicit data, evaluation,
     artifact, approval, rollback, and monitoring gates.
