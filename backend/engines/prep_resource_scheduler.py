@@ -34,8 +34,40 @@ def _align_up(value: int, granularity: int) -> int:
     return ((value + granularity - 1) // granularity) * granularity
 
 
-def _resource_end(resource: PreparationResource, horizon: int) -> int:
-    return min(horizon, resource.available_until_minute or horizon)
+def resource_availability_windows(
+    resource: PreparationResource,
+    horizon: int,
+) -> List[Tuple[int, int]]:
+    """Return canonical continuous windows for one resource.
+
+    Explicit reviewed windows are kept distinct, including adjacent windows.
+    Legacy single-window fields are translated without mutating the request.
+    """
+
+    if resource.availability_windows:
+        return [
+            (window.start_minute, window.end_minute)
+            for window in resource.availability_windows
+        ]
+    start = resource.available_from_minute
+    end = min(horizon, resource.available_until_minute or horizon)
+    return [(start, end)] if start < end else []
+
+
+def _is_contained_in_window(
+    resource: PreparationResource,
+    *,
+    start: int,
+    finish: int,
+    horizon: int,
+) -> bool:
+    return any(
+        start >= window_start and finish <= window_end
+        for window_start, window_end in resource_availability_windows(
+            resource,
+            horizon,
+        )
+    )
 
 
 def _peak_usage(intervals: Iterable[_Reservation]) -> int:
@@ -45,7 +77,12 @@ def _peak_usage(intervals: Iterable[_Reservation]) -> int:
         events.append((interval.finish, -interval.demand))
     usage = 0
     peak = 0
-    for _, delta in sorted(events, key=lambda event: (event[0], 0 if event[1] < 0 else 1)):
+    # Releases at a timestamp are processed before acquisitions at that same
+    # timestamp, so back-to-back tasks do not falsely overlap.
+    for _, delta in sorted(
+        events,
+        key=lambda event: (event[0], 0 if event[1] < 0 else 1),
+    ):
         usage += delta
         peak = max(peak, usage)
     return peak
@@ -60,14 +97,9 @@ def _fits_capacity(
     capacity: int,
 ) -> bool:
     relevant = [
-        _Reservation(
-            start=max(start, reservation.start),
-            finish=min(finish, reservation.finish),
-            demand=reservation.demand,
-            task_id=reservation.task_id,
-        )
+        reservation
         for reservation in reservations
-        if reservation.start < finish and reservation.finish > start
+        if reservation.start < finish and start < reservation.finish
     ]
     relevant.append(_Reservation(start, finish, demand, "__candidate__"))
     return _peak_usage(relevant) <= capacity
@@ -85,7 +117,10 @@ def _critical_path_lower_bound(tasks: Dict[str, PreparationTask]) -> int:
         if task_id in memo:
             return memo[task_id]
         task = tasks[task_id]
-        dependency_finish = max((finish(value) for value in task.dependencies), default=0)
+        dependency_finish = max(
+            (finish(value) for value in task.dependencies),
+            default=0,
+        )
         memo[task_id] = dependency_finish + task.duration_minutes
         return memo[task_id]
 
@@ -109,12 +144,20 @@ def build_preparation_schedule(
         ready = [
             tasks[task_id]
             for task_id in pending
-            if all(dependency not in pending for dependency in tasks[task_id].dependencies)
+            if all(
+                dependency not in pending
+                for dependency in tasks[task_id].dependencies
+            )
         ]
         if not ready:
-            raise RuntimeError("Validated preparation dependency DAG became unschedulable")
+            raise RuntimeError(
+                "Validated preparation dependency DAG became unschedulable"
+            )
 
-        for task in sorted(ready, key=lambda value: _task_order(value, request.horizon_minutes)):
+        for task in sorted(
+            ready,
+            key=lambda value: _task_order(value, request.horizon_minutes),
+        ):
             pending.remove(task.task_id)
             blocked_by = sorted(
                 dependency
@@ -138,7 +181,10 @@ def build_preparation_schedule(
                 value = UnscheduledPreparationTask(
                     task_id=task.task_id,
                     reason_code="missing_resource",
-                    message="One or more declared resources are not present in the capacity request",
+                    message=(
+                        "One or more declared resources are not present in the "
+                        "capacity request"
+                    ),
                     missing_resources=missing,
                     metadata=task.metadata,
                 )
@@ -192,11 +238,16 @@ def build_preparation_schedule(
                     task_id=task.task_id,
                     reason_code=reason,
                     message=(
-                        "The task cannot fit after its dependencies and before its deadline"
+                        "The task cannot fit after its dependencies and before "
+                        "its deadline"
                         if reason == "dependency_window_too_short"
                         else "The declared duration does not fit inside the task window"
                     ),
-                    blocked_by=list(task.dependencies) if reason == "dependency_window_too_short" else [],
+                    blocked_by=(
+                        list(task.dependencies)
+                        if reason == "dependency_window_too_short"
+                        else []
+                    ),
                     metadata=task.metadata,
                 )
                 unscheduled.append(value)
@@ -204,36 +255,55 @@ def build_preparation_schedule(
                 continue
 
             chosen_start = None
-            for start in range(earliest, latest_start + 1, request.granularity_minutes):
+            window_feasible_seen = not task.resource_demands
+            for start in range(
+                earliest,
+                latest_start + 1,
+                request.granularity_minutes,
+            ):
                 candidate_starts_inspected += 1
                 finish = start + task.duration_minutes
-                feasible = True
-                for resource_id, demand in task.resource_demands.items():
-                    resource = resources[resource_id]
-                    if (
-                        start < resource.available_from_minute
-                        or finish > _resource_end(resource, request.horizon_minutes)
-                    ):
-                        feasible = False
-                        break
-                    if not _fits_capacity(
+                windows_fit = all(
+                    _is_contained_in_window(
+                        resources[resource_id],
+                        start=start,
+                        finish=finish,
+                        horizon=request.horizon_minutes,
+                    )
+                    for resource_id in task.resource_demands
+                )
+                if not windows_fit:
+                    continue
+                window_feasible_seen = True
+                capacities_fit = all(
+                    _fits_capacity(
                         reservations[resource_id],
                         start=start,
                         finish=finish,
                         demand=demand,
-                        capacity=resource.capacity,
-                    ):
-                        feasible = False
-                        break
-                if feasible:
+                        capacity=resources[resource_id].capacity,
+                    )
+                    for resource_id, demand in task.resource_demands.items()
+                )
+                if capacities_fit:
                     chosen_start = start
                     break
 
             if chosen_start is None:
+                reason_code = (
+                    "no_feasible_resource_window"
+                    if window_feasible_seen
+                    else "resource_availability_infeasible"
+                )
                 value = UnscheduledPreparationTask(
                     task_id=task.task_id,
-                    reason_code="no_feasible_resource_window",
-                    message="No aligned interval satisfies dependencies, capacities, and availability windows",
+                    reason_code=reason_code,
+                    message=(
+                        "No aligned interval has sufficient remaining resource capacity"
+                        if window_feasible_seen
+                        else "The task cannot fit wholly inside one declared "
+                        "availability window for every required resource"
+                    ),
                     metadata=task.metadata,
                 )
                 unscheduled.append(value)
@@ -260,21 +330,27 @@ def build_preparation_schedule(
 
     utilization: Dict[str, float] = {}
     peaks: Dict[str, int] = {}
+    window_counts: Dict[str, int] = {}
     for resource_id, resource in sorted(resources.items()):
-        available_minutes = max(
-            0,
-            _resource_end(resource, request.horizon_minutes)
-            - resource.available_from_minute,
+        windows = resource_availability_windows(
+            resource,
+            request.horizon_minutes,
         )
+        available_minutes = sum(end - start for start, end in windows)
         denominator = available_minutes * resource.capacity
         used = sum(
             (reservation.finish - reservation.start) * reservation.demand
             for reservation in reservations[resource_id]
         )
-        utilization[resource_id] = round(used / denominator, 6) if denominator else 0.0
+        utilization[resource_id] = (
+            round(used / denominator, 6) if denominator else 0.0
+        )
         peaks[resource_id] = _peak_usage(reservations[resource_id])
+        window_counts[resource_id] = len(windows)
 
-    scheduled.sort(key=lambda task: (task.start_minute, task.finish_minute, task.task_id))
+    scheduled.sort(
+        key=lambda task: (task.start_minute, task.finish_minute, task.task_id)
+    )
     unscheduled.sort(key=lambda task: task.task_id)
     makespan = max((task.finish_minute for task in scheduled), default=0)
     return PreparationScheduleResponse(
@@ -290,9 +366,15 @@ def build_preparation_schedule(
             "scheduled_count": len(scheduled),
             "unscheduled_count": len(unscheduled),
             "resource_count": len(request.resources),
-            "dependency_edge_count": sum(len(task.dependencies) for task in request.tasks),
+            "resource_window_counts": window_counts,
+            "dependency_edge_count": sum(
+                len(task.dependencies) for task in request.tasks
+            ),
             "critical_path_lower_bound_minutes": _critical_path_lower_bound(tasks),
             "candidate_starts_inspected": candidate_starts_inspected,
-            "ordering": "topological_ready_set_then_deadline_priority_earliest_start_task_id",
+            "ordering": (
+                "topological_ready_set_then_deadline_priority_"
+                "earliest_start_task_id"
+            ),
         },
     )
