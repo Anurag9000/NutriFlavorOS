@@ -9,6 +9,7 @@ import {
   storePreparationOperationsHandoff,
 } from "@/lib/preparationOperationsHandoff";
 
+const profileHash = "b".repeat(64);
 const calendar = {
   id: 7,
   household_id: "household-1",
@@ -70,6 +71,21 @@ const compileRequest = {
   ],
 };
 
+const taskMetadata = {
+  occurrence_id: "day1.dinner",
+  recipe_id: "reviewed-soup",
+  servings: 4,
+  profile_id: 1,
+  profile_version: "2",
+  profile_content_hash: profileHash,
+  duration_min_minutes: 15,
+  duration_max_minutes: 20,
+  duration_policy: "conservative_max",
+  template_id: "prepare",
+  active_work: true,
+  unattended_allowed: false,
+};
+
 const compileResponse = {
   compilation: {
     tasks: [
@@ -81,18 +97,18 @@ const compileResponse = {
         priority: 3,
         resource_demands: { person: 1 },
         dependencies: [],
-        metadata: { profile_content_hash: "b".repeat(64) },
+        metadata: taskMetadata,
       },
     ],
     unresolved: [],
     profile_versions: {
-      "reviewed-soup": `profile:1/version:2/sha256:${"b".repeat(64)}`,
+      "reviewed-soup": `profile:1/version:2/sha256:${profileHash}`,
     },
     duration_policy: "conservative_max" as const,
     warnings: [],
   },
   schedule: {
-    method: "deterministic_dependency_aware_resource_scheduler_v3_multi_window",
+    method: "deterministic_dependency_aware_resource_scheduler_v2",
     deterministic: true,
     horizon_minutes: 240,
     granularity_minutes: 5,
@@ -105,7 +121,7 @@ const compileResponse = {
         priority: 3,
         resource_demands: { person: 1 },
         dependencies: [],
-        metadata: { profile_content_hash: "b".repeat(64) },
+        metadata: taskMetadata,
       },
     ],
     unscheduled: [],
@@ -139,17 +155,29 @@ describe("Preparation operations handoff", () => {
       compileRequest,
       compileResponse,
       occurrenceSetVersion: "occurrences-v1",
+      sourcePlanId: 12,
+      sourcePlanVersion: 4,
       notes: "Reviewed handoff",
     });
 
+    expect(handoff.document_version).toBe("preparation-operations-handoff-v2");
+    expect(handoff.occurrence_set_hash_preview).toMatch(/^[a-f0-9]{64}$/);
     expect(handoff.bundle.calendar_version_id).toBe(calendar.id);
-    expect(handoff.bundle.occurrence_set_hash).toMatch(/^[a-f0-9]{64}$/);
-    expect(handoff.bundle.schedule_request.resources[0].availability_windows).toEqual(
-      calendar.resources[0].availability_windows,
-    );
-    expect(handoff.bundle.schedule_request.tasks[0].metadata).toEqual({
-      profile_content_hash: "b".repeat(64),
+    expect(handoff.bundle.source_plan_id).toBe(12);
+    expect(handoff.bundle.source_plan_version).toBe(4);
+    expect(handoff.bundle.occurrence_set).toEqual({
+      document_version: "preparation-occurrence-set-v1",
+      household_id: "household-1",
+      occurrence_set_version: "occurrences-v1",
+      duration_policy: "conservative_max",
+      occurrences: compileRequest.occurrences,
     });
+    expect(
+      handoff.bundle.schedule_request.resources[0].availability_windows,
+    ).toEqual(calendar.resources[0].availability_windows);
+    expect(handoff.bundle.schedule_request.tasks[0].metadata).toEqual(
+      taskMetadata,
+    );
     expect(handoff.bundle.schedule_response).toEqual(compileResponse.schedule);
     expect(handoff.bundle.profile_versions).toEqual(
       compileResponse.compilation.profile_versions,
@@ -168,6 +196,30 @@ describe("Preparation operations handoff", () => {
     ).rejects.toThrow(/complete fail-closed|partial/i);
   });
 
+  it("rejects tasks without occurrence provenance", async () => {
+    const invalidResponse = {
+      ...compileResponse,
+      compilation: {
+        ...compileResponse.compilation,
+        tasks: [
+          {
+            ...compileResponse.compilation.tasks[0],
+            metadata: { profile_content_hash: profileHash },
+          },
+        ],
+      },
+    };
+    await expect(
+      buildPreparationOperationsHandoff({
+        householdId: "household-1",
+        calendar,
+        compileRequest,
+        compileResponse: invalidResponse,
+        occurrenceSetVersion: "occurrences-v1",
+      }),
+    ).rejects.toThrow(/occurrence_id provenance/i);
+  });
+
   it("stores and consumes a handoff exactly once", async () => {
     const handoff = await buildPreparationOperationsHandoff({
       householdId: "household-1",
@@ -177,7 +229,9 @@ describe("Preparation operations handoff", () => {
       occurrenceSetVersion: "occurrences-v1",
     });
     storePreparationOperationsHandoff(handoff);
-    expect(sessionStorage.getItem(PREPARATION_OPERATIONS_HANDOFF_KEY)).not.toBeNull();
+    expect(
+      sessionStorage.getItem(PREPARATION_OPERATIONS_HANDOFF_KEY),
+    ).not.toBeNull();
     expect(consumePreparationOperationsHandoff()).toEqual(handoff);
     expect(consumePreparationOperationsHandoff()).toBeNull();
   });
