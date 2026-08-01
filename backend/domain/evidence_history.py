@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field, model_validator
+
+
+def _as_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    current = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+    return current.astimezone(timezone.utc)
 
 
 class EvidenceRecordStatus(str, Enum):
@@ -41,6 +48,14 @@ class IngredientConversionVersionInput(BaseModel):
         self.canonical_name = " ".join(self.canonical_name.strip().lower().split())
         self.from_unit = self.from_unit.strip().lower()
         self.to_unit = self.to_unit.strip().lower()
+        self.source_name = self.source_name.strip()
+        self.source_url = self.source_url.strip()
+        self.source_version = self.source_version.strip()
+        self.reviewed_at = _as_utc(self.reviewed_at)
+        self.reviewed_by = self.reviewed_by.strip() if self.reviewed_by else None
+        self.notes = self.notes.strip() if self.notes else None
+        if not self.canonical_name:
+            raise ValueError("canonical_name cannot be blank")
         if self.from_unit == self.to_unit:
             raise ValueError("from_unit and to_unit must differ")
         if self.multiplier_max < self.multiplier_min:
@@ -48,7 +63,7 @@ class IngredientConversionVersionInput(BaseModel):
         if self.evidence_status == EvidenceRecordStatus.REVIEWED:
             if self.reviewed_at is None:
                 raise ValueError("reviewed conversion evidence requires reviewed_at")
-            if not self.reviewed_by or not self.reviewed_by.strip():
+            if not self.reviewed_by:
                 raise ValueError("reviewed conversion evidence requires reviewed_by")
         return self
 
@@ -98,6 +113,13 @@ class StoragePolicyVersionInput(BaseModel):
         self.policy_key = self.policy_key.strip().lower()
         self.food_category = " ".join(self.food_category.strip().split())
         self.storage_state = self.storage_state.strip().lower()
+        self.source_name = self.source_name.strip()
+        self.source_url = self.source_url.strip()
+        self.source_version = self.source_version.strip()
+        self.safety_scope = self.safety_scope.strip().lower()
+        self.reviewed_at = _as_utc(self.reviewed_at)
+        self.reviewed_by = self.reviewed_by.strip() if self.reviewed_by else None
+        self.notes = self.notes.strip() if self.notes else None
         if (
             self.duration_min_hours is not None
             and self.duration_max_hours is not None
@@ -109,7 +131,7 @@ class StoragePolicyVersionInput(BaseModel):
         if self.evidence_status == EvidenceRecordStatus.REVIEWED:
             if self.reviewed_at is None:
                 raise ValueError("reviewed storage evidence requires reviewed_at")
-            if not self.reviewed_by or not self.reviewed_by.strip():
+            if not self.reviewed_by:
                 raise ValueError("reviewed storage evidence requires reviewed_by")
         return self
 
@@ -133,8 +155,13 @@ class ConversionApplicationRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_range(self):
+        self.canonical_name = " ".join(self.canonical_name.strip().lower().split())
+        self.from_unit = self.from_unit.strip().lower()
+        self.to_unit = self.to_unit.strip().lower()
         if self.quantity_max < self.quantity_min:
             raise ValueError("quantity_max cannot be less than quantity_min")
+        if self.from_unit == self.to_unit:
+            raise ValueError("from_unit and to_unit must differ")
         return self
 
 
