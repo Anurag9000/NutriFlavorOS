@@ -1,5 +1,5 @@
 {
-  "contract_version": "2026-08-01.1",
+  "contract_version": "2026-08-01.2",
   "typescript_source": "frontend/src/lib/platformApi.ts",
   "schemas": {
     "IngredientConversionVersionView": "IngredientConversionVersion",
@@ -16,36 +16,42 @@
     {
       "openapi_path": "/api/v1/food-evidence/history/conversions",
       "method": "get",
+      "object": "evidenceHistoryApi",
       "binding": "conversions",
       "source_fragment": "/food-evidence/history/conversions?${params.toString()}"
     },
     {
       "openapi_path": "/api/v1/food-evidence/history/convert-reviewed",
       "method": "post",
+      "object": "evidenceHistoryApi",
       "binding": "convertReviewed",
       "source_fragment": "/food-evidence/history/convert-reviewed"
     },
     {
       "openapi_path": "/api/v1/food-evidence/history/storage-policies",
       "method": "get",
+      "object": "evidenceHistoryApi",
       "binding": "storagePolicies",
       "source_fragment": "/food-evidence/history/storage-policies?${params.toString()}"
     },
     {
       "openapi_path": "/api/v1/food-evidence/history/storage-policies/{policy_key}/active-reviewed",
       "method": "get",
+      "object": "evidenceHistoryApi",
       "binding": "activeStoragePolicy",
       "source_fragment": "/food-evidence/history/storage-policies/${encode(policyKey)}/active-reviewed"
     },
     {
       "openapi_path": "/api/v1/food-evidence/history/lifecycle-events",
       "method": "get",
+      "object": "evidenceHistoryApi",
       "binding": "lifecycleEvents",
       "source_fragment": "/food-evidence/history/lifecycle-events?${params.toString()}"
     },
     {
       "openapi_path": "/api/v1/food-evidence/history/households/{household_id}/leftovers/{leftover_id}/storage-policy",
       "method": "get",
+      "object": "householdApi",
       "binding": "leftoverStoragePolicy",
       "source_fragment": "/food-evidence/history/households/${encode(id)}/leftovers/${leftoverId}/storage-policy"
     }
