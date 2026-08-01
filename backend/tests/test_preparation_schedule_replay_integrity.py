@@ -23,11 +23,14 @@ from backend.services.preparation_operations_integrity_service import (
     create_persisted_schedule,
     get_persisted_schedule,
     transition_schedule,
+    validate_persisted_schedule_integrity,
 )
-from backend.services.preparation_operations_service import (
-    create_persisted_schedule as create_legacy_schedule,
-    register_resource_calendar,
-)
+from backend.services.preparation_operations_service import register_resource_calendar
+
+
+PROFILE_HASH = "a" * 64
+HOUSEHOLD_ID = "replay-home"
+USER_ID = "owner@example.test"
 
 
 @pytest.fixture()
@@ -41,7 +44,7 @@ def db():
     Session = sessionmaker(bind=engine, autoflush=False, autocommit=False)
     session = Session()
     owner = DBUser(
-        id="owner@example.test",
+        id=USER_ID,
         name="Owner",
         liked_ingredients=[],
         disliked_ingredients=[],
@@ -51,7 +54,7 @@ def db():
         medications=[],
     )
     household = DBHousehold(
-        id="replay-home",
+        id=HOUSEHOLD_ID,
         owner_user_id=owner.id,
         name="Replay home",
         timezone="UTC",
@@ -116,14 +119,27 @@ def create_request(calendar) -> PersistedScheduleCreateRequest:
             ],
             "tasks": [
                 {
-                    "task_id": "prepare",
+                    "task_id": "dinner.prepare",
                     "duration_minutes": 20,
                     "earliest_start_minute": 0,
                     "latest_finish_minute": 60,
                     "priority": 1,
                     "resource_demands": {"person": 1},
                     "dependencies": [],
-                    "metadata": {"profile_content_hash": "a" * 64},
+                    "metadata": {
+                        "occurrence_id": "dinner",
+                        "recipe_id": "recipe-a",
+                        "servings": 2.0,
+                        "profile_id": 1,
+                        "profile_version": "v1",
+                        "profile_content_hash": PROFILE_HASH,
+                        "duration_min_minutes": 20,
+                        "duration_max_minutes": 20,
+                        "duration_policy": "conservative_max",
+                        "template_id": "prepare",
+                        "active_work": True,
+                        "unattended_allowed": False,
+                    },
                 }
             ],
         }
@@ -132,10 +148,23 @@ def create_request(calendar) -> PersistedScheduleCreateRequest:
     return PersistedScheduleCreateRequest.model_validate(
         {
             "calendar_version_id": calendar.id,
-            "occurrence_set_version": "occurrences-v1",
-            "occurrence_set_hash": "b" * 64,
+            "occurrence_set": {
+                "document_version": "preparation-occurrence-set-v1",
+                "household_id": HOUSEHOLD_ID,
+                "occurrence_set_version": "occurrences-v1",
+                "duration_policy": "conservative_max",
+                "occurrences": [
+                    {
+                        "occurrence_id": "dinner",
+                        "recipe_id": "recipe-a",
+                        "required_finish_minute": 60,
+                        "servings": 2.0,
+                        "priority": 1,
+                    }
+                ],
+            },
             "profile_versions": {
-                "recipe-a": "profile:1/version:1/sha256:" + "a" * 64
+                "recipe-a": f"profile:1/version:v1/sha256:{PROFILE_HASH}"
             },
             "schedule_request": request.model_dump(mode="json"),
             "schedule_response": response.model_dump(mode="json"),
@@ -158,34 +187,46 @@ def approval(version: int = 1) -> ScheduleStateTransitionRequest:
 def register_calendar(db):
     return register_resource_calendar(
         db,
-        household_id="replay-home",
-        actor_user_id="owner@example.test",
+        household_id=HOUSEHOLD_ID,
+        actor_user_id=USER_ID,
         payload=calendar_payload(),
     )
 
 
-def test_new_schedule_persists_request_hash_and_replays_on_approval(db):
+def create_schedule(db):
     calendar = register_calendar(db)
     payload = create_request(calendar)
     schedule = create_persisted_schedule(
         db,
-        household_id="replay-home",
-        actor_user_id="owner@example.test",
+        household_id=HOUSEHOLD_ID,
+        actor_user_id=USER_ID,
         payload=payload,
     )
+    return calendar, payload, schedule
+
+
+def test_compatibility_facade_persists_and_replays_current_contract(db):
+    _, payload, schedule = create_schedule(db)
     assert schedule.replay_status == "replayable"
+    assert schedule.occurrence_set is not None
     assert schedule.schedule_request is not None
     assert len(schedule.schedule_request_hash or "") == 64
 
     row = db.get(DBPersistedPreparationSchedule, schedule.id)
-    assert row.schedule_request_payload == payload.schedule_request.model_dump(mode="json")
-    assert row.schedule_request_hash == schedule.schedule_request_hash
+    assert row is not None
+    request, replay = validate_persisted_schedule_integrity(db, row)
+    assert request.model_dump(mode="json") == payload.schedule_request.model_dump(
+        mode="json"
+    )
+    assert replay.model_dump(mode="json") == payload.schedule_response.model_dump(
+        mode="json"
+    )
 
     approved = transition_schedule(
         db,
-        household_id="replay-home",
+        household_id=HOUSEHOLD_ID,
         schedule_id=schedule.id,
-        actor_user_id="owner@example.test",
+        actor_user_id=USER_ID,
         event_type=PreparationScheduleEventType.APPROVED,
         payload=approval(),
     )
@@ -194,18 +235,12 @@ def test_new_schedule_persists_request_hash_and_replays_on_approval(db):
 
 
 def test_approval_detects_request_response_and_combined_hash_tampering(db):
-    calendar = register_calendar(db)
-    payload = create_request(calendar)
+    _, payload, schedule = create_schedule(db)
+    row = db.get(DBPersistedPreparationSchedule, schedule.id)
+    assert row is not None
 
-    request_tampered = create_persisted_schedule(
-        db,
-        household_id="replay-home",
-        actor_user_id="owner@example.test",
-        payload=payload,
-    )
-    row = db.get(DBPersistedPreparationSchedule, request_tampered.id)
     tampered_request = deepcopy(row.schedule_request_payload)
-    tampered_request["tasks"][0]["duration_minutes"] = 25
+    tampered_request["tasks"][0]["earliest_start_minute"] = 5
     row.schedule_request_payload = tampered_request
     db.add(row)
     db.commit()
@@ -213,15 +248,16 @@ def test_approval_detects_request_response_and_combined_hash_tampering(db):
     with pytest.raises(HTTPException) as exc:
         transition_schedule(
             db,
-            household_id="replay-home",
-            schedule_id=row.id,
-            actor_user_id="owner@example.test",
+            household_id=HOUSEHOLD_ID,
+            schedule_id=schedule.id,
+            actor_user_id=USER_ID,
             event_type=PreparationScheduleEventType.APPROVED,
             payload=approval(),
         )
     assert exc.value.detail["code"] == "schedule_request_hash_mismatch"
 
-    row = db.get(DBPersistedPreparationSchedule, request_tampered.id)
+    row = db.get(DBPersistedPreparationSchedule, schedule.id)
+    assert row is not None
     row.schedule_request_payload = payload.schedule_request.model_dump(mode="json")
     tampered_response = deepcopy(row.schedule_payload)
     tampered_response["scheduled"][0]["start_minute"] = 5
@@ -233,15 +269,16 @@ def test_approval_detects_request_response_and_combined_hash_tampering(db):
     with pytest.raises(HTTPException) as exc:
         transition_schedule(
             db,
-            household_id="replay-home",
-            schedule_id=row.id,
-            actor_user_id="owner@example.test",
+            household_id=HOUSEHOLD_ID,
+            schedule_id=schedule.id,
+            actor_user_id=USER_ID,
             event_type=PreparationScheduleEventType.APPROVED,
             payload=approval(),
         )
-    assert exc.value.detail["code"] == "stored_schedule_replay_mismatch"
+    assert exc.value.detail["code"] == "schedule_approval_replay_mismatch"
 
-    row = db.get(DBPersistedPreparationSchedule, request_tampered.id)
+    row = db.get(DBPersistedPreparationSchedule, schedule.id)
+    assert row is not None
     row.schedule_payload = payload.schedule_response.model_dump(mode="json")
     row.schedule_hash = "f" * 64
     db.add(row)
@@ -250,28 +287,29 @@ def test_approval_detects_request_response_and_combined_hash_tampering(db):
     with pytest.raises(HTTPException) as exc:
         transition_schedule(
             db,
-            household_id="replay-home",
-            schedule_id=row.id,
-            actor_user_id="owner@example.test",
+            household_id=HOUSEHOLD_ID,
+            schedule_id=schedule.id,
+            actor_user_id=USER_ID,
             event_type=PreparationScheduleEventType.APPROVED,
             payload=approval(),
         )
     assert exc.value.detail["code"] == "schedule_hash_mismatch"
 
 
-def test_legacy_row_is_readable_but_not_approvable_until_exact_retry_backfills(db):
-    calendar = register_calendar(db)
-    payload = create_request(calendar)
-    legacy = create_legacy_schedule(
-        db,
-        household_id="replay-home",
-        actor_user_id="owner@example.test",
-        payload=payload,
-    )
+def test_legacy_row_is_readable_nonapprovable_and_exact_retry_backfills(db):
+    _, payload, schedule = create_schedule(db)
+    row = db.get(DBPersistedPreparationSchedule, schedule.id)
+    assert row is not None
+    row.occurrence_set_payload = None
+    row.schedule_request_payload = None
+    row.schedule_request_hash = None
+    db.add(row)
+    db.commit()
+
     view = get_persisted_schedule(
         db,
-        household_id="replay-home",
-        schedule_id=legacy.id,
+        household_id=HOUSEHOLD_ID,
+        schedule_id=schedule.id,
     )
     assert view.replay_status == "legacy_request_missing"
     assert view.schedule_request is None
@@ -279,22 +317,23 @@ def test_legacy_row_is_readable_but_not_approvable_until_exact_retry_backfills(d
     with pytest.raises(HTTPException) as exc:
         transition_schedule(
             db,
-            household_id="replay-home",
-            schedule_id=legacy.id,
-            actor_user_id="owner@example.test",
+            household_id=HOUSEHOLD_ID,
+            schedule_id=schedule.id,
+            actor_user_id=USER_ID,
             event_type=PreparationScheduleEventType.APPROVED,
             payload=approval(),
         )
-    assert exc.value.detail["code"] == "schedule_request_provenance_missing"
+    assert exc.value.detail["code"] == "schedule_replay_input_missing"
 
     backfilled = create_persisted_schedule(
         db,
-        household_id="replay-home",
-        actor_user_id="owner@example.test",
+        household_id=HOUSEHOLD_ID,
+        actor_user_id=USER_ID,
         payload=payload,
     )
-    assert backfilled.id == legacy.id
+    assert backfilled.id == schedule.id
     assert backfilled.replay_status == "replayable"
+    assert backfilled.occurrence_set is not None
     assert backfilled.schedule_request is not None
 
 
@@ -306,14 +345,14 @@ def test_timezone_equivalent_review_timestamps_hash_and_retry_identically(db):
 
     first = register_resource_calendar(
         db,
-        household_id="replay-home",
-        actor_user_id="owner@example.test",
+        household_id=HOUSEHOLD_ID,
+        actor_user_id=USER_ID,
         payload=first_payload,
     )
     retry = register_resource_calendar(
         db,
-        household_id="replay-home",
-        actor_user_id="owner@example.test",
+        household_id=HOUSEHOLD_ID,
+        actor_user_id=USER_ID,
         payload=offset_payload,
     )
     assert retry.id == first.id
