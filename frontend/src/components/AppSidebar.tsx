@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Beaker,
+  CalendarRange,
   Clock3,
   Home,
   LayoutDashboard,
@@ -35,6 +36,11 @@ const navItems = [
     title: "Reviewed Prep Pipeline",
     url: "/preparation/pipeline",
     icon: ListChecks,
+  },
+  {
+    title: "Preparation Operations",
+    url: "/preparation/operations",
+    icon: CalendarRange,
   },
   { title: "Research Registry", url: "/research", icon: Beaker },
   { title: "Settings", url: "/settings", icon: Settings },
