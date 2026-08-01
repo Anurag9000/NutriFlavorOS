@@ -1,5 +1,5 @@
 {
-  "contract_version": "2026-08-01.1",
+  "contract_version": "2026-08-01.2",
   "api_version": "0.6.0",
   "paths": {
     "/api/v1/food-evidence/history/conversions": {
@@ -15,6 +15,10 @@
       "authenticated": true
     },
     "/api/v1/food-evidence/history/storage-policies/{policy_key}/active-reviewed": {
+      "methods": ["get"],
+      "authenticated": true
+    },
+    "/api/v1/food-evidence/history/lifecycle-events": {
       "methods": ["get"],
       "authenticated": true
     },
@@ -87,12 +91,30 @@
         "evidence_status"
       ]
     },
+    "EvidenceLifecycleEventView": {
+      "required": [
+        "id",
+        "target_kind",
+        "target_id",
+        "action",
+        "actor",
+        "reason",
+        "metadata",
+        "idempotency_key",
+        "request_fingerprint",
+        "target_record_version",
+        "target_content_hash",
+        "target_was_active",
+        "created_at"
+      ]
+    },
     "CompileAndScheduleResponse": {
       "required": ["compilation", "partial", "execution_status"]
     }
   },
   "forbidden_mutation_prefixes": [
     "/api/v1/food-evidence/history/conversions",
-    "/api/v1/food-evidence/history/storage-policies"
+    "/api/v1/food-evidence/history/storage-policies",
+    "/api/v1/food-evidence/history/lifecycle-events"
   ]
 }
