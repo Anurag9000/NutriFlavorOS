@@ -30,7 +30,10 @@ def test_lifecycle_migration_adds_exact_target_ledger_and_downgrades(tmp_path):
     command.upgrade(config, "20260801_0008")
     current = inspect(engine)
     assert "evidence_lifecycle_events" in current.get_table_names()
-    columns = {value["name"]: value for value in current.get_columns("evidence_lifecycle_events")}
+    columns = {
+        value["name"]: value
+        for value in current.get_columns("evidence_lifecycle_events")
+    }
     assert set(columns) == {
         "id",
         "evidence_kind",
@@ -65,15 +68,30 @@ def test_lifecycle_migration_adds_exact_target_ledger_and_downgrades(tmp_path):
     assert "uq_evidence_lifecycle_idempotency_key" in unique_names
 
     foreign_keys = {
-        value["name"]: tuple(value["referred_columns"])
+        tuple(value["constrained_columns"]): {
+            "referred_table": value["referred_table"],
+            "referred_columns": tuple(value["referred_columns"]),
+            "ondelete": (value.get("options") or {}).get("ondelete"),
+        }
         for value in current.get_foreign_keys("evidence_lifecycle_events")
     }
     assert foreign_keys == {
-        "fk_evidence_lifecycle_conversion": ("id",),
-        "fk_evidence_lifecycle_policy": ("id",),
+        ("conversion_version_id",): {
+            "referred_table": "ingredient_conversion_versions",
+            "referred_columns": ("id",),
+            "ondelete": "RESTRICT",
+        },
+        ("storage_policy_version_id",): {
+            "referred_table": "storage_policy_versions",
+            "referred_columns": ("id",),
+            "ondelete": "RESTRICT",
+        },
     }
 
-    indexes = {value["name"] for value in current.get_indexes("evidence_lifecycle_events")}
+    indexes = {
+        value["name"]
+        for value in current.get_indexes("evidence_lifecycle_events")
+    }
     assert {
         "ix_evidence_lifecycle_events_evidence_kind",
         "ix_evidence_lifecycle_events_action",
