@@ -1,0 +1,113 @@
+{
+  "horizon_minutes": 180,
+  "granularity_minutes": 5,
+  "resources": [
+    {
+      "resource_id": "person",
+      "label": "Available cook",
+      "capacity": 1,
+      "availability_windows": [
+        {
+          "start_minute": 0,
+          "end_minute": 35
+        },
+        {
+          "start_minute": 60,
+          "end_minute": 150
+        }
+      ]
+    },
+    {
+      "resource_id": "burner",
+      "label": "Burner",
+      "capacity": 1,
+      "availability_windows": [
+        {
+          "start_minute": 0,
+          "end_minute": 150
+        }
+      ]
+    },
+    {
+      "resource_id": "oven",
+      "label": "Oven",
+      "capacity": 1,
+      "availability_windows": [
+        {
+          "start_minute": 20,
+          "end_minute": 55
+        },
+        {
+          "start_minute": 90,
+          "end_minute": 180
+        }
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "prep",
+      "duration_minutes": 15,
+      "earliest_start_minute": 0,
+      "latest_finish_minute": 35,
+      "priority": 4,
+      "resource_demands": {
+        "person": 1
+      },
+      "dependencies": [],
+      "metadata": {
+        "fixture_role": "active_prep"
+      }
+    },
+    {
+      "task_id": "cook-a",
+      "duration_minutes": 25,
+      "earliest_start_minute": 60,
+      "latest_finish_minute": 120,
+      "priority": 3,
+      "resource_demands": {
+        "person": 1,
+        "burner": 1
+      },
+      "dependencies": [
+        "prep"
+      ],
+      "metadata": {
+        "fixture_role": "post_gap_cook"
+      }
+    },
+    {
+      "task_id": "bake",
+      "duration_minutes": 30,
+      "earliest_start_minute": 0,
+      "latest_finish_minute": 150,
+      "priority": 2,
+      "resource_demands": {
+        "oven": 1
+      },
+      "dependencies": [
+        "prep"
+      ],
+      "metadata": {
+        "fixture_role": "window_containment"
+      }
+    },
+    {
+      "task_id": "cook-b",
+      "duration_minutes": 20,
+      "earliest_start_minute": 60,
+      "latest_finish_minute": 150,
+      "priority": 1,
+      "resource_demands": {
+        "person": 1,
+        "burner": 1
+      },
+      "dependencies": [
+        "prep"
+      ],
+      "metadata": {
+        "fixture_role": "serialized_shared_resources"
+      }
+    }
+  ]
+}
