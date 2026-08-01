@@ -15,13 +15,17 @@ from sqlalchemy.engine import Engine
 from backend.database import REQUIRED_RUNTIME_TABLES, engine
 
 
-CURRENT_ALEMBIC_REVISION = "20260801_0008"
+CURRENT_ALEMBIC_REVISION = "20260801_0009"
 CURRENT_REQUIRED_TABLES = REQUIRED_RUNTIME_TABLES | {
     "recipe_preparation_profiles",
     "ingredient_conversion_versions",
     "storage_policy_versions",
     "leftover_storage_policy_evidence",
     "evidence_lifecycle_events",
+    "resource_calendar_versions",
+    "household_preparation_resources",
+    "persisted_preparation_schedules",
+    "preparation_schedule_events",
 }
 
 
