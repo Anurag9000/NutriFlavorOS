@@ -45,14 +45,12 @@ def _hash(payload: dict) -> str:
 def _lock_evidence_key(db: Session, namespace: str, key: str) -> None:
     """Serialize a natural evidence key on PostgreSQL.
 
-    Row locks cannot protect the first version because no row exists yet. A
-    transaction-scoped advisory lock closes that gap without introducing a
-    mutable parent table. SQLite remains protected by its writer serialization
-    and the database uniqueness constraints.
+    A row lock cannot protect the first version because no row exists yet. The
+    transaction-scoped advisory lock closes that gap. Hash collisions can only
+    over-serialize unrelated imports; they cannot weaken correctness.
     """
 
-    bind = db.get_bind()
-    if bind.dialect.name == "postgresql":
+    if db.get_bind().dialect.name == "postgresql":
         db.execute(
             text("SELECT pg_advisory_xact_lock(hashtext(:lock_key))"),
             {"lock_key": f"nutriflavos:{namespace}:{key}"},
@@ -157,6 +155,51 @@ def _policy_view(value: DBStoragePolicyVersion) -> StoragePolicyVersionView:
     )
 
 
+def _latest_reviewed_conversion(
+    db: Session,
+    payload: IngredientConversionVersionInput,
+) -> DBIngredientConversionVersion | None:
+    return (
+        db.query(DBIngredientConversionVersion)
+        .filter(
+            DBIngredientConversionVersion.canonical_name
+            == payload.canonical_name,
+            DBIngredientConversionVersion.from_unit == payload.from_unit,
+            DBIngredientConversionVersion.to_unit == payload.to_unit,
+            DBIngredientConversionVersion.evidence_status
+            == EvidenceRecordStatus.REVIEWED.value,
+        )
+        .order_by(
+            DBIngredientConversionVersion.active.desc(),
+            DBIngredientConversionVersion.created_at.desc(),
+            DBIngredientConversionVersion.id.desc(),
+        )
+        .with_for_update()
+        .first()
+    )
+
+
+def _latest_reviewed_policy(
+    db: Session,
+    payload: StoragePolicyVersionInput,
+) -> DBStoragePolicyVersion | None:
+    return (
+        db.query(DBStoragePolicyVersion)
+        .filter(
+            DBStoragePolicyVersion.policy_key == payload.policy_key,
+            DBStoragePolicyVersion.evidence_status
+            == EvidenceRecordStatus.REVIEWED.value,
+        )
+        .order_by(
+            DBStoragePolicyVersion.active.desc(),
+            DBStoragePolicyVersion.created_at.desc(),
+            DBStoragePolicyVersion.id.desc(),
+        )
+        .with_for_update()
+        .first()
+    )
+
+
 def register_conversion_version(
     db: Session,
     payload: IngredientConversionVersionInput,
@@ -184,28 +227,15 @@ def register_conversion_version(
             "Conversion record version already exists with different evidence content"
         )
 
-    current = None
+    predecessor = None
     if payload.active and payload.evidence_status == EvidenceRecordStatus.REVIEWED:
-        current = (
-            db.query(DBIngredientConversionVersion)
-            .filter(
-                DBIngredientConversionVersion.canonical_name
-                == payload.canonical_name,
-                DBIngredientConversionVersion.from_unit == payload.from_unit,
-                DBIngredientConversionVersion.to_unit == payload.to_unit,
-                DBIngredientConversionVersion.evidence_status
-                == EvidenceRecordStatus.REVIEWED.value,
-                DBIngredientConversionVersion.active.is_(True),
-            )
-            .with_for_update()
-            .first()
-        )
+        predecessor = _latest_reviewed_conversion(db, payload)
 
     now = utcnow()
-    if current is not None:
-        current.active = False
-        current.updated_at = now
-        db.add(current)
+    if predecessor is not None and predecessor.active:
+        predecessor.active = False
+        predecessor.updated_at = now
+        db.add(predecessor)
         db.flush()
 
     value = DBIngredientConversionVersion(
@@ -223,7 +253,7 @@ def register_conversion_version(
         reviewed_by=payload.reviewed_by,
         notes=payload.notes,
         content_hash=content_hash,
-        supersedes_conversion_id=current.id if current is not None else None,
+        supersedes_conversion_id=(predecessor.id if predecessor is not None else None),
         active=payload.active,
         created_at=now,
         updated_at=now,
@@ -276,25 +306,15 @@ def register_storage_policy_version(
             "Storage policy version already exists with different evidence content"
         )
 
-    current = None
+    predecessor = None
     if payload.active and payload.evidence_status == EvidenceRecordStatus.REVIEWED:
-        current = (
-            db.query(DBStoragePolicyVersion)
-            .filter(
-                DBStoragePolicyVersion.policy_key == payload.policy_key,
-                DBStoragePolicyVersion.evidence_status
-                == EvidenceRecordStatus.REVIEWED.value,
-                DBStoragePolicyVersion.active.is_(True),
-            )
-            .with_for_update()
-            .first()
-        )
+        predecessor = _latest_reviewed_policy(db, payload)
 
     now = utcnow()
-    if current is not None:
-        current.active = False
-        current.updated_at = now
-        db.add(current)
+    if predecessor is not None and predecessor.active:
+        predecessor.active = False
+        predecessor.updated_at = now
+        db.add(predecessor)
         db.flush()
 
     value = DBStoragePolicyVersion(
@@ -314,7 +334,7 @@ def register_storage_policy_version(
         safety_scope=payload.safety_scope,
         notes=payload.notes,
         content_hash=content_hash,
-        supersedes_policy_id=current.id if current is not None else None,
+        supersedes_policy_id=(predecessor.id if predecessor is not None else None),
         active=payload.active,
         created_at=now,
         updated_at=now,
@@ -328,8 +348,7 @@ def register_storage_policy_version(
             db.query(DBStoragePolicyVersion)
             .filter(
                 DBStoragePolicyVersion.policy_key == payload.policy_key,
-                DBStoragePolicyVersion.policy_version
-                == payload.policy_version,
+                DBStoragePolicyVersion.policy_version == payload.policy_version,
             )
             .first()
         )
