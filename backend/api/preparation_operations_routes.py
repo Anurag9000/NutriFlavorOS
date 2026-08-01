@@ -20,17 +20,15 @@ from backend.domain.preparation_operations import (
 )
 from backend.domain.preparation_operations_runtime import PersistedScheduleCreateRequest
 from backend.services.household_access_service import require_household_access
-from backend.services.preparation_operations_integrity_service import (
+from backend.services.preparation_operations_service import (
     create_persisted_schedule,
     get_persisted_schedule,
-    list_persisted_schedules,
-    transition_schedule,
-)
-from backend.services.preparation_operations_service import (
     get_resource_calendar,
+    list_persisted_schedules,
     list_resource_calendars,
     list_schedule_events,
     register_resource_calendar,
+    transition_schedule,
 )
 from backend.utils.security import get_current_user
 
