@@ -59,6 +59,11 @@ def db():
         session.close()
 
 
+def _utc(value: datetime) -> datetime:
+    current = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+    return current.astimezone(timezone.utc)
+
+
 def _reviewed_conversion(
     *,
     version: str = "v1",
@@ -231,7 +236,8 @@ def test_leftover_and_event_bind_exact_policy_version_atomically(db):
     policy = storage_policy_for_leftover(db, leftover.id)
     assert policy is not None
     assert policy.policy_version == OFFICIAL_POLICY_VERSION
-    assert leftover.expires_at == cooked_at + timedelta(hours=96)
+    assert leftover.expires_at is not None
+    assert _utc(leftover.expires_at) == cooked_at + timedelta(hours=96)
 
     link = (
         db.query(DBLeftoverStoragePolicyEvidence)
