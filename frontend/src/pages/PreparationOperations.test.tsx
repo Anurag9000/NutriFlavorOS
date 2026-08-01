@@ -91,6 +91,22 @@ const calendar = {
   ],
 };
 
+const occurrenceSet = {
+  document_version: "preparation-occurrence-set-v1" as const,
+  household_id: household.id,
+  occurrence_set_version: "occurrences-v1",
+  duration_policy: "conservative_max" as const,
+  occurrences: [
+    {
+      occurrence_id: "dinner",
+      recipe_id: "recipe",
+      required_finish_minute: 60,
+      servings: 2,
+      priority: 1,
+    },
+  ],
+};
+
 function schedule(replayStatus: "replayable" | "legacy_request_missing") {
   return {
     id: replayStatus === "replayable" ? 21 : 22,
@@ -99,19 +115,23 @@ function schedule(replayStatus: "replayable" | "legacy_request_missing") {
     calendar_content_hash: calendar.content_hash,
     source_plan_id: null,
     source_plan_version: null,
-    occurrence_set_version: "occurrences-v1",
+    occurrence_set_version: occurrenceSet.occurrence_set_version,
     occurrence_set_hash: "b".repeat(64),
+    occurrence_set: replayStatus === "replayable" ? occurrenceSet : null,
     profile_versions: {},
-    schedule_request: replayStatus === "replayable" ? {
-      horizon_minutes: 240,
-      granularity_minutes: 5,
-      resources: [],
-      tasks: [],
-    } : null,
-    schedule_request_hash: replayStatus === "replayable" ? "c".repeat(64) : null,
+    schedule_request: replayStatus === "replayable"
+      ? {
+          horizon_minutes: 240,
+          granularity_minutes: 5,
+          resources: [],
+          tasks: [],
+        }
+      : null,
+    schedule_request_hash:
+      replayStatus === "replayable" ? "c".repeat(64) : null,
     replay_status: replayStatus,
     schedule: {
-      method: "deterministic_dependency_aware_resource_scheduler_v3_multi_window",
+      method: "deterministic_dependency_aware_resource_scheduler_v2",
       deterministic: true,
       horizon_minutes: 240,
       granularity_minutes: 5,
@@ -149,15 +169,15 @@ function schedule(replayStatus: "replayable" | "legacy_request_missing") {
 
 function handoffBundle() {
   return {
-    document_version: "preparation-operations-handoff-v1",
+    document_version: "preparation-operations-handoff-v2" as const,
     household_id: household.id,
     created_at: "2026-08-01T00:00:00Z",
+    occurrence_set_hash_preview: "f".repeat(64),
     bundle: {
       calendar_version_id: calendar.id,
       source_plan_id: null,
       source_plan_version: null,
-      occurrence_set_version: "occurrences-v1",
-      occurrence_set_hash: "f".repeat(64),
+      occurrence_set: occurrenceSet,
       profile_versions: {
         recipe: `profile:1/version:1/sha256:${"e".repeat(64)}`,
       },
@@ -181,7 +201,20 @@ function handoffBundle() {
             priority: 1,
             resource_demands: { person: 1 },
             dependencies: [],
-            metadata: { profile_content_hash: "e".repeat(64) },
+            metadata: {
+              occurrence_id: "dinner",
+              recipe_id: "recipe",
+              servings: 2,
+              profile_id: 1,
+              profile_version: "1",
+              profile_content_hash: "e".repeat(64),
+              duration_min_minutes: 20,
+              duration_max_minutes: 20,
+              duration_policy: "conservative_max",
+              template_id: "prep",
+              active_work: true,
+              unattended_allowed: false,
+            },
           },
         ],
       },
@@ -260,12 +293,18 @@ describe("Preparation operations workspace", () => {
     renderPage();
     await screen.findByText("Schedule #21");
     fireEvent.click(screen.getByRole("tab", { name: "Resource calendars" }));
-    expect(await screen.findByText("Register and activate a reviewed calendar")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Register and activate a reviewed calendar"),
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Reviewed by"), {
       target: { value: "Household owner" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Register active reviewed calendar" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Register active reviewed calendar",
+      }),
+    );
 
     await waitFor(() => expect(mocks.createCalendar).toHaveBeenCalledTimes(1));
     const [householdId, payload] = mocks.createCalendar.mock.calls[0];
@@ -282,8 +321,14 @@ describe("Preparation operations workspace", () => {
   it("loads append-only event history for one schedule", async () => {
     renderPage();
     await screen.findByText("Schedule #21");
-    fireEvent.click(screen.getAllByRole("button", { name: "Load event history" })[0]);
-    expect(await screen.findByText(/Persisted deterministic preparation schedule created/)).toBeInTheDocument();
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Load event history" })[0],
+    );
+    expect(
+      await screen.findByText(
+        /Persisted deterministic preparation schedule created/,
+      ),
+    ).toBeInTheDocument();
     expect(mocks.events).toHaveBeenCalledWith(household.id, 21);
   });
 
@@ -294,25 +339,35 @@ describe("Preparation operations workspace", () => {
     );
     renderPage();
 
-    expect(await screen.findByText("Reviewed pipeline handoff loaded")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Persist reviewed output" })).toHaveAttribute("data-state", "active");
+    expect(
+      await screen.findByText("Reviewed pipeline handoff loaded"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: "Persist reviewed output" }),
+    ).toHaveAttribute("data-state", "active");
     expect(screen.getByLabelText("Schedule creation bundle JSON")).toHaveValue(
       JSON.stringify(handoffBundle().bundle, null, 2),
     );
-    expect(sessionStorage.getItem(PREPARATION_OPERATIONS_HANDOFF_KEY)).toBeNull();
+    expect(
+      sessionStorage.getItem(PREPARATION_OPERATIONS_HANDOFF_KEY),
+    ).toBeNull();
     expect(mocks.createSchedule).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Persist replayable draft" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Persist replayable draft" }),
+    );
     await waitFor(() => expect(mocks.createSchedule).toHaveBeenCalledTimes(1));
     const [householdId, payload] = mocks.createSchedule.mock.calls[0];
     expect(householdId).toBe(household.id);
     expect(payload.calendar_version_id).toBe(calendar.id);
-    expect(payload.occurrence_set_hash).toBe("f".repeat(64));
+    expect(payload.occurrence_set).toEqual(occurrenceSet);
     expect(payload.idempotency_key).toMatch(/^schedule-create-/);
   });
 
   it("hides calendar registration and approval from a viewer", async () => {
-    mocks.householdList.mockResolvedValue([{ ...household, current_role: "viewer" }]);
+    mocks.householdList.mockResolvedValue([
+      { ...household, current_role: "viewer" },
+    ]);
     mocks.householdGet.mockResolvedValue({
       household: { ...household, current_role: "viewer" },
       role: "viewer",
@@ -322,8 +377,12 @@ describe("Preparation operations workspace", () => {
     });
     renderPage();
     expect(await screen.findByText("Schedule #21")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Approve" }),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Resource calendars" }));
-    expect(screen.queryByText("Register and activate a reviewed calendar")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Register and activate a reviewed calendar"),
+    ).not.toBeInTheDocument();
   });
 });
