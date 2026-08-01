@@ -28,6 +28,10 @@ jobs:
         run: >-
           python scripts/validate_repository_contracts.py
           --output /tmp/repository_contracts.json
+      - name: Generated OpenAPI contract gate
+        run: >-
+          python scripts/validate_openapi_contracts.py
+          --output /tmp/openapi_contracts.json
       - run: pytest -q backend/tests
       - name: Deterministic planner benchmark gate
         run: >-
