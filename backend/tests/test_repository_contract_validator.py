@@ -19,6 +19,10 @@ def test_repository_contracts_are_synchronized():
         "storage_policy_versions",
         "leftover_storage_policy_evidence",
     } <= set(report["required_runtime_tables"])
+    assert report["typed_fixtures"] == {
+        "food_evidence_import": "food-evidence-import-v1"
+    }
+    assert report["release_contracts"] == {"openapi": "2026-08-01.1"}
     assert report["migration_files"] == [
         "backend/migrations/versions/20260801_0007_version_food_evidence.py"
     ]
