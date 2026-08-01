@@ -1,9 +1,9 @@
 """Exact branch-and-bound preparation scheduling for bounded fixtures.
 
 This solver is an offline comparator for small deterministic problems. It uses
-the same explicit task/resource contract as the product heuristic, searches all
-aligned feasible starts under a node budget, and optimizes complete-schedule
-makespan followed by total start time and a deterministic signature.
+the same explicit task/resource/window contract as the product heuristic,
+searches all aligned feasible starts under a node budget, and optimizes complete
+schedule makespan followed by total start time and a deterministic signature.
 """
 
 from __future__ import annotations
@@ -19,7 +19,10 @@ from backend.domain.preparation import (
     PreparationTask,
     ScheduledPreparationTask,
 )
-from backend.engines.prep_resource_scheduler import build_preparation_schedule
+from backend.engines.prep_resource_scheduler import (
+    build_preparation_schedule,
+    resource_availability_windows,
+)
 
 
 class ExactPreparationInfeasible(ValueError):
@@ -62,10 +65,6 @@ def _align_up(value: int, granularity: int) -> int:
     return ((value + granularity - 1) // granularity) * granularity
 
 
-def _resource_end(resource: PreparationResource, horizon: int) -> int:
-    return min(horizon, resource.available_until_minute or horizon)
-
-
 def _peak_usage(intervals: Iterable[_Interval]) -> int:
     events: List[Tuple[int, int]] = []
     for interval in intervals:
@@ -82,26 +81,31 @@ def _peak_usage(intervals: Iterable[_Interval]) -> int:
     return peak
 
 
-def _fits(
+def _fits_capacity(
+    resource: PreparationResource,
     intervals: Sequence[_Interval],
-    *,
     start: int,
     finish: int,
     demand: int,
-    capacity: int,
+    *,
+    horizon: int,
 ) -> bool:
-    relevant = [
-        _Interval(
-            max(start, value.start),
-            min(finish, value.finish),
-            value.demand,
-            value.task_id,
+    if not any(
+        start >= window_start and finish <= window_end
+        for window_start, window_end in resource_availability_windows(
+            resource,
+            horizon,
         )
+    ):
+        return False
+    overlapping = [
+        value
         for value in intervals
-        if value.start < finish and value.finish > start
+        if value.start < finish and start < value.finish
     ]
-    relevant.append(_Interval(start, finish, demand, "__candidate__"))
-    return _peak_usage(relevant) <= capacity
+    return _peak_usage(
+        [*overlapping, _Interval(start, finish, demand, "__candidate__")]
+    ) <= resource.capacity
 
 
 def _candidate_starts(
@@ -110,50 +114,48 @@ def _candidate_starts(
     request: PreparationScheduleRequest,
     resources: Dict[str, PreparationResource],
     scheduled: Dict[str, ScheduledPreparationTask],
-    reservations: Dict[str, List[_Interval]],
+    reservations: DefaultDict[str, List[_Interval]],
 ) -> List[int]:
     dependency_finish = max(
         (scheduled[value].finish_minute for value in task.dependencies),
         default=0,
     )
-    earliest = _align_up(
-        max(task.earliest_start_minute, dependency_finish),
-        request.granularity_minutes,
-    )
+    earliest = max(task.earliest_start_minute, dependency_finish)
     latest_finish = min(
         task.latest_finish_minute or request.horizon_minutes,
         request.horizon_minutes,
     )
     latest_start = latest_finish - task.duration_minutes
-    if earliest > latest_start:
-        return []
-
-    starts = []
-    for start in range(
-        earliest,
-        latest_start + 1,
-        request.granularity_minutes,
-    ):
+    for resource_id in task.resource_demands:
+        windows = resource_availability_windows(
+            resources[resource_id],
+            request.horizon_minutes,
+        )
+        if not windows:
+            return []
+        earliest = max(earliest, min(value[0] for value in windows))
+        latest_start = min(
+            latest_start,
+            max(value[1] for value in windows) - task.duration_minutes,
+        )
+    start = _align_up(earliest, request.granularity_minutes)
+    values: List[int] = []
+    while start <= latest_start:
         finish = start + task.duration_minutes
-        feasible = True
-        for resource_id, demand in task.resource_demands.items():
-            resource = resources[resource_id]
-            if (
-                start < resource.available_from_minute
-                or finish > _resource_end(resource, request.horizon_minutes)
-                or not _fits(
-                    reservations.get(resource_id, []),
-                    start=start,
-                    finish=finish,
-                    demand=demand,
-                    capacity=resource.capacity,
-                )
-            ):
-                feasible = False
-                break
-        if feasible:
-            starts.append(start)
-    return starts
+        if all(
+            _fits_capacity(
+                resources[resource_id],
+                reservations[resource_id],
+                start,
+                finish,
+                demand,
+                horizon=request.horizon_minutes,
+            )
+            for resource_id, demand in task.resource_demands.items()
+        ):
+            values.append(start)
+        start += request.granularity_minutes
+    return values
 
 
 def _validate_exact_request(
@@ -161,9 +163,11 @@ def _validate_exact_request(
     *,
     maximum_tasks: int,
 ) -> Dict[str, PreparationResource]:
+    if not request.tasks:
+        return {value.resource_id: value for value in request.resources}
     if len(request.tasks) > maximum_tasks:
         raise ValueError(
-            f"exact scheduler supports at most {maximum_tasks} tasks; received {len(request.tasks)}"
+            f"exact preparation search supports at most {maximum_tasks} tasks"
         )
     resources = {value.resource_id: value for value in request.resources}
     for task in request.tasks:
@@ -172,14 +176,14 @@ def _validate_exact_request(
             raise ExactPreparationInfeasible(
                 f"task {task.task_id} references missing resources: {', '.join(missing)}"
             )
-        excessive = [
+        excessive = sorted(
             resource_id
             for resource_id, demand in task.resource_demands.items()
             if demand > resources[resource_id].capacity
-        ]
+        )
         if excessive:
             raise ExactPreparationInfeasible(
-                f"task {task.task_id} exceeds capacity for: {', '.join(sorted(excessive))}"
+                f"task {task.task_id} exceeds capacity for: {', '.join(excessive)}"
             )
     return resources
 
@@ -304,6 +308,7 @@ def exact_preparation_schedule(
     )
     utilization: Dict[str, float] = {}
     peaks: Dict[str, int] = {}
+    window_counts: Dict[str, int] = {}
     for resource_id, resource in sorted(resources.items()):
         intervals = [
             _Interval(
@@ -315,20 +320,21 @@ def exact_preparation_schedule(
             for value in scheduled_values
             if resource_id in value.resource_demands
         ]
-        available = max(
-            0,
-            _resource_end(resource, request.horizon_minutes)
-            - resource.available_from_minute,
+        windows = resource_availability_windows(
+            resource,
+            request.horizon_minutes,
         )
+        available = sum(end - start for start, end in windows)
         denominator = available * resource.capacity
         used = sum(
             (value.finish - value.start) * value.demand for value in intervals
         )
         utilization[resource_id] = round(used / denominator, 6) if denominator else 0.0
         peaks[resource_id] = _peak_usage(intervals)
+        window_counts[resource_id] = len(windows)
 
     response = PreparationScheduleResponse(
-        method="exact_branch_and_bound_resource_scheduler_v1",
+        method="exact_branch_and_bound_resource_scheduler_v2",
         deterministic=True,
         horizon_minutes=request.horizon_minutes,
         granularity_minutes=request.granularity_minutes,
@@ -342,9 +348,10 @@ def exact_preparation_schedule(
             "scheduled_count": len(scheduled_values),
             "unscheduled_count": 0,
             "resource_count": len(request.resources),
+            "resource_window_counts": window_counts,
             "nodes_visited": nodes_visited,
             "complete_schedules_evaluated": complete_evaluated,
-            "optimality": "proven_within_aligned_start_contract",
+            "optimality": "proven_within_aligned_start_and_declared_window_contract",
             "maximum_nodes": maximum_nodes,
             "maximum_tasks": maximum_tasks,
             "objective": "min_makespan_then_total_start_then_signature",
@@ -376,21 +383,25 @@ def compare_heuristic_to_exact(
         len(heuristic.scheduled) == len(request.tasks)
         and not heuristic.unscheduled
     )
+    exact_complete = (
+        len(exact.schedule.scheduled) == len(request.tasks)
+        and not exact.schedule.unscheduled
+    )
     gap = (
         heuristic.makespan_minutes - exact.optimal_makespan_minutes
-        if heuristic_complete
+        if heuristic_complete and exact_complete
         else None
     )
     ratio = (
         heuristic.makespan_minutes / exact.optimal_makespan_minutes
-        if heuristic_complete and exact.optimal_makespan_minutes > 0
-        else None
+        if gap is not None and exact.optimal_makespan_minutes > 0
+        else (1.0 if gap == 0 else None)
     )
     return PreparationScheduleComparison(
         heuristic=heuristic,
         exact=exact,
         heuristic_complete=heuristic_complete,
-        exact_complete=True,
+        exact_complete=exact_complete,
         makespan_gap_minutes=gap,
         makespan_ratio=ratio,
     )
