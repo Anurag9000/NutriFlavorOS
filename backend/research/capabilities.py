@@ -86,6 +86,10 @@ IMPLEMENTED_COMPONENTS: Dict[str, dict] = {
         "build_preparation_schedule",
         status="implemented",
     ),
+    "exact_preparation_scheduler": _component(
+        "backend.research.exact_preparation_scheduler",
+        "exact_preparation_schedule",
+    ),
     "preparation_profile_compiler": _component(
         "backend.services.preparation_evidence_service",
         "build_tasks_from_profiles",
@@ -146,6 +150,14 @@ IMPLEMENTED_COMPONENTS: Dict[str, dict] = {
     ),
     "survival_expiry": _component(
         "backend.research.advanced_baselines", "KaplanMeierExpiry"
+    ),
+    "fefo_inventory_simulator": _component(
+        "backend.research.inventory_simulation",
+        "simulate_perishable_inventory",
+    ),
+    "forecast_inventory_pipeline": _component(
+        "backend.research.forecast_inventory_pipeline",
+        "evaluate_forecast_inventory_policy",
     ),
     "capability_registry_validator": _component(
         "backend.research.capabilities",
