@@ -1,12 +1,16 @@
 {
-  "contract_version": "2026-08-01.1",
+  "contract_version": "2026-08-02.1",
   "typescript_source": "frontend/src/lib/preparationOperationsApi.ts",
   "schemas": {
+    "RecipePreparationOccurrence": "RecipePreparationOccurrence",
+    "PreparationOccurrenceSetDocument": "PreparationOccurrenceSetDocument",
+    "PersistedScheduleCreateRequest": "PersistedScheduleCreateRequest",
     "ResourceCalendarVersionView": "ResourceCalendarVersionView",
     "PersistedPreparationScheduleView": "PersistedPreparationScheduleView",
     "PreparationScheduleEventView": "PreparationScheduleEventView"
   },
   "enums": {
+    "DurationPolicy": "DurationPolicy",
     "CalendarEvidenceStatus": "CalendarEvidenceStatus",
     "PreparationScheduleStatus": "PreparationScheduleStatus",
     "PreparationScheduleEventType": "PreparationScheduleEventType"
