@@ -13,16 +13,23 @@ from backend.domain.evidence_history import (
     IngredientConversionVersionInput,
     StoragePolicyVersionInput,
 )
+from backend.domain.evidence_lifecycle import (
+    EvidenceLifecycleAction,
+    EvidenceLifecycleBatchDocument,
+    EvidenceLifecycleRequest,
+    EvidenceTargetKind,
+)
 from backend.evidence_history_models import (
     DBIngredientConversionVersion,
     DBStoragePolicyVersion,
 )
-from backend.services.evidence_history_service import (
-    register_conversion_version,
-)
+from backend.services.evidence_history_service import register_conversion_version
 from backend.services.evidence_import_service import (
     preflight_food_evidence,
     register_food_evidence_atomic,
+)
+from backend.services.evidence_lifecycle_service import (
+    apply_evidence_lifecycle_batch,
 )
 
 
@@ -181,3 +188,54 @@ def test_inactive_reviewed_history_can_be_imported_without_superseding(db):
     assert historical.storage_policies[0].active is False
     assert db.get(DBIngredientConversionVersion, active.conversions[0].id).active is True
     assert db.get(DBStoragePolicyVersion, active.storage_policies[0].id).active is True
+
+
+def test_active_batch_successor_links_to_latest_reviewed_inactive_predecessor(db):
+    first = register_food_evidence_atomic(
+        db,
+        [_conversion("v1")],
+        [_policy("v1")],
+    )
+    lifecycle = EvidenceLifecycleBatchDocument(
+        actions=[
+            EvidenceLifecycleRequest(
+                target_kind=EvidenceTargetKind.CONVERSION,
+                target_id=first.conversions[0].id,
+                action=EvidenceLifecycleAction.REJECTED,
+                actor="Batch reviewer",
+                reason="Withdraw conversion before corrected replacement",
+                idempotency_key="batch-lineage-conversion-v1",
+            ),
+            EvidenceLifecycleRequest(
+                target_kind=EvidenceTargetKind.STORAGE_POLICY,
+                target_id=first.storage_policies[0].id,
+                action=EvidenceLifecycleAction.DEACTIVATED,
+                actor="Batch reviewer",
+                reason="Withdraw policy before corrected replacement",
+                idempotency_key="batch-lineage-policy-v1",
+            ),
+        ]
+    )
+    apply_evidence_lifecycle_batch(db, lifecycle)
+
+    previews = preflight_food_evidence(
+        db,
+        [_conversion("v2", multiplier=118)],
+        [_policy("v2", duration=72)],
+    )
+    assert [value.planned_action for value in previews] == [
+        "register_and_supersede",
+        "register_and_supersede",
+    ]
+    assert previews[0].supersedes_record_id == first.conversions[0].id
+    assert previews[1].supersedes_record_id == first.storage_policies[0].id
+
+    second = register_food_evidence_atomic(
+        db,
+        [_conversion("v2", multiplier=118)],
+        [_policy("v2", duration=72)],
+    )
+    assert second.conversions[0].supersedes_conversion_id == first.conversions[0].id
+    assert second.storage_policies[0].supersedes_policy_id == first.storage_policies[0].id
+    assert second.conversions[0].active is True
+    assert second.storage_policies[0].active is True
