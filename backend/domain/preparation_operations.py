@@ -13,6 +13,10 @@ from backend.domain.preparation import (
     PreparationScheduleRequest,
     PreparationScheduleResponse,
 )
+from backend.domain.preparation_evidence import (
+    DurationPolicy,
+    RecipePreparationOccurrence,
+)
 
 
 class StrictPreparationOperationsModel(BaseModel):
@@ -61,6 +65,35 @@ def _normalize_profile_versions(values: Dict[str, str]) -> Dict[str, str]:
             raise ValueError("profile_versions keys and values cannot be blank")
         normalized[key] = value
     return dict(sorted(normalized.items()))
+
+
+class PreparationOccurrenceSetDocument(StrictPreparationOperationsModel):
+    document_version: Literal["preparation-occurrence-set-v1"] = (
+        "preparation-occurrence-set-v1"
+    )
+    household_id: str = Field(min_length=1, max_length=200)
+    occurrence_set_version: str = Field(
+        min_length=1,
+        max_length=160,
+        pattern=r"^[A-Za-z0-9_.:-]+$",
+    )
+    duration_policy: DurationPolicy = DurationPolicy.CONSERVATIVE_MAX
+    occurrences: List[RecipePreparationOccurrence] = Field(
+        min_length=1,
+        max_length=500,
+    )
+
+    @model_validator(mode="after")
+    def normalize_and_validate(self):
+        self.household_id = self.household_id.strip()
+        identifiers = [value.occurrence_id for value in self.occurrences]
+        if len(identifiers) != len(set(identifiers)):
+            raise ValueError("occurrence_id values must be unique")
+        self.occurrences = sorted(
+            self.occurrences,
+            key=lambda value: value.occurrence_id,
+        )
+        return self
 
 
 class HouseholdResourceInput(StrictPreparationOperationsModel):
@@ -182,16 +215,7 @@ class PersistedPreparationScheduleCreate(StrictPreparationOperationsModel):
     calendar_version_id: int = Field(ge=1)
     source_plan_id: Optional[int] = Field(default=None, ge=1)
     source_plan_version: Optional[int] = Field(default=None, ge=1)
-    occurrence_set_version: str = Field(
-        min_length=1,
-        max_length=160,
-        pattern=r"^[A-Za-z0-9_.:-]+$",
-    )
-    occurrence_set_hash: str = Field(
-        min_length=64,
-        max_length=64,
-        pattern=r"^[a-f0-9]{64}$",
-    )
+    occurrence_set: PreparationOccurrenceSetDocument
     profile_versions: Dict[str, str] = Field(default_factory=dict, max_length=1000)
     schedule: PreparationScheduleResponse
     notes: Optional[str] = Field(default=None, max_length=4000)
@@ -241,12 +265,15 @@ class PersistedPreparationScheduleView(StrictPreparationOperationsModel):
     source_plan_version: Optional[int]
     occurrence_set_version: str
     occurrence_set_hash: str
+    occurrence_set: Optional[PreparationOccurrenceSetDocument] = None
     profile_versions: Dict[str, str]
     schedule_request: Optional[PreparationScheduleRequest] = None
     schedule_request_hash: Optional[str] = None
-    replay_status: Literal["replayable", "legacy_request_missing"] = (
-        "legacy_request_missing"
-    )
+    replay_status: Literal[
+        "replayable",
+        "legacy_request_missing",
+        "legacy_occurrence_set_missing",
+    ] = "legacy_request_missing"
     schedule: PreparationScheduleResponse
     schedule_hash: str
     status: PreparationScheduleStatus
