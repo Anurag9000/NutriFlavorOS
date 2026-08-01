@@ -1,5 +1,5 @@
 {
-  "contract_version": "2026-08-02.1",
+  "contract_version": "2026-08-02.2",
   "api_version": "0.8.0",
   "paths": {
     "/api/v1/food-evidence/history/conversions": {
@@ -28,6 +28,10 @@
     },
     "/api/v1/preparation/compile-and-schedule": {
       "methods": ["post"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/preparation-operations/coverage": {
+      "methods": ["get"],
       "authenticated": true
     },
     "/api/v1/households/{household_id}/preparation-operations/resource-calendars": {
@@ -164,6 +168,30 @@
         "schedule_request",
         "schedule_response",
         "idempotency_key"
+      ]
+    },
+    "PreparationOperationsCoverageView": {
+      "required": [
+        "household_id",
+        "generated_at",
+        "calendar_total",
+        "reviewed_calendar_total",
+        "active_reviewed_calendar_count",
+        "schedule_total",
+        "schedule_status_counts",
+        "replay_status_counts",
+        "occurrence_document_count",
+        "scheduler_request_count",
+        "replayable_schedule_count",
+        "replayable_draft_count",
+        "source_plan_linked_count",
+        "event_total",
+        "occurrence_document_coverage",
+        "scheduler_request_coverage",
+        "replayable_schedule_coverage",
+        "latest_calendar_created_at",
+        "latest_schedule_created_at",
+        "warnings"
       ]
     },
     "ResourceCalendarVersionView": {
