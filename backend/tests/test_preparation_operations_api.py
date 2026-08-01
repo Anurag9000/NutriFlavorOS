@@ -21,6 +21,7 @@ ROLE_RANK = {
     HouseholdRole.EDITOR: 2,
     HouseholdRole.OWNER: 3,
 }
+PROFILE_HASH = "a" * 64
 
 
 def _client(monkeypatch):
@@ -129,6 +130,23 @@ def calendar_payload():
     }
 
 
+def _metadata(template_id: str, duration: int):
+    return {
+        "occurrence_id": "dinner",
+        "recipe_id": "api-recipe",
+        "servings": 2.0,
+        "profile_id": 1,
+        "profile_version": "v1",
+        "profile_content_hash": PROFILE_HASH,
+        "duration_min_minutes": duration,
+        "duration_max_minutes": duration,
+        "duration_policy": "conservative_max",
+        "template_id": template_id,
+        "active_work": True,
+        "unattended_allowed": False,
+    }
+
+
 def schedule_payload(calendar):
     request = PreparationScheduleRequest.model_validate(
         {
@@ -145,36 +163,52 @@ def schedule_payload(calendar):
             ],
             "tasks": [
                 {
-                    "task_id": "prep",
+                    "task_id": "dinner.prep",
                     "duration_minutes": 15,
                     "earliest_start_minute": 0,
-                    "latest_finish_minute": 30,
+                    "latest_finish_minute": 120,
                     "priority": 2,
                     "resource_demands": {"person": 1},
                     "dependencies": [],
-                    "metadata": {},
+                    "metadata": _metadata("prep", 15),
                 },
                 {
-                    "task_id": "cook",
+                    "task_id": "dinner.cook",
                     "duration_minutes": 20,
                     "earliest_start_minute": 60,
                     "latest_finish_minute": 120,
-                    "priority": 1,
+                    "priority": 2,
                     "resource_demands": {"person": 1, "burner": 1},
-                    "dependencies": ["prep"],
-                    "metadata": {},
+                    "dependencies": ["dinner.prep"],
+                    "metadata": _metadata("cook", 20),
                 },
             ],
         }
     )
     response = build_preparation_schedule(request)
+    assert response.unscheduled == []
     return {
         "calendar_version_id": calendar["id"],
         "source_plan_id": None,
         "source_plan_version": None,
-        "occurrence_set_version": "api-fixture-v1",
-        "occurrence_set_hash": "a" * 64,
-        "profile_versions": {},
+        "occurrence_set": {
+            "document_version": "preparation-occurrence-set-v1",
+            "household_id": "prep-home",
+            "occurrence_set_version": "api-fixture-v1",
+            "duration_policy": "conservative_max",
+            "occurrences": [
+                {
+                    "occurrence_id": "dinner",
+                    "recipe_id": "api-recipe",
+                    "required_finish_minute": 120,
+                    "servings": 2.0,
+                    "priority": 2,
+                }
+            ],
+        },
+        "profile_versions": {
+            "api-recipe": f"profile:1/version:v1/sha256:{PROFILE_HASH}"
+        },
         "schedule_request": request.model_dump(mode="json"),
         "schedule_response": response.model_dump(mode="json"),
         "notes": "API persisted schedule",
@@ -221,6 +255,8 @@ def test_role_aware_calendar_schedule_and_event_lifecycle(monkeypatch):
     schedule = created_schedule.json()
     assert schedule["status"] == "draft"
     assert schedule["version"] == 1
+    assert schedule["replay_status"] == "replayable"
+    assert schedule["occurrence_set"]["household_id"] == "prep-home"
 
     identity["user_id"] = "viewer@example.test"
     listed = client.get(
@@ -262,7 +298,10 @@ def test_role_aware_calendar_schedule_and_event_lifecycle(monkeypatch):
         "approved",
         "completed",
     ]
-    assert all(len(value["request_fingerprint"]) == 64 for value in events.json())
+    assert all(
+        len(value["request_fingerprint"]) == 64
+        for value in events.json()
+    )
 
 
 def test_outsider_and_cross_household_paths_do_not_disclose_resources(monkeypatch):
