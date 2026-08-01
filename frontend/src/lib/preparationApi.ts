@@ -1,10 +1,16 @@
 import { apiRequest } from "@/lib/http";
 
+export interface PreparationAvailabilityWindowInput {
+  start_minute: number;
+  end_minute: number;
+}
+
 export interface PreparationResourceInput {
   resource_id: string;
   capacity: number;
-  available_from_minute: number;
+  available_from_minute?: number;
   available_until_minute?: number | null;
+  availability_windows?: PreparationAvailabilityWindowInput[] | null;
   label?: string | null;
 }
 
