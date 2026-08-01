@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Query, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from backend.database import Base
@@ -239,3 +239,25 @@ def test_active_batch_successor_links_to_latest_reviewed_inactive_predecessor(db
     assert second.storage_policies[0].supersedes_policy_id == first.storage_policies[0].id
     assert second.conversions[0].active is True
     assert second.storage_policies[0].active is True
+
+
+def test_preflight_never_requests_for_update_row_locks(db, monkeypatch):
+    register_food_evidence_atomic(
+        db,
+        [_conversion("v1")],
+        [_policy("v1")],
+    )
+
+    def reject_row_lock(self, *args, **kwargs):
+        raise AssertionError("dry-run preflight attempted SELECT FOR UPDATE")
+
+    monkeypatch.setattr(Query, "with_for_update", reject_row_lock)
+    previews = preflight_food_evidence(
+        db,
+        [_conversion("v2", multiplier=118)],
+        [_policy("v2", duration=72)],
+    )
+    assert [value.planned_action for value in previews] == [
+        "register_and_supersede",
+        "register_and_supersede",
+    ]
