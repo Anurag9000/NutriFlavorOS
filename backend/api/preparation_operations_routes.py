@@ -23,6 +23,9 @@ from backend.domain.preparation_operations_coverage import (
 )
 from backend.domain.preparation_operations_runtime import PersistedScheduleCreateRequest
 from backend.services.household_access_service import require_household_access
+from backend.services.household_plan_lifecycle_service import (
+    assert_approved_source_plan,
+)
 from backend.services.preparation_operations_coverage_service import (
     get_preparation_operations_coverage,
 )
@@ -142,6 +145,12 @@ def create_persisted_schedule_route(
     current_user: DBUser = Depends(get_current_user),
 ):
     _access(db, household_id, current_user.id, HouseholdRole.EDITOR)
+    assert_approved_source_plan(
+        db,
+        household_id=household_id,
+        source_plan_id=payload.source_plan_id,
+        source_plan_version=payload.source_plan_version,
+    )
     return create_persisted_schedule(
         db,
         household_id=household_id,
