@@ -1,0 +1,40 @@
+name: validate-preparation-repair-metamorphic
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-preparation-repair-metamorphic-main
+  cancel-in-progress: true
+
+jobs:
+  repair-metamorphic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r backend/requirements.txt
+      - run: pip check
+      - run: python scripts/validate_preparation_repair_contract.py
+      - run: >-
+          pytest -q
+          backend/tests/test_preparation_schedule_repair.py
+          backend/tests/test_preparation_schedule_repair_metamorphic.py
+          backend/tests/test_preparation_repair_cli.py
+          backend/tests/test_preparation_repair_benchmark.py
+      - run: python scripts/benchmark_preparation_repair.py --output reports/preparation-repair-metamorphic.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: preparation-repair-metamorphic-report
+          path: reports/preparation-repair-metamorphic.json
+          if-no-files-found: error
