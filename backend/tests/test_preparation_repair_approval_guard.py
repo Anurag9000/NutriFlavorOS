@@ -111,10 +111,10 @@ def test_guard_rejects_tampered_acceptance_hash(db):
     assert exc.value.detail["field"] == "acceptance_repair_result_hash"
 
 
-def test_guard_rejects_tampered_created_schedule_link(db):
+def test_guard_rejects_tampered_source_identity(db):
     _, accepted = _accepted_draft(db)
     row = db.get(DBPreparationRepairProposalAcceptance, accepted.acceptance.id)
-    row.created_schedule_version = 2
+    row.source_schedule_version += 1
     db.add(row)
     db.commit()
 
@@ -124,9 +124,9 @@ def test_guard_rejects_tampered_created_schedule_link(db):
             household_id=HOUSEHOLD_ID,
             schedule_id=accepted.acceptance.created_schedule_id,
             actor_user_id=OWNER_ID,
-            payload=_approval_payload("repair-approval-guard-bad-link"),
+            payload=_approval_payload("repair-approval-guard-bad-source"),
         )
 
     assert exc.value.status_code == 409
     assert exc.value.detail["code"] == "repair_approval_acceptance_mismatch"
-    assert exc.value.detail["field"] == "created_schedule_version"
+    assert exc.value.detail["field"] == "source_schedule_version"
