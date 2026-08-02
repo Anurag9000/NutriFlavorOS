@@ -45,8 +45,8 @@ from backend.services.preparation_operations_service import (
     register_resource_calendar,
     transition_schedule,
 )
-from backend.services.preparation_schedule_approval_service import (
-    approve_schedule_authoritative,
+from backend.services.preparation_repair_approval_guard_service import (
+    approve_schedule_with_repair_acceptance_guard,
 )
 from backend.services.preparation_task_completion_service import (
     complete_schedule_with_execution_guard,
@@ -353,7 +353,7 @@ def approve_schedule_route(
     current_user: DBUser = Depends(get_current_user),
 ):
     _access(db, household_id, current_user.id, HouseholdRole.OWNER)
-    return approve_schedule_authoritative(
+    return approve_schedule_with_repair_acceptance_guard(
         db,
         household_id=household_id,
         schedule_id=schedule_id,
