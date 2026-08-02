@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the protected repair-proposal registry and its non-acceptance UI."""
+"""Validate the protected repair proposal and draft-acceptance workspace."""
 
 from __future__ import annotations
 
@@ -44,27 +44,34 @@ def validate_workspace() -> dict:
             "preparationRepairProposalApi.create",
             "preparationRepairProposalApi.list",
             "preparationRepairProposalApi.events",
+            "preparationRepairProposalApi.acceptance",
+            "preparationRepairProposalApi.accept",
             "preparationRepairProposalApi.reject",
             "acknowledge_non_acceptance: true",
             "acknowledge_non_persistence: true",
+            "acknowledge_creates_new_draft_only: true",
             "required_acknowledgement_task_ids",
-            "stale_reasons",
-            "accepted=false",
-            "schedule_persistence_performed=false",
-            "Acceptance remains unavailable",
+            "exactAcknowledgements",
+            "Two explicit lifecycle decisions",
+            "Owner approval still required",
+            "Review draft for approval",
             'selected.status === "proposed"',
+            'selected.status === "accepted"',
         },
         "test": {
-            "requires both non-acceptance acknowledgements before creation",
-            "submits exact source, calendar, revised request, and immutable tasks",
-            "allows versioned rejection but not source mutation",
+            "requires both advisory acknowledgements before proposal creation",
+            "requires every changed task, a reason, and draft-only confirmation",
+            "submits every exact proposal hash when accepting",
+            "shows immutable accepted draft evidence without auto-approval",
             "keeps viewers read-only",
-            "surfaces execution-history staleness",
-            "queryByRole(\"button\", { name: /^Accept/i })",
+            "blocks acceptance controls for stale proposals",
         },
         "client": {
-            "accepted: false",
-            "schedule_persistence_performed: false",
+            "PreparationRepairProposalAcceptRequest",
+            "PreparationRepairProposalAcceptanceView",
+            "PreparationRepairProposalAcceptedDraftView",
+            "approval_performed: false",
+            "execution_performed: false",
         },
     }
     for label, fragments in required.items():
@@ -74,9 +81,7 @@ def validate_workspace() -> dict:
 
     page = source.get("page", "")
     for forbidden in [
-        "preparationRepairProposalApi.accept",
         "preparationRepairProposalApi.approve",
-        "preparationRepairProposalApi.persist",
         "preparationOperationsApi.approve",
         "preparationOperationsApi.complete",
         "preparationOperationsApi.task",
@@ -84,20 +89,21 @@ def validate_workspace() -> dict:
         "sessionStorage",
     ]:
         if forbidden in page:
-            errors.append(f"proposal workspace contains forbidden mutation: {forbidden}")
+            errors.append(f"proposal workspace contains unrelated mutation: {forbidden}")
 
     route = 'path="/preparation/operations/repair-proposals"'
-    route_index = source.get("app", "").find(route)
-    protected_index = source.get("app", "").find("<ProtectedRoute>", route_index)
-    page_index = source.get("app", "").find("<PreparationRepairProposals />", route_index)
+    app = source.get("app", "")
+    route_index = app.find(route)
+    protected_index = app.find("<ProtectedRoute>", route_index)
+    page_index = app.find("<PreparationRepairProposals />", route_index)
     if route_index < 0 or protected_index < 0 or page_index < 0:
         errors.append("proposal registry route is not protected and page-bound")
 
     return {
         "valid": not errors,
         "route": "/preparation/operations/repair-proposals",
-        "implemented_mutations": ["create", "reject"],
-        "forbidden_mutations": ["accept", "approve", "persist", "execute", "complete"],
+        "implemented_mutations": ["create", "accept", "reject"],
+        "separate_lifecycle_actions": ["owner_approval", "task_execution", "completion"],
         "errors": errors,
     }
 
