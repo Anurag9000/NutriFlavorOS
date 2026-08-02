@@ -54,6 +54,9 @@ EXPECTED_CONTRACT_FILES = {
     "preparation_operations_frontend_bindings": ROOT
     / "contracts"
     / "preparation_operations_frontend_bindings.json",
+    "household_plan_frontend_bindings": ROOT
+    / "contracts"
+    / "household_plan_frontend_bindings.json",
 }
 DOCUMENTS_WITH_CATALOG_COUNTS = {
     ROOT / "README.md",
@@ -71,6 +74,7 @@ EXPECTED_PREPARATION_OPERATIONS_TABLES = {
     "household_preparation_resources",
     "persisted_preparation_schedules",
     "preparation_schedule_events",
+    "preparation_task_execution_events",
 }
 
 
