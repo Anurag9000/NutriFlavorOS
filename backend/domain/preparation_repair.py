@@ -90,6 +90,32 @@ class PreparationRepairDiagnostics(StrictRepairModel):
 
 
 class PreparationScheduleRepairResult(StrictRepairModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        strict=True,
+        json_schema_extra={
+            "required": [
+                "response",
+                "complete",
+                "immutable_task_ids",
+                "preserved_task_ids",
+                "moved_tasks",
+                "added_task_ids",
+                "removed_task_ids",
+                "unscheduled_task_ids",
+                "objective",
+                "diagnostics",
+                "warnings",
+                "previous_schedule_hash",
+                "revised_request_hash",
+                "repaired_response_hash",
+                "requires_human_acceptance",
+                "accepted",
+                "persistence_performed",
+            ]
+        },
+    )
+
     response: PreparationScheduleResponse
     complete: bool
     immutable_task_ids: List[str]
