@@ -11,7 +11,7 @@ from sqlalchemy.pool import StaticPool
 
 from backend.api import household_plan_routes
 from backend.database import Base, DBHousehold, DBMealPlan, DBUser, get_db
-from backend.domain.household_access import HouseholdRole, ROLE_RANK
+from backend.domain.household_access import HouseholdRole
 from backend.meal_plan_lifecycle_models import DBHouseholdPlanEvent
 from backend.utils.security import get_current_user
 
@@ -20,6 +20,11 @@ HOUSEHOLD_ID = "plan-api-home"
 OWNER_ID = "plan-api-owner@example.test"
 VIEWER_ID = "plan-api-viewer@example.test"
 OUTSIDER_ID = "plan-api-outsider@example.test"
+ROLE_RANK = {
+    HouseholdRole.VIEWER: 1,
+    HouseholdRole.EDITOR: 2,
+    HouseholdRole.OWNER: 3,
+}
 
 
 def _plan_payload() -> dict:
