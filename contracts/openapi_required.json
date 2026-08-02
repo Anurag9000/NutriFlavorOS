@@ -1,6 +1,6 @@
 {
-  "contract_version": "2026-08-02.12",
-  "api_version": "0.15.2",
+  "contract_version": "2026-08-03.1",
+  "api_version": "0.15.3",
   "paths": {
     "/api/v1/food-evidence/history/conversions": {"methods": ["get"], "authenticated": true},
     "/api/v1/food-evidence/history/convert-reviewed": {"methods": ["post"], "authenticated": true},
@@ -24,6 +24,7 @@
     "/api/v1/households/{household_id}/preparation-operations/schedules": {"methods": ["get", "post"], "authenticated": true},
     "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}": {"methods": ["get"], "authenticated": true},
     "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/derivation": {"methods": ["get"], "authenticated": true},
+    "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/support-export": {"methods": ["get"], "authenticated": true},
     "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/task-execution": {"methods": ["get"], "authenticated": true},
     "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/task-execution-eligibility": {"methods": ["get"], "authenticated": true},
     "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/tasks/{task_id}/start": {"methods": ["post"], "authenticated": true},
@@ -72,6 +73,7 @@
     "PreparationTaskExecutionTaskView": {"required": ["task", "state"]},
     "PreparationTaskExecutionOverview": {"required": ["schedule", "tasks", "events", "planned_count", "in_progress_count", "completed_count", "skipped_count", "terminal_count", "remaining_count"]},
     "PreparationTaskExecutionMutationView": {"required": ["schedule", "task", "event"]},
+    "PreparationScheduleSupportExport": {"required": ["document_version", "household_id", "schedule_id", "database_dialect", "snapshot_isolation", "snapshot_read_only", "snapshot_marker", "snapshot_started_at", "snapshot_completed_at", "schedule", "schedule_events", "derivation", "task_execution_eligibility", "task_execution", "related_repair_proposals", "repair_acceptances", "repair_proposal_events", "evidence_hash", "mutation_performed", "actual_execution_verified", "food_safety_verified"]},
     "PreparationRepairProposalCreateRequest": {"required": ["source_schedule_id", "expected_source_version", "target_calendar_version_id", "revised_request", "acknowledge_non_acceptance", "acknowledge_non_persistence", "idempotency_key"]},
     "PreparationRepairProposalRejectRequest": {"required": ["expected_version", "reason", "idempotency_key"]},
     "PreparationRepairProposalInvalidateRequest": {"required": ["expected_version", "reason", "acknowledge_historical_only", "idempotency_key"]},
