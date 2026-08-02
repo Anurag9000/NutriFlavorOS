@@ -26,12 +26,24 @@ jobs:
       - run: pip install -r backend/requirements.txt
       - run: pip check
       - name: Compile repair implementation
-        run: python -m compileall -q backend/domain/preparation_repair.py backend/engines/prep_schedule_repair.py scripts/benchmark_preparation_repair.py
+        run: >-
+          python -m compileall -q
+          backend/api/preparation_routes.py
+          backend/domain/preparation_repair.py
+          backend/engines/prep_schedule_repair.py
+          scripts/benchmark_preparation_repair.py
+          scripts/repair_preparation_schedule.py
+          scripts/validate_preparation_repair_contract.py
+      - name: Validate repair contract and advisory API
+        run: python scripts/validate_preparation_repair_contract.py
       - name: Run repair tests
         run: >-
           pytest -q
           backend/tests/test_preparation_schedule_repair.py
+          backend/tests/test_preparation_repair_advisory_boundary.py
+          backend/tests/test_preparation_repair_api.py
           backend/tests/test_preparation_repair_benchmark.py
+          backend/tests/test_preparation_repair_cli.py
       - name: Run benchmark and retain report
         run: python scripts/benchmark_preparation_repair.py --output reports/preparation-repair.json
       - uses: actions/upload-artifact@v7
