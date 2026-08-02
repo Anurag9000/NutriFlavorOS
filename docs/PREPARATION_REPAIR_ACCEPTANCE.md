@@ -44,7 +44,7 @@ Acknowledged task IDs must exactly equal the proposal’s sorted union of moved,
 
 ## Transactional validation
 
-Acceptance locks the household, proposal, source schedule, target calendar, and acceptance state. It verifies:
+Acceptance locks the household, proposal, source schedule, active reviewed target calendar, and acceptance state. It verifies:
 
 - proposal status is `proposed`;
 - proposal version and all supplied hashes are exact;
@@ -92,16 +92,7 @@ The source schedule is never updated or deleted.
 
 ## Immutable acceptance evidence
 
-`preparation_repair_proposal_acceptances` records:
-
-- household and proposal identity;
-- proposal version before/after acceptance;
-- source schedule ID/version and hashes;
-- created draft ID/version/hash;
-- target calendar and repair hashes;
-- derivation method;
-- exact acknowledged task IDs;
-- actor, reason, metadata, idempotency key, request fingerprint, and UTC time.
+`preparation_repair_proposal_acceptances` records household/proposal identity, proposal versions, source schedule identity/hashes, created draft identity/hash, target calendar and repair hashes, derivation method, exact acknowledged tasks, actor, reason, metadata, idempotency key, request fingerprint, and UTC time.
 
 There is one acceptance per proposal, one per created schedule, and one per source schedule/version.
 
@@ -112,11 +103,7 @@ One acceptance transaction appends:
 1. a proposal `accepted` event;
 2. a schedule `created` event for the new draft.
 
-Both retain proposal, source, calendar, repair, and schedule identities and explicitly state:
-
-- schedule persistence occurred;
-- approval did not occur;
-- execution did not occur.
+Both retain proposal, source, calendar, repair, and schedule identities and explicitly state that schedule persistence occurred while approval and execution did not.
 
 ## Exact idempotency
 
@@ -125,6 +112,41 @@ Both retain proposal, source, calendar, repair, and schedule identities and expl
 - Accepting the same proposal under another key fails and returns the existing draft identity.
 - Accepting another proposal for the same source version fails with the source-level winning identity.
 - Concurrent duplicates and competitors are resolved by locks, uniqueness, and fingerprints.
+
+## Source plan cancellation race
+
+A source plan cancellation and repair acceptance serialize through the same household row lock.
+
+Cancellation is the dominant final household state:
+
+- cancellation always leaves the source plan `cancelled` at its next optimistic version;
+- every linked source schedule still `draft` or `approved` is invalidated atomically;
+- no linked schedule remains live after cancellation.
+
+Two valid race orders exist:
+
+1. **source plan cancellation first** — the source schedule is invalidated and its version changes; acceptance fails closed with source identity/status or source-plan approval/version evidence and creates no replacement;
+2. **acceptance first** — acceptance creates its accepted replacement draft, then cancellation invalidates both the original source and the newly accepted replacement in the same cancellation transaction.
+
+The accepted proposal and immutable acceptance record remain historical evidence when acceptance committed first, but the replacement is not left executable or approvable. PostgreSQL assertions retain final plan state, source/replacement schedule states, proposal/acceptance rows, schedule invalidation events, plan event metadata, and a zero count of live linked schedules.
+
+## Calendar supersession race
+
+Calendar supersession and repair acceptance also serialize through the household lock.
+
+Activating a successor calendar always leaves:
+
+- the old target calendar inactive;
+- the successor active and reviewed;
+- every old-calendar schedule still `draft` or `approved` invalidated;
+- zero live schedules tied to the superseded calendar.
+
+Two valid race orders exist:
+
+1. **calendar supersession first** — the source is invalidated and the target is no longer the exact active reviewed target calendar; acceptance fails closed and creates no replacement;
+2. **acceptance first** — acceptance creates its accepted replacement draft against the old calendar, then supersession invalidates both source and replacement atomically.
+
+The PostgreSQL probe retains old/successor calendar identities and hashes, proposal/acceptance evidence, source/replacement schedule states, invalidation events, and the zero-live-old-calendar invariant.
 
 ## Method-aware owner approval
 
@@ -149,6 +171,8 @@ Before owner approval, the system revalidates:
 
 A locked acceptance guard checks the acceptance record itself against proposal, source, created draft, method, hashes, and acknowledgement set. Only then may the schedule transition from `draft` to `approved`.
 
+A repaired draft invalidated by source plan cancellation or calendar supersession cannot be approved because its lifecycle status and dependency evidence no longer qualify.
+
 ## Source execution after acceptance
 
 Once a replacement is accepted:
@@ -166,7 +190,8 @@ The viewer-authorized task-execution eligibility endpoint reports this state bef
 
 - `POST /api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/accept`
 - `GET /api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/acceptance`
-- the existing owner schedule approval endpoint remains separate;
+- owner schedule approval remains separate;
+- source plan cancellation and calendar activation remain their own household/preparation endpoints;
 - task-execution eligibility and mutations remain schedule endpoints.
 
 ## Representative failure boundaries
@@ -180,43 +205,34 @@ Acceptance failures include:
 - `repair_acceptance_identity_mismatch`;
 - `repair_acceptance_acknowledgement_mismatch`;
 - `repair_acceptance_source_has_execution_history`;
+- `repair_acceptance_source_status_changed`;
 - `repair_acceptance_calendar_stale`;
+- `source_plan_not_approved`;
+- `source_plan_version_mismatch`;
 - `repair_acceptance_previous_schedule_mismatch`;
 - deterministic replay hash/output failures.
 
-Approval failures include:
-
-- missing or contradictory proposal/acceptance links;
-- `repair_approval_acceptance_mismatch`;
-- `repair_schedule_derivation_mismatch`;
-- `repair_schedule_source_stale`;
-- `repair_schedule_source_has_execution_history`;
-- request/result/occurrence/response/combined-hash mismatch;
-- unknown derivation method.
+Approval failures include missing or contradictory proposal/acceptance links, acceptance mismatch, derivation mismatch, stale source, source execution history, lifecycle invalidation, request/result/occurrence/response/combined-hash mismatch, and unknown derivation method.
 
 ## PostgreSQL concurrency coverage
 
-Configured PostgreSQL probes include:
+Configured real PostgreSQL probes include:
 
 - exact duplicate acceptance;
 - competing acceptance keys;
 - acceptance versus rejection;
+- acceptance versus proposal invalidation;
+- rejection versus proposal invalidation;
 - two proposals competing for one source version;
 - acceptance versus source task start;
+- source plan cancellation versus acceptance;
+- calendar supersession versus acceptance;
+- final task completion versus schedule completion;
 - duplicate/competing owner approval;
 - exact migration-head and PostgreSQL-dialect assertions.
 
-Final proposal, acceptance, schedule, and event evidence is retained in JUnit artifacts. Configuration is not reported as green until the exact hosted run is observed.
+Final plan, calendar, proposal, acceptance, schedule, task/schedule event, version, hash, status, and structured-error evidence is retained in JUnit artifacts. Configuration is not reported as green until the exact hosted run is observed.
 
 ## Non-claims
 
-Acceptance means only that an authorized household member reviewed the proposal and created a new draft. It does not establish:
-
-- owner approval;
-- task execution or human presence;
-- appliance state;
-- temperature or contamination status;
-- food safety;
-- clinical or nutritional validity;
-- global repair optimality;
-- green hosted workflows without observed runs.
+Acceptance means only that an authorized household member reviewed the proposal and created a new draft. It does not establish owner approval, task execution, human presence, appliance state, temperature or contamination status, food safety, clinical/nutritional validity, global repair optimality, or green hosted workflows without observed runs.
