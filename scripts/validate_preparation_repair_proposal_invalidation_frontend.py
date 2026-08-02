@@ -50,7 +50,7 @@ def validate_frontend() -> dict:
 
     for fragment in {
         "Owner-only proposal invalidation",
-        "primary owner administrative control remains a follow-on UI item",
+        "owner administrative UI remains a follow-on item",
     }:
         if fragment not in doc:
             errors.append(f"proposal invalidation documentation lacks: {fragment}")
