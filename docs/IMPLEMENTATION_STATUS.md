@@ -126,11 +126,27 @@ Uncertain-commit recovery evidence and execution-aware lifecycle semantics after
 
 Embed derivation evidence directly into all mutation responses/export packages and add operational monitoring/support tools.
 
-## User-confirmed task execution
+## User-confirmed task execution and completion
 
 ### Implemented
 
-Append-only start/complete/skip events, schedule-derived task identity, actual minutes/deviations, reason requirements, dependency/chronology guards, optimistic versions, exact retries, and product completion only after every deterministic task is terminal.
+- Append-only start/complete/skip events.
+- Schedule-derived task identity, actual minutes, deviations, and mandatory reasons.
+- Dependency and chronology guards.
+- Optimistic versions and exact retries.
+- Product completion only after every deterministic task is terminal.
+
+### Lowest-layer task terminality
+
+**Lowest-layer task terminality** is implemented in the exported `transition_schedule` authority.
+
+- Direct low-level completion before terminal task evidence returns `schedule_tasks_not_terminal` with sorted remaining IDs.
+- Exact completion retry, contradictory key reuse, stale versions, missing resources, and invalid transitions retain their existing precedence.
+- The public authority facade owns the terminality proof and delegates lifecycle mutation/commit to the preserved implementation.
+- The named completion service is a compatibility delegate only and contains no duplicate lock, proof, or commit path.
+- Static repository validation forbids other product modules from importing the preserved implementation directly.
+- Direct-service regressions preserve the complete historical operations corpus while replacing the obsolete implicit-completion expectation.
+- A real PostgreSQL final-task-versus-schedule-completion race proves schedule completion cannot commit ahead of the final task event.
 
 ### Task-execution eligibility
 
@@ -140,7 +156,7 @@ A replaced source remains readable but cannot receive new task events or complet
 
 ### Remaining
 
-Move task terminality into the lowest historical generic transition layer, add authenticated PostgreSQL-backed browser evidence, and implement execution-aware repair.
+Authenticated PostgreSQL-backed browser evidence and execution-aware repair.
 
 ## Provenance and coverage
 
@@ -166,7 +182,7 @@ Authenticated PostgreSQL-backed Playwright, axe, keyboard/focus/reflow/contrast 
 
 ### Configured
 
-Real PostgreSQL-only fixtures cover duplicate/competing acceptance, acceptance versus rejection, two proposals competing for one source version, acceptance versus invalidation, acceptance versus source task start, duplicate/competing owner approval, and exact migration/dialect assertions with retained JUnit.
+Real PostgreSQL-only fixtures cover duplicate/competing acceptance, acceptance versus rejection, two proposals competing for one source version, acceptance versus invalidation, acceptance versus source task start, final task completion versus schedule completion, duplicate/competing owner approval, and exact migration/dialect assertions with retained JUnit.
 
 ### Evidence status
 
