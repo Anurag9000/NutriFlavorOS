@@ -183,13 +183,20 @@ def _states(
     return state
 
 
+def _task_events(
+    events: List[DBPreparationTaskExecutionEvent],
+    task_id: str,
+) -> List[DBPreparationTaskExecutionEvent]:
+    return [value for value in events if value.task_id == task_id]
+
+
 def _task_view(
     *,
     task: ScheduledPreparationTask,
     state: PreparationTaskExecutionState,
     events: List[DBPreparationTaskExecutionEvent],
 ) -> PreparationTaskExecutionTaskView:
-    task_events = [value for value in events if value.task_id == task.task_id]
+    task_events = _task_events(events, task.task_id)
     started = next(
         (
             value.actual_minute
@@ -386,10 +393,13 @@ def record_task_execution_event(
         tasks = _scheduled_tasks(schedule)
         events = _events(db, schedule_id=schedule.id)
         states = _states(tasks, events)
+        task = tasks.get(normalized_task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail="Resource not found")
         return PreparationTaskExecutionMutationView(
             schedule=_schedule_view(schedule),
             task=_task_view(
-                task=tasks[normalized_task_id],
+                task=task,
                 state=states[normalized_task_id],
                 events=events,
             ),
@@ -430,9 +440,8 @@ def record_task_execution_event(
     task = tasks.get(normalized_task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="Resource not found")
-    if payload.actual_minute > schedule.schedule_payload.get(
-        "horizon_minutes", 10080
-    ):
+    horizon = int(schedule.schedule_payload.get("horizon_minutes", 10080))
+    if payload.actual_minute > horizon:
         raise HTTPException(
             status_code=422,
             detail={
@@ -467,6 +476,63 @@ def record_task_execution_event(
                 "task_id": normalized_task_id,
             },
         )
+
+    if event_type == PreparationTaskExecutionEventType.STARTED:
+        blocked = sorted(
+            dependency
+            for dependency in task.dependencies
+            if states[dependency]
+            not in {
+                PreparationTaskExecutionState.COMPLETED,
+                PreparationTaskExecutionState.SKIPPED,
+            }
+        )
+        if blocked:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "task_dependencies_not_terminal",
+                    "message": (
+                        "Every deterministic dependency must be explicitly "
+                        "completed or skipped before this task can start"
+                    ),
+                    "task_id": normalized_task_id,
+                    "blocked_by": blocked,
+                },
+            )
+    if event_type == PreparationTaskExecutionEventType.COMPLETED:
+        started_event = next(
+            (
+                value
+                for value in _task_events(events, normalized_task_id)
+                if value.event_type
+                == PreparationTaskExecutionEventType.STARTED.value
+            ),
+            None,
+        )
+        if started_event is None:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "task_start_event_missing",
+                    "message": "Task completion requires an explicit start event",
+                    "task_id": normalized_task_id,
+                },
+            )
+        if payload.actual_minute < started_event.actual_minute:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "task_completion_before_start",
+                    "message": (
+                        "Task completion minute cannot be earlier than its "
+                        "confirmed start minute"
+                    ),
+                    "task_id": normalized_task_id,
+                    "started_actual_minute": started_event.actual_minute,
+                },
+            )
+
     target = {
         PreparationTaskExecutionEventType.STARTED: (
             PreparationTaskExecutionState.IN_PROGRESS
