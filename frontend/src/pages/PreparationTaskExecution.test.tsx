@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   householdGet: vi.fn(),
   schedules: vi.fn(),
   taskExecution: vi.fn(),
+  eligibility: vi.fn(),
   startTask: vi.fn(),
   completeTask: vi.fn(),
   skipTask: vi.fn(),
@@ -41,6 +42,12 @@ vi.mock("@/lib/preparationOperationsApi", () => ({
     completeTask: mocks.completeTask,
     skipTask: mocks.skipTask,
     complete: mocks.completeSchedule,
+  },
+}));
+
+vi.mock("@/lib/preparationTaskExecutionEligibilityApi", () => ({
+  preparationTaskExecutionEligibilityApi: {
+    get: mocks.eligibility,
   },
 }));
 
@@ -105,12 +112,28 @@ const schedule = {
   updated_at: "2026-08-02T00:00:00Z",
 };
 
+const eligible = {
+  schedule_id: 7,
+  household_id: "home-1",
+  schedule_version: 2,
+  schedule_status: "approved",
+  eligible: true,
+  reason_code: "eligible" as const,
+  task_event_count: 0,
+  accepted_proposal_id: null,
+  acceptance_id: null,
+  replacement_schedule_id: null,
+  replacement_schedule_status: null,
+  replacement_schedule_version: null,
+};
+
 function overview(options: {
   roleState?: "planned" | "in_progress" | "completed" | "skipped";
   remaining?: number;
 } = {}) {
   const state = options.roleState ?? "planned";
-  const remaining = options.remaining ?? (state === "completed" || state === "skipped" ? 0 : 1);
+  const remaining = options.remaining
+    ?? (state === "completed" || state === "skipped" ? 0 : 1);
   return {
     schedule,
     tasks: [
@@ -118,7 +141,8 @@ function overview(options: {
         task: scheduledTask,
         state,
         latest_event_id: state === "planned" ? null : 1,
-        started_actual_minute: state === "in_progress" || state === "completed" ? 10 : null,
+        started_actual_minute:
+          state === "in_progress" || state === "completed" ? 10 : null,
         completed_actual_minute: state === "completed" ? 25 : null,
         skipped_actual_minute: state === "skipped" ? 10 : null,
         terminal_reason: state === "skipped" ? "Household skipped task" : null,
@@ -159,9 +183,11 @@ function renderPage(role: "owner" | "editor" | "viewer" = "editor") {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "fixed-uuid") });
   mocks.householdList.mockResolvedValue([household]);
   mocks.schedules.mockResolvedValue([schedule]);
   mocks.taskExecution.mockResolvedValue(overview());
+  mocks.eligibility.mockResolvedValue(eligible);
   mocks.startTask.mockResolvedValue({
     schedule: { ...schedule, version: 3 },
     task: {
@@ -200,7 +226,7 @@ beforeEach(() => {
 });
 
 describe("Preparation task execution workspace", () => {
-  it("loads explicit task state without recording anything automatically", async () => {
+  it("loads explicit state and authoritative eligibility without mutation", async () => {
     renderPage();
 
     expect(
@@ -209,7 +235,9 @@ describe("Preparation task execution workspace", () => {
     expect(screen.getByText("Human-confirmed evidence only")).toBeInTheDocument();
     expect(screen.getByText("dinner.prep")).toBeInTheDocument();
     expect(screen.getByText(/Planned minute 10–25/)).toBeInTheDocument();
+    expect(await screen.findByText("execution eligible")).toBeInTheDocument();
     expect(mocks.taskExecution).toHaveBeenCalledWith("home-1", 7);
+    expect(mocks.eligibility).toHaveBeenCalledWith("home-1", 7);
     expect(mocks.startTask).not.toHaveBeenCalled();
     expect(mocks.completeTask).not.toHaveBeenCalled();
     expect(mocks.skipTask).not.toHaveBeenCalled();
@@ -218,7 +246,7 @@ describe("Preparation task execution workspace", () => {
 
   it("submits the exact optimistic schedule version and horizon minute", async () => {
     renderPage();
-    await screen.findByText("dinner.prep");
+    await screen.findByText("execution eligible");
 
     fireEvent.click(screen.getByRole("button", { name: "Confirm start" }));
 
@@ -238,7 +266,7 @@ describe("Preparation task execution workspace", () => {
 
   it("requires a reason before a skipped task or timing deviation", async () => {
     renderPage();
-    await screen.findByText("dinner.prep");
+    await screen.findByText("execution eligible");
 
     fireEvent.change(screen.getByLabelText("Actual horizon minute"), {
       target: { value: "15" },
@@ -261,14 +289,39 @@ describe("Preparation task execution workspace", () => {
 
   it("keeps task mutations read-only for viewers", async () => {
     renderPage("viewer");
-    await screen.findByText("dinner.prep");
+    await screen.findByText("execution eligible");
 
     expect(screen.getByRole("button", { name: "Confirm start" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Confirm skip" })).toBeDisabled();
     expect(screen.getByLabelText("Actual horizon minute")).toBeDisabled();
   });
 
-  it("enables schedule completion only when every task is terminal", async () => {
+  it("blocks a source after accepted replacement and exposes exact identities", async () => {
+    mocks.eligibility.mockResolvedValueOnce({
+      ...eligible,
+      eligible: false,
+      reason_code: "source_schedule_has_accepted_replacement",
+      accepted_proposal_id: 31,
+      acceptance_id: 41,
+      replacement_schedule_id: 17,
+      replacement_schedule_status: "draft",
+      replacement_schedule_version: 1,
+    });
+    renderPage();
+
+    expect(
+      await screen.findByText("Execution blocked by accepted replacement"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/repair proposal #31/)).toBeInTheDocument();
+    expect(screen.getByText(/acceptance #41/)).toBeInTheDocument();
+    expect(screen.getByText(/replacement schedule #17/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirm start" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Confirm skip" })).toBeDisabled();
+    expect(screen.getByLabelText("Actual horizon minute")).toBeDisabled();
+    expect(mocks.startTask).not.toHaveBeenCalled();
+  });
+
+  it("enables schedule completion only when terminal and eligible", async () => {
     mocks.taskExecution.mockResolvedValueOnce(
       overview({ roleState: "completed", remaining: 0 }),
     );
@@ -277,6 +330,7 @@ describe("Preparation task execution workspace", () => {
     const button = await screen.findByRole("button", {
       name: "Complete schedule",
     });
+    await screen.findByText("execution eligible");
     expect(button).toBeEnabled();
     fireEvent.click(button);
 
