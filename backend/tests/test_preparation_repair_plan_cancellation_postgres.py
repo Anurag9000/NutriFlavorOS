@@ -149,19 +149,16 @@ def _create_linked_proposal(db):
     return plan, source, proposal
 
 
-def _accept_worker(factory, barrier: Barrier, proposal):
+def _accept_worker(factory, barrier: Barrier, proposal_id: int, payload):
     session = factory()
     try:
         barrier.wait(timeout=20)
         accepted = accept_repair_proposal_with_source_guard(
             session,
             household_id=HOUSEHOLD_ID,
-            proposal_id=proposal.id,
+            proposal_id=proposal_id,
             actor_user_id=OWNER_ID,
-            payload=acceptance_payload(
-                proposal,
-                key="pg-plan-cancellation-acceptance",
-            ),
+            payload=payload,
         )
         return {
             "kind": "accepted",
@@ -183,19 +180,25 @@ def _accept_worker(factory, barrier: Barrier, proposal):
         session.close()
 
 
-def _cancel_worker(factory, barrier: Barrier, plan):
+def _cancel_worker(
+    factory,
+    barrier: Barrier,
+    *,
+    plan_id: int,
+    plan_version: int,
+):
     session = factory()
     try:
         barrier.wait(timeout=20)
         cancelled = transition_household_plan(
             session,
             household_id=HOUSEHOLD_ID,
-            plan_id=plan.id,
+            plan_id=plan_id,
             actor_user_id=OWNER_ID,
             event_type=HouseholdPlanEventType.CANCELLED,
             payload=HouseholdPlanTransitionRequest.model_validate(
                 {
-                    "expected_version": plan.version,
+                    "expected_version": plan_version,
                     "reason": (
                         "Cancel the source plan during repair acceptance review"
                     ),
@@ -227,6 +230,14 @@ def _cancel_worker(factory, barrier: Barrier, plan):
 def test_postgres_source_plan_cancellation_dominates_repair_acceptance(db):
     factory = _session_factory(db)
     plan, source, proposal = _create_linked_proposal(db)
+    plan_id = plan.id
+    source_plan_version = plan.version
+    source_id = source.id
+    proposal_id = proposal.id
+    accept_payload = acceptance_payload(
+        proposal,
+        key="pg-plan-cancellation-acceptance",
+    )
     initial_schedule_count = db.query(DBPersistedPreparationSchedule).count()
     barrier = Barrier(2)
 
@@ -235,13 +246,15 @@ def test_postgres_source_plan_cancellation_dominates_repair_acceptance(db):
             _accept_worker,
             factory,
             barrier,
-            proposal,
+            proposal_id,
+            accept_payload,
         )
         cancellation_future = pool.submit(
             _cancel_worker,
             factory,
             barrier,
-            plan,
+            plan_id=plan_id,
+            plan_version=source_plan_version,
         )
         results = [
             acceptance_future.result(timeout=40),
@@ -250,7 +263,7 @@ def test_postgres_source_plan_cancellation_dominates_repair_acceptance(db):
 
     cancellation = next(value for value in results if value["kind"] == "cancelled")
     assert cancellation["plan_status"] == "cancelled"
-    assert cancellation["plan_version"] == plan.version + 1
+    assert cancellation["plan_version"] == source_plan_version + 1
     assert sum(value["kind"] == "cancelled" for value in results) == 1
     assert sum(
         value["kind"] in {"accepted", "acceptance_conflict"}
@@ -258,33 +271,33 @@ def test_postgres_source_plan_cancellation_dominates_repair_acceptance(db):
     ) == 1
 
     db.expire_all()
-    final_plan = db.get(DBMealPlan, plan.id)
+    final_plan = db.get(DBMealPlan, plan_id)
     assert final_plan is not None
     assert final_plan.status == "cancelled"
-    assert final_plan.version == plan.version + 1
+    assert final_plan.version == source_plan_version + 1
     assert final_plan.cancelled_at is not None
     assert final_plan.cancellation_reason
 
-    final_source = db.get(DBPersistedPreparationSchedule, source.id)
+    final_source = db.get(DBPersistedPreparationSchedule, source_id)
     assert final_source is not None
     assert final_source.status == "invalidated"
-    assert final_source.source_plan_id == plan.id
-    assert final_source.source_plan_version == plan.version
+    assert final_source.source_plan_id == plan_id
+    assert final_source.source_plan_version == source_plan_version
 
     acceptance_rows = (
         db.query(DBPreparationRepairProposalAcceptance)
-        .filter(DBPreparationRepairProposalAcceptance.proposal_id == proposal.id)
+        .filter(DBPreparationRepairProposalAcceptance.proposal_id == proposal_id)
         .all()
     )
     replacements = (
         db.query(DBPersistedPreparationSchedule)
         .filter(
             DBPersistedPreparationSchedule.source_repair_proposal_id
-            == proposal.id
+            == proposal_id
         )
         .all()
     )
-    final_proposal = db.get(DBPreparationRepairProposal, proposal.id)
+    final_proposal = db.get(DBPreparationRepairProposal, proposal_id)
     assert final_proposal is not None
 
     acceptance_result = next(
@@ -299,8 +312,8 @@ def test_postgres_source_plan_cancellation_dominates_repair_acceptance(db):
         replacement = replacements[0]
         assert replacement.id == acceptance_result["schedule_id"]
         assert replacement.status == "invalidated"
-        assert replacement.source_plan_id == plan.id
-        assert replacement.source_plan_version == plan.version
+        assert replacement.source_plan_id == plan_id
+        assert replacement.source_plan_version == source_plan_version
         assert db.query(DBPersistedPreparationSchedule).count() == (
             initial_schedule_count + 1
         )
@@ -311,13 +324,13 @@ def test_postgres_source_plan_cancellation_dominates_repair_acceptance(db):
                 .filter(
                     DBPreparationScheduleEvent.event_type == "invalidated",
                     DBPreparationScheduleEvent.schedule_id.in_(
-                        [source.id, replacement.id]
+                        [source_id, replacement.id]
                     ),
                 )
                 .all()
             )
         }
-        assert invalidated_schedule_ids == {source.id, replacement.id}
+        assert invalidated_schedule_ids == {source_id, replacement.id}
     else:
         assert acceptance_result["status"] == 409
         assert acceptance_result["code"] in {
@@ -335,7 +348,7 @@ def test_postgres_source_plan_cancellation_dominates_repair_acceptance(db):
 
     plan_events = (
         db.query(DBHouseholdPlanEvent)
-        .filter(DBHouseholdPlanEvent.plan_id == plan.id)
+        .filter(DBHouseholdPlanEvent.plan_id == plan_id)
         .all()
     )
     assert len(plan_events) == 1
@@ -348,7 +361,7 @@ def test_postgres_source_plan_cancellation_dominates_repair_acceptance(db):
         value.event_type
         for value in (
             db.query(DBPreparationRepairProposalEvent)
-            .filter(DBPreparationRepairProposalEvent.proposal_id == proposal.id)
+            .filter(DBPreparationRepairProposalEvent.proposal_id == proposal_id)
             .order_by(DBPreparationRepairProposalEvent.id)
             .all()
         )
@@ -361,7 +374,7 @@ def test_postgres_source_plan_cancellation_dominates_repair_acceptance(db):
     live_linked_schedule_count = (
         db.query(DBPersistedPreparationSchedule)
         .filter(
-            DBPersistedPreparationSchedule.source_plan_id == plan.id,
+            DBPersistedPreparationSchedule.source_plan_id == plan_id,
             DBPersistedPreparationSchedule.status.in_(["draft", "approved"]),
         )
         .count()
