@@ -104,6 +104,9 @@ class PreparationScheduleRepairResult(StrictRepairModel):
     previous_schedule_hash: Optional[str] = None
     revised_request_hash: Optional[str] = None
     repaired_response_hash: Optional[str] = None
+    requires_human_acceptance: bool = True
+    accepted: bool = False
+    persistence_performed: bool = False
 
     @model_validator(mode="after")
     def validate_partition(self):
@@ -119,6 +122,12 @@ class PreparationScheduleRepairResult(StrictRepairModel):
                     raise ValueError("repair task outcome groups must be disjoint")
         if self.complete != (len(self.unscheduled_task_ids) == 0):
             raise ValueError("complete must match unscheduled task outcome")
+        if not self.requires_human_acceptance:
+            raise ValueError("repair results must require explicit human acceptance")
+        if self.accepted:
+            raise ValueError("repair computation cannot mark a result accepted")
+        if self.persistence_performed:
+            raise ValueError("repair computation cannot persist a result")
         return self
 
 
