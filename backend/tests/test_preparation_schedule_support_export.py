@@ -2,6 +2,11 @@ from __future__ import annotations
 
 import json
 
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from backend.api import preparation_operations_routes
+from backend.database import DBUser, get_db
 from backend.preparation_operations_models import DBPersistedPreparationSchedule
 from backend.preparation_repair_proposal_models import (
     DBPreparationRepairProposal,
@@ -29,6 +34,7 @@ from backend.tests.test_preparation_repair_proposal_acceptance import (
     acceptance_payload,
     create_proposal,
 )
+from backend.utils.security import get_current_user
 from scripts.export_preparation_schedule_support_snapshot import (
     build_export_payload,
     write_atomic_json,
@@ -43,6 +49,18 @@ def _row_counts(db) -> dict[str, int]:
         "proposal_events": db.query(DBPreparationRepairProposalEvent).count(),
         "task_events": db.query(DBPreparationTaskExecutionEvent).count(),
     }
+
+
+def _client(db, *, user_id: str | None) -> TestClient:
+    app = FastAPI()
+    app.include_router(preparation_operations_routes.router)
+    app.dependency_overrides[get_db] = lambda: db
+    if user_id is not None:
+        app.dependency_overrides[get_current_user] = lambda: db.get(
+            DBUser,
+            user_id,
+        )
+    return TestClient(app)
 
 
 def test_original_schedule_export_is_hash_addressed_and_nonmutating(db):
@@ -181,3 +199,89 @@ def test_cli_helpers_render_and_atomically_replace_snapshot(db, tmp_path):
     assert observed["mutation_performed"] is False
     assert not list(output.parent.glob(f".{output.name}.tmp-*"))
     assert _row_counts(db) == before
+
+
+def test_support_export_endpoint_requires_authentication(db):
+    calendar = create_calendar(
+        db,
+        version="support-api-auth-v1",
+        key="support-api-auth-calendar-v1",
+    )
+    schedule = create_schedule(
+        db,
+        calendar,
+        key="support-api-auth-schedule-v1",
+    )
+
+    response = _client(db, user_id=None).get(
+        f"/api/v1/households/{HOUSEHOLD_ID}/preparation-operations/"
+        f"schedules/{schedule.id}/support-export"
+    )
+
+    assert response.status_code == 401
+    assert response.headers["www-authenticate"] == "Bearer"
+
+
+def test_viewer_authorized_support_export_returns_read_only_evidence(db):
+    calendar = create_calendar(
+        db,
+        version="support-api-owner-v1",
+        key="support-api-owner-calendar-v1",
+    )
+    schedule = create_schedule(
+        db,
+        calendar,
+        key="support-api-owner-schedule-v1",
+    )
+    before = _row_counts(db)
+
+    response = _client(db, user_id=OWNER_ID).get(
+        f"/api/v1/households/{HOUSEHOLD_ID}/preparation-operations/"
+        f"schedules/{schedule.id}/support-export"
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["document_version"] == (
+        "preparation-schedule-support-export-v1"
+    )
+    assert payload["household_id"] == HOUSEHOLD_ID
+    assert payload["schedule_id"] == schedule.id
+    assert payload["snapshot_read_only"] is True
+    assert payload["mutation_performed"] is False
+    assert len(payload["evidence_hash"]) == 64
+    assert _row_counts(db) == before
+
+
+def test_support_export_preserves_cross_household_non_disclosure(db):
+    calendar = create_calendar(
+        db,
+        version="support-api-outsider-v1",
+        key="support-api-outsider-calendar-v1",
+    )
+    schedule = create_schedule(
+        db,
+        calendar,
+        key="support-api-outsider-schedule-v1",
+    )
+    outsider_id = "support-outsider@example.test"
+    db.add(
+        DBUser(
+            id=outsider_id,
+            name="Support outsider",
+            liked_ingredients=[],
+            disliked_ingredients=[],
+            allergies=[],
+            dietary_restrictions=[],
+            health_conditions=[],
+            medications=[],
+        )
+    )
+    db.commit()
+
+    response = _client(db, user_id=outsider_id).get(
+        f"/api/v1/households/{HOUSEHOLD_ID}/preparation-operations/"
+        f"schedules/{schedule.id}/support-export"
+    )
+
+    assert response.status_code == 404
