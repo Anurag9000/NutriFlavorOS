@@ -31,18 +31,24 @@ jobs:
       - run: pip install -r backend/requirements.txt
       - run: pip check
 
-      - name: Compile bidirectional execution boundary
+      - name: Compile bidirectional execution and completion authority
         run: >-
           python -m compileall -q
           backend/main.py
           backend/api/preparation_operations_routes.py
           backend/api/preparation_task_execution_eligibility_routes.py
           backend/domain/preparation_task_execution_eligibility.py
+          backend/services/preparation_operations_service.py
+          backend/services/preparation_operations_service_impl.py
           backend/services/preparation_repair_proposal_creation_service.py
           backend/services/preparation_repair_proposal_read_service.py
+          backend/services/preparation_task_execution_service.py
           backend/services/preparation_task_execution_replacement_guard_service.py
           backend/services/preparation_task_execution_eligibility_service.py
           backend/services/preparation_task_completion_service.py
+          backend/tests/test_preparation_operations_service.py
+          backend/tests/preparation_operations_service_cases.py
+          backend/tests/test_preparation_task_execution_service.py
           backend/tests/test_preparation_repair_proposal_execution_boundary.py
           backend/tests/test_preparation_task_execution_replacement_guard.py
           backend/tests/test_preparation_task_execution_eligibility.py
@@ -71,12 +77,14 @@ jobs:
         run: python scripts/validate_preparation_task_execution_eligibility_contract.py
       - name: Validate eligibility frontend gate
         run: python scripts/validate_preparation_task_execution_eligibility_frontend.py
-      - name: Audit schedule completion authority
+      - name: Validate lowest-layer schedule completion authority
         run: python scripts/validate_preparation_schedule_completion_authority.py
 
-      - name: Run bidirectional execution-boundary regressions
+      - name: Run bidirectional execution and completion regressions
         run: >-
           pytest -q
+          backend/tests/test_preparation_operations_service.py
+          backend/tests/test_preparation_task_execution_service.py
           backend/tests/test_preparation_repair_proposal_execution_boundary.py
           backend/tests/test_preparation_task_execution_replacement_guard.py
           backend/tests/test_preparation_task_execution_eligibility.py
