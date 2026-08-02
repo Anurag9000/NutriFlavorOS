@@ -17,6 +17,8 @@ COMPLETION_SERVICE = ROOT / "backend/services/preparation_task_completion_servic
 ROUTES = ROOT / "backend/api/preparation_operations_routes.py"
 DIRECT_TEST = ROOT / "backend/tests/test_preparation_operations_service.py"
 PRESERVED_TESTS = ROOT / "backend/tests/preparation_operations_service_cases.py"
+POSTGRES_FIXTURE = ROOT / "backend/tests/postgres_preparation_fixture.py"
+POSTGRES_TEST = ROOT / "backend/tests/test_preparation_schedule_completion_postgres.py"
 
 
 def _read(path: Path, errors: list[str]) -> str:
@@ -64,6 +66,8 @@ def validate_completion_authority() -> dict:
     route_source = _read(ROUTES, errors)
     direct_test_source = _read(DIRECT_TEST, errors)
     preserved_test_source = _read(PRESERVED_TESTS, errors)
+    postgres_fixture_source = _read(POSTGRES_FIXTURE, errors)
+    postgres_test_source = _read(POSTGRES_TEST, errors)
 
     required_public = {
         "preparation_operations_service_impl as _impl",
@@ -130,6 +134,27 @@ def validate_completion_authority() -> dict:
     if "test_transitions_are_optimistic_idempotent_and_terminal" not in preserved_test_source:
         errors.append("preserved historical test corpus is incomplete")
 
+    for fragment in {
+        'assert engine.dialect.name == "postgresql"',
+        "Base.metadata.drop_all(engine)",
+        "Base.metadata.create_all(engine)",
+        "expire_on_commit=False",
+    }:
+        if fragment not in postgres_fixture_source:
+            errors.append(f"PostgreSQL fixture lacks authority fragment: {fragment}")
+
+    for fragment in {
+        "test_postgres_schedule_cannot_complete_ahead_of_final_task_event",
+        "record_task_execution_event(",
+        "transition_schedule(",
+        'sum(value["kind"] == "schedule_completed" for value in results) == 0',
+        '"schedule_tasks_not_terminal"',
+        '"schedule_version_conflict"',
+        "Complete only after the final task event committed",
+    }:
+        if fragment not in postgres_test_source:
+            errors.append(f"PostgreSQL completion race lacks: {fragment}")
+
     inspected = _scan_implementation_imports(errors)
 
     return {
@@ -138,6 +163,7 @@ def validate_completion_authority() -> dict:
         "implementation_module": IMPLEMENTATION_MODULE,
         "authority": "transition_schedule",
         "compatibility_entry_point": "complete_schedule_with_execution_guard",
+        "postgres_race": True,
         "inspected_product_file_count": inspected,
         "errors": errors,
     }
