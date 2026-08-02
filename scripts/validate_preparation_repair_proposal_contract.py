@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate immutable preparation repair proposal contracts and release wiring."""
+"""Validate preparation repair proposal computation and lifecycle wiring."""
 
 from __future__ import annotations
 
@@ -36,10 +36,18 @@ def _source(path: str, errors: list[str]) -> str:
     if not target.is_file():
         errors.append(f"missing repair proposal file: {path}")
         return ""
-    return target.read_text(encoding="utf-8")
+    value = target.read_text(encoding="utf-8")
+    if target.suffix == ".py":
+        ast.parse(value, filename=path)
+    return value
 
 
-def _require(source: str, fragments: set[str], label: str, errors: list[str]) -> None:
+def _require(
+    source: str,
+    fragments: set[str],
+    label: str,
+    errors: list[str],
+) -> None:
     for fragment in sorted(fragments):
         if fragment not in source:
             errors.append(f"{label} lacks required fragment: {fragment}")
@@ -61,23 +69,25 @@ def validate_contract() -> dict:
         "backend/domain/preparation_repair_proposals.py",
         "backend/preparation_repair_proposal_models.py",
         "backend/services/preparation_repair_proposal_creation_service.py",
-        "backend/services/preparation_repair_proposal_service.py",
+        "backend/services/preparation_repair_proposal_read_service.py",
+        "backend/services/preparation_repair_proposal_acceptance_service.py",
         "backend/api/preparation_repair_proposal_routes.py",
         "backend/migrations/versions/20260802_0015_preparation_repair_proposals.py",
         "backend/migrations/versions/20260802_0016_repair_proposal_calendar_identity.py",
+        "backend/migrations/versions/20260802_0017_repair_proposal_acceptance.py",
         "backend/tests/test_preparation_repair_proposals.py",
         "backend/tests/test_preparation_repair_proposal_api.py",
         "docs/PREPARATION_REPAIR_PROPOSALS.md",
+        "docs/PREPARATION_REPAIR_ACCEPTANCE.md",
     ]
     sources = {path: _source(path, errors) for path in required_files}
 
-    if CURRENT_ALEMBIC_REVISION != "20260802_0016":
-        errors.append(
-            "runtime migration head must be 20260802_0016 for repair proposals"
-        )
+    if CURRENT_ALEMBIC_REVISION != "20260802_0017":
+        errors.append("runtime migration head must be 20260802_0017")
     for table in [
         "preparation_repair_proposals",
         "preparation_repair_proposal_events",
+        "preparation_repair_proposal_acceptances",
     ]:
         if table not in Base.metadata.tables:
             errors.append(f"ORM metadata lacks required table: {table}")
@@ -91,34 +101,27 @@ def validate_contract() -> dict:
         for value in proposal_table.constraints
         if isinstance(value, UniqueConstraint)
     }
-    expected_idempotency = (
-        "household_id",
-        "creation_idempotency_key",
-    )
     if proposal_unique.get(
         "uq_preparation_repair_proposal_household_idempotency"
-    ) != expected_idempotency:
+    ) != ("household_id", "creation_idempotency_key"):
         errors.append("proposal idempotency uniqueness drifted")
     if "uq_preparation_repair_proposal_semantic_identity" in proposal_unique:
-        errors.append(
-            "cross-key semantic uniqueness must not replace exact request-key idempotency"
-        )
+        errors.append("cross-key semantic uniqueness must remain absent")
 
     proposal_indexes = {
         value.name: tuple(column.name for column in value.columns)
         for value in proposal_table.indexes
         if isinstance(value, Index)
     }
-    expected_semantic_index = (
+    if proposal_indexes.get(
+        "ix_preparation_repair_proposals_semantic_hashes"
+    ) != (
         "source_schedule_id",
         "source_schedule_version",
         "target_calendar_version_id",
         "revised_request_hash",
         "repaired_response_hash",
-    )
-    if proposal_indexes.get(
-        "ix_preparation_repair_proposals_semantic_hashes"
-    ) != expected_semantic_index:
+    ):
         errors.append("proposal semantic evidence index drifted")
 
     event_unique = {
@@ -132,7 +135,6 @@ def validate_contract() -> dict:
     ):
         errors.append("proposal event idempotency uniqueness drifted")
 
-    create_fields = PreparationRepairProposalCreateRequest.model_fields
     for field in [
         "source_schedule_id",
         "expected_source_version",
@@ -142,37 +144,52 @@ def validate_contract() -> dict:
         "acknowledge_non_persistence",
         "idempotency_key",
     ]:
-        if field not in create_fields:
+        if field not in PreparationRepairProposalCreateRequest.model_fields:
             errors.append(f"proposal create request lacks field: {field}")
-    if sorted(value.value for value in PreparationRepairProposalStatus) != [
-        "invalidated",
+    if {value.value for value in PreparationRepairProposalStatus} != {
         "proposed",
+        "accepted",
         "rejected",
-    ]:
+        "invalidated",
+    }:
         errors.append("proposal status enum drifted")
-    view_fields = PreparationRepairProposalView.model_fields
-    accepted = view_fields.get("accepted")
-    persisted = view_fields.get("schedule_persistence_performed")
-    if accepted is None or not accepted.is_required():
-        errors.append("proposal view must require the non-accepted flag")
-    if persisted is None or not persisted.is_required():
-        errors.append("proposal view must require the non-persistence flag")
+    for field in [
+        "accepted",
+        "schedule_persistence_performed",
+        "accepted_schedule_id",
+        "accepted_schedule_hash",
+        "accepted_by_user_id",
+        "accepted_at",
+        "acceptance_reason",
+    ]:
+        model_field = PreparationRepairProposalView.model_fields.get(field)
+        if model_field is None or not model_field.is_required():
+            errors.append(f"proposal view must require lifecycle field: {field}")
 
     document = app.openapi()
     create_operation = _operation(document, COLLECTION, "post", errors)
     _operation(document, COLLECTION, "get", errors)
     _operation(document, COLLECTION + "/{proposal_id}", "get", errors)
     _operation(document, COLLECTION + "/{proposal_id}/events", "get", errors)
+    _operation(document, COLLECTION + "/{proposal_id}/acceptance", "get", errors)
+    accept_operation = _operation(
+        document,
+        COLLECTION + "/{proposal_id}/accept",
+        "post",
+        errors,
+    )
     reject_operation = _operation(
         document,
         COLLECTION + "/{proposal_id}/reject",
         "post",
         errors,
     )
-    for operation, schema in [
+    expected_response_schemas = [
         (create_operation, "PreparationRepairProposalView"),
+        (accept_operation, "PreparationRepairProposalAcceptedDraftView"),
         (reject_operation, "PreparationRepairProposalView"),
-    ]:
+    ]
+    for operation, schema in expected_response_schemas:
         response_schema = (
             operation.get("responses", {})
             .get("200", {})
@@ -184,10 +201,10 @@ def validate_contract() -> dict:
             errors.append(f"proposal response schema drifted: {schema}")
     for path in document.get("paths", {}):
         if path.startswith(COLLECTION) and (
-            path.endswith("/accept")
-            or path.endswith("/approve")
+            path.endswith("/approve")
             or path.endswith("/persist")
             or path.endswith("/complete")
+            or path.endswith("/execute")
         ):
             errors.append(f"forbidden proposal lifecycle endpoint exposed: {path}")
 
@@ -204,44 +221,41 @@ def validate_contract() -> dict:
             "creation_request_fingerprint",
             '"accepted": False',
             '"schedule_persistence_performed": False',
+            "preparation_repair_proposal_read_service import _proposal_view",
         },
         "proposal creation service",
         errors,
     )
     for forbidden in [
-        "create_persisted_schedule(",
+        "DBPersistedPreparationSchedule(",
         "transition_schedule(",
         "record_task_execution_event(",
-        "semantic =",
+        "PreparationRepairProposalEventType.ACCEPTED",
     ]:
         if forbidden in creation_source:
-            errors.append(
-                f"proposal creation contains forbidden lifecycle/alias fragment: {forbidden}"
-            )
+            errors.append(f"proposal creation contains forbidden action: {forbidden}")
 
     routes_source = sources["backend/api/preparation_repair_proposal_routes.py"]
     _require(
         routes_source,
         {
             "preparation_repair_proposal_creation_service",
+            "preparation_repair_proposal_read_service",
+            "preparation_repair_proposal_acceptance_service",
+            '"/{proposal_id}/accept"',
+            '"/{proposal_id}/acceptance"',
+            '"/{proposal_id}/reject"',
             "HouseholdRole.EDITOR",
             "HouseholdRole.VIEWER",
-            '"/{proposal_id}/reject"',
         },
         "proposal routes",
         errors,
     )
-    if "from backend.services.preparation_repair_proposal_service import (\n    create_repair_proposal" in routes_source:
-        errors.append("proposal route uses the superseded shared creation function")
+    if "from backend.services.preparation_repair_proposal_service import (" in routes_source:
+        errors.append("proposal route imports superseded shared lifecycle functions")
 
-    migration_0015 = sources[
-        "backend/migrations/versions/20260802_0015_preparation_repair_proposals.py"
-    ]
-    migration_0016 = sources[
-        "backend/migrations/versions/20260802_0016_repair_proposal_calendar_identity.py"
-    ]
     _require(
-        migration_0015,
+        sources["backend/migrations/versions/20260802_0015_preparation_repair_proposals.py"],
         {
             'revision = "20260802_0015"',
             'down_revision = "20260802_0014"',
@@ -252,20 +266,29 @@ def validate_contract() -> dict:
         errors,
     )
     _require(
-        migration_0016,
+        sources["backend/migrations/versions/20260802_0016_repair_proposal_calendar_identity.py"],
         {
             'revision = "20260802_0016"',
             'down_revision = "20260802_0015"',
-            'drop_constraint(\n            "uq_preparation_repair_proposal_semantic_identity"',
             '"ix_preparation_repair_proposals_semantic_hashes"',
         },
         "proposal migration 0016",
         errors,
     )
-
-    tests_source = sources["backend/tests/test_preparation_repair_proposals.py"]
     _require(
-        tests_source,
+        sources["backend/migrations/versions/20260802_0017_repair_proposal_acceptance.py"],
+        {
+            'revision = "20260802_0017"',
+            'down_revision = "20260802_0016"',
+            '"preparation_repair_proposal_acceptances"',
+            "accepted",
+        },
+        "proposal migration 0017",
+        errors,
+    )
+
+    _require(
+        sources["backend/tests/test_preparation_repair_proposals.py"],
         {
             "test_proposal_is_server_recomputed_hash_addressed_and_non_accepted",
             "test_proposal_creation_is_exactly_idempotent_and_conflicting_reuse_fails",
@@ -275,24 +298,15 @@ def validate_contract() -> dict:
             "test_proposal_rejection_is_versioned_append_only_and_idempotent",
             "test_proposal_read_fails_closed_after_payload_or_hash_tampering",
         },
-        "proposal service tests",
+        "proposal tests",
         errors,
     )
-
-    for service_path in [
-        "backend/services/preparation_repair_proposal_creation_service.py",
-        "backend/services/preparation_repair_proposal_service.py",
-    ]:
-        source = sources.get(service_path, "") or _source(service_path, errors)
-        if source:
-            ast.parse(source, filename=service_path)
 
     return {
         "valid": not errors,
         "migration_head": CURRENT_ALEMBIC_REVISION,
         "collection_path": COLLECTION,
-        "required_files": required_files,
-        "statuses": [value.value for value in PreparationRepairProposalStatus],
+        "statuses": sorted(value.value for value in PreparationRepairProposalStatus),
         "errors": errors,
     }
 
