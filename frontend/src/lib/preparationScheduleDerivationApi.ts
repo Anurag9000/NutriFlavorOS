@@ -35,9 +35,38 @@ export interface PreparationScheduleDerivationEvidenceView {
   updated_at: string;
 }
 
+export interface PreparationScheduleDerivationCoverageView {
+  household_id: string;
+  generated_at: string;
+  schedule_total: number;
+  original_schedule_count: number;
+  repair_schedule_count: number;
+  unknown_method_count: number;
+  complete_derivation_count: number;
+  incomplete_derivation_count: number;
+  accepted_proposal_count: number;
+  acceptance_record_count: number;
+  repaired_draft_count: number;
+  repaired_approved_count: number;
+  repaired_execution_history_count: number;
+  method_counts: Record<string, number>;
+  derivation_coverage_ratio: number;
+  repair_acceptance_link_coverage_ratio: number;
+  latest_acceptance_at: string | null;
+  warnings: string[];
+}
+
+const scope = (householdId: string) =>
+  `/households/${encodeURIComponent(householdId)}/preparation-operations`;
+
 export const preparationScheduleDerivationApi = {
   get: (householdId: string, scheduleId: number) =>
     apiRequest<PreparationScheduleDerivationEvidenceView>(
-      `/households/${householdId}/preparation-operations/schedules/${scheduleId}/derivation`,
+      `${scope(householdId)}/schedules/${scheduleId}/derivation`,
+    ),
+
+  coverage: (householdId: string) =>
+    apiRequest<PreparationScheduleDerivationCoverageView>(
+      `${scope(householdId)}/schedule-derivation-coverage`,
     ),
 };
