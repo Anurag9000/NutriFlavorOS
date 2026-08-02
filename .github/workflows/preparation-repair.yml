@@ -59,7 +59,7 @@ jobs:
         run: npm run typecheck
       - name: Run advisory repair review tests
         working-directory: frontend
-        run: npm test -- --run src/pages/PreparationRepairReview.test.tsx
+        run: npm test -- src/pages/PreparationRepairReview.test.tsx
       - uses: actions/upload-artifact@v7
         with:
           name: preparation-repair-report
