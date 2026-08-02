@@ -56,9 +56,6 @@ async def lifespan(_: FastAPI):
     if _bool_env("SEED_REVIEWED_STORAGE_POLICIES", True):
         db = SessionLocal()
         try:
-            # Retain the legacy read surface while every consumer migrates to
-            # exact immutable versions. The immutable seed supersedes migrated
-            # legacy policy rows and is the authoritative history surface.
             seed_official_storage_policies(db)
             seed_official_storage_policy_versions(db)
         finally:
@@ -68,7 +65,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="NutriFlavorOS API",
-    version="0.12.0",
+    version="0.12.1",
     description=(
         "Experimental meal-planning, household-inventory, reviewed preparation "
         "operations, immutable evidence, and offline-research API. Outputs are "
