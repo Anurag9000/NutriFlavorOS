@@ -47,6 +47,11 @@ jobs:
           python scripts/validate_frontend_openapi_bindings.py
           --contract contracts/preparation_operations_frontend_bindings.json
           --output /tmp/preparation_operations_frontend_bindings.json
+      - name: Household plan frontend binding gate
+        run: >-
+          python scripts/validate_frontend_openapi_bindings.py
+          --contract contracts/household_plan_frontend_bindings.json
+          --output /tmp/household_plan_frontend_bindings.json
       - run: pytest -q backend/tests
       - name: Deterministic planner benchmark gate
         run: >-
@@ -237,6 +242,10 @@ jobs:
         env:
           DATABASE_URL: postgresql+psycopg://nutriflavos:ci-${{ github.run_id }}-${{ github.run_attempt }}@localhost:5432/nutriflavos
         run: python scripts/check_preparation_operations_concurrency.py
+      - name: Household plan lifecycle concurrency probe
+        env:
+          DATABASE_URL: postgresql+psycopg://nutriflavos:ci-${{ github.run_id }}-${{ github.run_attempt }}@localhost:5432/nutriflavos
+        run: python scripts/check_household_plan_concurrency.py
 
   frontend:
     runs-on: ubuntu-latest
