@@ -16,12 +16,21 @@ from backend.domain.household_plan_lifecycle import (
     HouseholdPlanTransitionRequest,
     PersistedHouseholdPlanView,
 )
+from backend.domain.household_plan_occurrences import (
+    ApprovedPlanOccurrenceCandidatesView,
+    ConfirmedPlanOccurrenceSetView,
+    ConfirmPlanOccurrenceSetRequest,
+)
 from backend.services.household_access_service import require_household_access
 from backend.services.household_plan_lifecycle_service import (
     get_household_plan,
     list_household_plan_events,
     list_household_plans,
     transition_household_plan,
+)
+from backend.services.household_plan_occurrence_service import (
+    confirm_approved_plan_occurrence_set,
+    get_approved_plan_occurrence_candidates,
 )
 from backend.utils.security import get_current_user
 
@@ -105,6 +114,46 @@ def cancel_household_plan_route(
         plan_id=plan_id,
         actor_user_id=current_user.id,
         event_type=HouseholdPlanEventType.CANCELLED,
+        payload=payload,
+    )
+
+
+@router.get(
+    "/{plan_id}/preparation-occurrences/candidates",
+    response_model=ApprovedPlanOccurrenceCandidatesView,
+)
+def get_approved_plan_occurrence_candidates_route(
+    household_id: str,
+    plan_id: int,
+    expected_plan_version: int = Query(ge=1),
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    _authorize(db, household_id, current_user.id, HouseholdRole.VIEWER)
+    return get_approved_plan_occurrence_candidates(
+        db,
+        household_id=household_id,
+        plan_id=plan_id,
+        expected_version=expected_plan_version,
+    )
+
+
+@router.post(
+    "/{plan_id}/preparation-occurrences/confirm",
+    response_model=ConfirmedPlanOccurrenceSetView,
+)
+def confirm_approved_plan_occurrence_set_route(
+    household_id: str,
+    plan_id: int,
+    payload: ConfirmPlanOccurrenceSetRequest,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    _authorize(db, household_id, current_user.id, HouseholdRole.EDITOR)
+    return confirm_approved_plan_occurrence_set(
+        db,
+        household_id=household_id,
+        plan_id=plan_id,
         payload=payload,
     )
 
