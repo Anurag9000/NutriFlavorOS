@@ -228,9 +228,10 @@ describe("Advisory preparation repair review", () => {
       await screen.findByRole("heading", { name: "Advisory schedule repair" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Human review boundary")).toBeInTheDocument();
-    expect(screen.getByLabelText("Strict revised request JSON")).toHaveValue(
-      JSON.stringify(previousRequest, null, 2),
+    const revisedRequest = await screen.findByLabelText(
+      "Strict revised request JSON",
     );
+    expect(revisedRequest).toHaveValue(JSON.stringify(previousRequest, null, 2));
     expect(mocks.schedules).toHaveBeenCalledWith("home-1", [
       "draft",
       "approved",
