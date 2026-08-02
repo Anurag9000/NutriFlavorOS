@@ -1,4 +1,4 @@
-"""Bind repair proposal semantic identity to target calendar and add ORM indexes.
+"""Remove cross-key semantic uniqueness and add proposal ORM indexes.
 
 Revision ID: 20260802_0016
 Revises: 20260802_0015
@@ -24,6 +24,16 @@ PROPOSAL_INDEXES = [
         ["target_calendar_version_id"],
     ),
     ("ix_preparation_repair_proposals_status", ["status"]),
+    (
+        "ix_preparation_repair_proposals_semantic_hashes",
+        [
+            "source_schedule_id",
+            "source_schedule_version",
+            "target_calendar_version_id",
+            "revised_request_hash",
+            "repaired_response_hash",
+        ],
+    ),
 ]
 
 EVENT_INDEXES = [
@@ -38,16 +48,6 @@ def upgrade() -> None:
         batch.drop_constraint(
             "uq_preparation_repair_proposal_semantic_identity",
             type_="unique",
-        )
-        batch.create_unique_constraint(
-            "uq_preparation_repair_proposal_semantic_identity",
-            [
-                "source_schedule_id",
-                "source_schedule_version",
-                "target_calendar_version_id",
-                "revised_request_hash",
-                "repaired_response_hash",
-            ],
         )
     for name, columns in PROPOSAL_INDEXES:
         op.create_index(
@@ -77,10 +77,6 @@ def downgrade() -> None:
             table_name="preparation_repair_proposals",
         )
     with op.batch_alter_table("preparation_repair_proposals") as batch:
-        batch.drop_constraint(
-            "uq_preparation_repair_proposal_semantic_identity",
-            type_="unique",
-        )
         batch.create_unique_constraint(
             "uq_preparation_repair_proposal_semantic_identity",
             [
