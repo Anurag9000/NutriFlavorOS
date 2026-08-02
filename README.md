@@ -97,6 +97,24 @@ The scheduler accepts only explicit resources, capacities, non-overlapping avail
 - The heuristic and bounded exact comparator share capacity, dependency, deadline, and window semantics.
 - Structured infeasibility, utilization, peak use, critical path, and replay diagnostics are retained.
 
+## Deterministic preparation repair
+
+The repair engine computes a non-persisted candidate relative to a complete previous deterministic schedule after tasks, windows, capacities, deadlines, or resources change.
+
+- `greedy_min_change` preserves prior placements first and uses deterministic displacement/task-ID tie breaking.
+- `bounded_exact_min_change` provides a small-instance comparator and reports truncation before deterministic fallback.
+- Immutable tasks are pinned exactly and require unchanged operational signatures plus pinned predecessor closure.
+- Every candidate is revalidated against revised dependencies, horizons, deadlines, multi-window availability, and cumulative capacity.
+- Partial output is prohibited unless explicitly enabled and always retains structured unresolved-task reasons.
+- Results separate preserved, moved, added, removed, and unscheduled tasks and include canonical source/result hashes.
+- `POST /api/v1/preparation/schedule/repair` is authenticated and returns structured `409` conflicts.
+- `scripts/repair_preparation_schedule.py` provides the same strict offline computation path.
+- Every result enforces `requires_human_acceptance=true`, `accepted=false`, and `persistence_performed=false`.
+
+Repair does not replace a persisted schedule, create an approval, create execution events, infer work, or decide food safety. A protected human review and a separate idempotent accepted-draft persistence action remain future product work.
+
+See [Preparation Repair](docs/PREPARATION_REPAIR.md).
+
 ## Persisted preparation operations
 
 Migrations `20260801_0009` through `20260802_0014` provide:
@@ -189,14 +207,15 @@ Catalog `2026-08-01.3` defines:
 
 Readiness is explicit. Runtime importability does not imply enablement, training evidence, quality, or clinical validation.
 
-Executable offline families include retrieval and ranking baselines, temporal ranking evaluation, dense and intermittent-demand forecasting, uncertainty baselines, Pareto/CP-SAT/MILP/robust planning, exact preparation comparison, FEFO replay, and forecast-to-inventory evaluation.
+Executable offline families include retrieval and ranking baselines, temporal ranking evaluation, dense and intermittent-demand forecasting, uncertainty baselines, Pareto/CP-SAT/MILP/robust planning, exact preparation comparison, minimal-change preparation repair, FEFO replay, and forecast-to-inventory evaluation.
 
 ## Validation matrix
 
 The direct-`main` workflows are configured to run:
 
-- compile, dependency, backend, repository, Alembic, catalog, OpenAPI, and frontend-binding gates;
-- planner, preparation, ranking, forecasting, inventory, and closed-loop benchmarks;
+- compile, dependency, backend, repository, Alembic, catalog, OpenAPI, frontend-binding, and repair-contract gates;
+- planner, preparation, preparation-repair, ranking, forecasting, inventory, and closed-loop benchmarks;
+- repair unit, metamorphic, immutable-anchor, exact-comparator, advisory API, and CLI tests;
 - fresh SQLite and PostgreSQL migrations;
 - evidence import and lifecycle manifests;
 - PostgreSQL inventory, idempotency, evidence, preparation, preparation-operations, household-plan, and task-execution race probes;
@@ -231,7 +250,7 @@ PostgreSQL is recommended for hosted or concurrent deployments.
 - Approved-plan occurrence confirmation is non-persisted until incorporated into a persisted schedule.
 - Structured final persistence review is implemented; canonical bundle JSON is read-only and optional for expert inspection.
 - Timers and reminders remain local-assistance future work and must never imply completion.
-- Minimal-change plan/schedule repair and joint meal/preparation optimization remain future work.
+- Repair computation is implemented, but repair review, explicit acceptance, accepted-draft persistence, and joint meal/preparation repair remain future work.
 - Authenticated Playwright/PostgreSQL and automated accessibility coverage remain incomplete.
 - Vision, multimodal nutrition, constrained generation, graph learning, causal/off-policy promotion, continual/federated personalization, privacy-sensitive learning, sustainability claims, and autonomous appliance/procurement control remain gated research.
 - The latest exact hosted workflows have not yet been observed green in this execution context.
@@ -244,4 +263,5 @@ PostgreSQL is recommended for hosted or concurrent deployments.
 - [Engineering and Research Roadmap](docs/ROADMAP.md)
 - [Household Plan Lifecycle](docs/HOUSEHOLD_PLAN_LIFECYCLE.md)
 - [Preparation Operations](docs/PREPARATION_OPERATIONS.md)
+- [Preparation Repair](docs/PREPARATION_REPAIR.md)
 - [Governed Research Platform](docs/RESEARCH_PLATFORM.md)
