@@ -149,7 +149,7 @@ def test_proposal_creation_is_exactly_idempotent_and_conflicting_reuse_fails(db)
     assert exc.value.detail["code"] == "repair_proposal_idempotency_conflict"
 
 
-def test_semantically_identical_proposal_collapses_under_a_new_request_key(db):
+def test_distinct_request_keys_create_independent_review_records(db):
     calendar = create_calendar(db)
     schedule = create_schedule(db, calendar)
 
@@ -159,19 +159,37 @@ def test_semantically_identical_proposal_collapses_under_a_new_request_key(db):
         actor_user_id=OWNER_ID,
         payload=proposal_payload(schedule=schedule, calendar=calendar),
     )
-    duplicate = create_repair_proposal(
+    second_payload = proposal_payload(
+        schedule=schedule,
+        calendar=calendar,
+        key="repair-proposal-0002",
+    )
+    second = create_repair_proposal(
         db,
         household_id=HOUSEHOLD_ID,
         actor_user_id=OWNER_ID,
-        payload=proposal_payload(
-            schedule=schedule,
-            calendar=calendar,
-            key="repair-proposal-0002",
-        ),
+        payload=second_payload,
     )
 
-    assert duplicate.id == first.id
-    assert len(list_repair_proposals(db, household_id=HOUSEHOLD_ID)) == 1
+    assert second.id != first.id
+    assert second.repair_result_hash == first.repair_result_hash
+    assert len(list_repair_proposals(db, household_id=HOUSEHOLD_ID)) == 2
+
+    contradictory = proposal_payload(
+        schedule=schedule,
+        calendar=calendar,
+        key="repair-proposal-0002",
+        revised=schedule_request(calendar),
+    )
+    with pytest.raises(HTTPException) as exc:
+        create_repair_proposal(
+            db,
+            household_id=HOUSEHOLD_ID,
+            actor_user_id=OWNER_ID,
+            payload=contradictory,
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "repair_proposal_idempotency_conflict"
 
 
 def test_creation_rejects_stale_source_version_and_provenance_drift(db):
