@@ -130,9 +130,21 @@ Task identity and planned timing come only from an approved persisted schedule.
 - Horizon-relative actual minutes and planned-versus-actual deviations.
 - Required reasons for skips and nonzero deviations.
 - Dependency, chronology, optimistic-version, and idempotency guards.
-- Schedule completion only after every deterministic task is explicitly completed or skipped through the product endpoint.
+- Schedule completion only after every deterministic task is explicitly completed or skipped.
 
 Task events are user-entered claims, not observed execution or safety evidence.
+
+### Lowest-layer task terminality
+
+**Lowest-layer task terminality** is enforced by the exported `transition_schedule` service itself.
+
+- A direct `COMPLETED` transition cannot bypass task evidence.
+- Exact retry, contradictory idempotency-key, optimistic-version, missing-resource, and invalid-lifecycle error precedence remain unchanged.
+- A valid new `approved -> completed` transition reconstructs deterministic tasks and append-only execution history under the household and schedule locks.
+- Nonterminal tasks produce `schedule_tasks_not_terminal` with sorted remaining IDs.
+- The named completion service is only a compatibility delegate and contains no second proof or commit path.
+- Static validation forbids product modules from importing the preserved compatibility implementation directly.
+- A real PostgreSQL race proves that schedule completion cannot commit ahead of the final task event; it fails with either `schedule_tasks_not_terminal` or `schedule_version_conflict`, then succeeds only with the post-event version.
 
 ### Task-execution eligibility
 
@@ -172,8 +184,8 @@ Configured direct-`main` workflows cover:
 
 - dependency, compile, backend, repository, Alembic, OpenAPI, frontend-binding, and static-contract checks;
 - fresh SQLite and PostgreSQL migrations;
-- repair computation, proposal creation, acceptance, source uniqueness, invalidation, approval, tamper, derivation, and execution-boundary tests;
-- real PostgreSQL duplicate/competing acceptance, acceptance/rejection, acceptance/invalidation, source-replacement, source-execution, and approval races;
+- repair computation, proposal creation, acceptance, source uniqueness, invalidation, approval, tamper, derivation, task execution, and lowest-layer completion tests;
+- real PostgreSQL duplicate/competing acceptance, acceptance/rejection, acceptance/invalidation, source-replacement, source-execution, final-task/schedule-completion, and approval races;
 - frontend typecheck and focused Vitest suites;
 - machine-readable benchmark and JUnit artifacts.
 
@@ -183,7 +195,6 @@ The exact latest hosted workflow and retained artifacts must be inspected before
 
 - Clinical, medication, allergy-safety, contamination, temperature, food-safety, and health-outcome claims are not validated.
 - No task, presence, appliance, or sensor inference is implemented.
-- The historical low-level generic schedule transition still retains a completion compatibility path; repository authority checks prohibit product callers from using it as a terminality bypass.
 - Execution-aware repair after source task history begins remains future work.
 - Joint meal, inventory, reservation, shopping, leftover, and preparation repair remains future work.
 - Authenticated PostgreSQL-backed Playwright and automated accessibility evidence remain incomplete.
