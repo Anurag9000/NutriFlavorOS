@@ -20,6 +20,14 @@ from sqlalchemy import (
 from backend.database import Base, utcnow
 
 
+ORIGINAL_SCHEDULE_METHOD = (
+    "deterministic_dependency_aware_resource_scheduler_v2"
+)
+REPAIR_SCHEDULE_METHOD = (
+    "deterministic_minimal_change_preparation_repair_v1"
+)
+
+
 class DBResourceCalendarVersion(Base):
     __tablename__ = "resource_calendar_versions"
     __table_args__ = (
@@ -141,6 +149,10 @@ class DBPersistedPreparationSchedule(Base):
             "creation_idempotency_key",
             name="uq_persisted_schedule_household_creation_idempotency",
         ),
+        UniqueConstraint(
+            "source_repair_proposal_id",
+            name="uq_persisted_schedule_source_repair_proposal",
+        ),
         CheckConstraint(
             "status IN ('draft','approved','invalidated','completed','cancelled')",
             name="ck_persisted_schedule_status",
@@ -176,6 +188,31 @@ class DBPersistedPreparationSchedule(Base):
             name="ck_persisted_schedule_plan_source_pair",
         ),
         CheckConstraint(
+            "derivation_method IN ("
+            "'deterministic_dependency_aware_resource_scheduler_v2',"
+            "'deterministic_minimal_change_preparation_repair_v1')",
+            name="ck_persisted_schedule_derivation_method",
+        ),
+        CheckConstraint(
+            "((derivation_method = "
+            "'deterministic_dependency_aware_resource_scheduler_v2' "
+            "AND source_repair_proposal_id IS NULL "
+            "AND source_repair_proposal_version IS NULL "
+            "AND source_repair_request_hash IS NULL "
+            "AND source_repair_result_hash IS NULL "
+            "AND source_revised_request_hash IS NULL "
+            "AND source_repaired_response_hash IS NULL) OR "
+            "(derivation_method = "
+            "'deterministic_minimal_change_preparation_repair_v1' "
+            "AND source_repair_proposal_id IS NOT NULL "
+            "AND source_repair_proposal_version IS NOT NULL "
+            "AND length(source_repair_request_hash) = 64 "
+            "AND length(source_repair_result_hash) = 64 "
+            "AND length(source_revised_request_hash) = 64 "
+            "AND length(source_repaired_response_hash) = 64))",
+            name="ck_persisted_schedule_repair_derivation_evidence",
+        ),
+        CheckConstraint(
             "((status IN ('approved','completed') AND approved_by_user_id IS NOT NULL "
             "AND approved_at IS NOT NULL) OR status NOT IN ('approved','completed'))",
             name="ck_persisted_schedule_approval_state",
@@ -193,6 +230,12 @@ class DBPersistedPreparationSchedule(Base):
             "household_id",
             "status",
             "updated_at",
+        ),
+        Index(
+            "ix_persisted_schedule_derivation_created",
+            "derivation_method",
+            "created_at",
+            "id",
         ),
     )
 
@@ -225,6 +268,23 @@ class DBPersistedPreparationSchedule(Base):
     schedule_request_hash = Column(String, nullable=True, index=True)
     schedule_payload = Column(JSON, nullable=False)
     schedule_hash = Column(String, nullable=False, index=True)
+    derivation_method = Column(
+        String(96),
+        nullable=False,
+        default=ORIGINAL_SCHEDULE_METHOD,
+        index=True,
+    )
+    source_repair_proposal_id = Column(
+        Integer,
+        ForeignKey("preparation_repair_proposals.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    source_repair_proposal_version = Column(Integer, nullable=True)
+    source_repair_request_hash = Column(String(64), nullable=True)
+    source_repair_result_hash = Column(String(64), nullable=True)
+    source_revised_request_hash = Column(String(64), nullable=True)
+    source_repaired_response_hash = Column(String(64), nullable=True)
     status = Column(String, nullable=False, default="draft", index=True)
     version = Column(Integer, nullable=False, default=1)
     notes = Column(Text, nullable=True)
