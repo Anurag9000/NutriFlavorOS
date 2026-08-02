@@ -1,4 +1,4 @@
-"""Household-authorized APIs for immutable preparation repair proposals."""
+"""Household-authorized APIs for preparation repair proposals."""
 
 from __future__ import annotations
 
@@ -10,6 +10,9 @@ from sqlalchemy.orm import Session
 from backend.database import DBUser, get_db
 from backend.domain.household_access import HouseholdRole
 from backend.domain.preparation_repair_proposals import (
+    PreparationRepairProposalAcceptRequest,
+    PreparationRepairProposalAcceptanceView,
+    PreparationRepairProposalAcceptedDraftView,
     PreparationRepairProposalCreateRequest,
     PreparationRepairProposalEventView,
     PreparationRepairProposalRejectRequest,
@@ -17,11 +20,15 @@ from backend.domain.preparation_repair_proposals import (
     PreparationRepairProposalView,
 )
 from backend.services.household_access_service import require_household_access
+from backend.services.preparation_repair_proposal_acceptance_service import (
+    accept_repair_proposal,
+)
 from backend.services.preparation_repair_proposal_creation_service import (
     create_repair_proposal,
 )
-from backend.services.preparation_repair_proposal_service import (
+from backend.services.preparation_repair_proposal_read_service import (
     get_repair_proposal,
+    get_repair_proposal_acceptance,
     list_repair_proposal_events,
     list_repair_proposals,
     reject_repair_proposal,
@@ -96,6 +103,24 @@ def get_repair_proposal_route(
 
 
 @router.get(
+    "/{proposal_id}/acceptance",
+    response_model=PreparationRepairProposalAcceptanceView,
+)
+def get_repair_proposal_acceptance_route(
+    household_id: str,
+    proposal_id: int,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    _access(db, household_id, current_user.id, HouseholdRole.VIEWER)
+    return get_repair_proposal_acceptance(
+        db,
+        household_id=household_id,
+        proposal_id=proposal_id,
+    )
+
+
+@router.get(
     "/{proposal_id}/events",
     response_model=List[PreparationRepairProposalEventView],
 )
@@ -110,6 +135,27 @@ def list_repair_proposal_events_route(
         db,
         household_id=household_id,
         proposal_id=proposal_id,
+    )
+
+
+@router.post(
+    "/{proposal_id}/accept",
+    response_model=PreparationRepairProposalAcceptedDraftView,
+)
+def accept_repair_proposal_route(
+    household_id: str,
+    proposal_id: int,
+    payload: PreparationRepairProposalAcceptRequest,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    _access(db, household_id, current_user.id, HouseholdRole.EDITOR)
+    return accept_repair_proposal(
+        db,
+        household_id=household_id,
+        proposal_id=proposal_id,
+        actor_user_id=current_user.id,
+        payload=payload,
     )
 
 
