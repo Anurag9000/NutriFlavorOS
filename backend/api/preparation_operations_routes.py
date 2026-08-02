@@ -48,7 +48,7 @@ from backend.services.preparation_operations_service import (
 from backend.services.preparation_task_completion_service import (
     complete_schedule_with_execution_guard,
 )
-from backend.services.preparation_task_execution_service import (
+from backend.services.preparation_task_execution_authoritative_service import (
     get_task_execution_overview,
     record_task_execution_event,
 )
