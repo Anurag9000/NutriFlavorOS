@@ -101,7 +101,8 @@ Migration `20260802_0018` enforces one accepted replacement for `(source_schedul
 - The event explicitly records no acceptance, schedule persistence, approval, or execution.
 - Exact retries collapse; contradictory keys, stale versions, and terminal proposals fail closed.
 - Editors may create, accept, or reject proposals but cannot invalidate them.
-- The typed frontend client supports the endpoint; the primary owner administrative control remains a follow-on UI item.
+- The protected Proposal Invalidation workspace displays current/stale evidence, exact source and repair hashes, append-only history, owner-only destructive confirmation, and read-only editor/viewer behavior.
+- Real PostgreSQL acceptance-versus-invalidation probes require exactly one terminal outcome.
 
 ## Method-aware replay and owner approval
 
@@ -149,7 +150,7 @@ A replaced source remains readable but cannot receive new task events or complet
 
 ## Frontend
 
-Protected interfaces include plan review, occurrence confirmation, preparation profiles/calendars, schedule persistence/approval, advisory repair, immutable repair proposals, accepted-draft review, schedule derivation, provenance coverage, and user-confirmed task execution with proactive eligibility gating.
+Protected interfaces include plan review, occurrence confirmation, preparation profiles/calendars, schedule persistence/approval, advisory repair, immutable repair proposals, owner proposal invalidation, accepted-draft review, schedule derivation, provenance coverage, and user-confirmed task execution with proactive eligibility gating.
 
 Typed frontend clients are contract-tested and do not use browser storage to bypass server authority.
 
@@ -172,7 +173,7 @@ Configured direct-`main` workflows cover:
 - dependency, compile, backend, repository, Alembic, OpenAPI, frontend-binding, and static-contract checks;
 - fresh SQLite and PostgreSQL migrations;
 - repair computation, proposal creation, acceptance, source uniqueness, invalidation, approval, tamper, derivation, and execution-boundary tests;
-- PostgreSQL duplicate/competing acceptance, rejection, source-execution, and approval races;
+- real PostgreSQL duplicate/competing acceptance, acceptance/rejection, acceptance/invalidation, source-replacement, source-execution, and approval races;
 - frontend typecheck and focused Vitest suites;
 - machine-readable benchmark and JUnit artifacts.
 
@@ -183,7 +184,6 @@ The exact latest hosted workflow and retained artifacts must be inspected before
 - Clinical, medication, allergy-safety, contamination, temperature, food-safety, and health-outcome claims are not validated.
 - No task, presence, appliance, or sensor inference is implemented.
 - The historical low-level generic schedule transition still retains a completion compatibility path; repository authority checks prohibit product callers from using it as a terminality bypass.
-- Owner invalidation API/client are implemented; primary owner administrative UI remains incomplete.
 - Execution-aware repair after source task history begins remains future work.
 - Joint meal, inventory, reservation, shopping, leftover, and preparation repair remains future work.
 - Authenticated PostgreSQL-backed Playwright and automated accessibility evidence remain incomplete.
