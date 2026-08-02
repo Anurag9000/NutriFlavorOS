@@ -52,6 +52,7 @@ jobs:
           backend/services/preparation_repair_proposal_creation_service.py
           backend/services/preparation_repair_proposal_read_service.py
           backend/services/preparation_repair_proposal_acceptance_service.py
+          backend/services/preparation_repair_proposal_invalidation_service.py
           backend/services/preparation_repair_source_acceptance_guard_service.py
           backend/services/preparation_repair_approval_guard_service.py
           backend/services/preparation_schedule_replay_service.py
@@ -69,6 +70,8 @@ jobs:
           scripts/repair_preparation_schedule.py
           scripts/validate_preparation_repair_contract.py
           scripts/validate_preparation_repair_proposal_contract.py
+          scripts/validate_preparation_repair_proposal_invalidation.py
+          scripts/validate_preparation_repair_proposal_invalidation_frontend.py
           scripts/validate_preparation_schedule_replay_contract.py
           scripts/validate_preparation_repair_acceptance_contract.py
           scripts/validate_preparation_repair_acceptance_frontend.py
@@ -102,6 +105,10 @@ jobs:
         run: python scripts/validate_preparation_repair_contract.py
       - name: Validate proposal lifecycle contract
         run: python scripts/validate_preparation_repair_proposal_contract.py
+      - name: Validate owner proposal invalidation
+        run: python scripts/validate_preparation_repair_proposal_invalidation.py
+      - name: Validate proposal invalidation client
+        run: python scripts/validate_preparation_repair_proposal_invalidation_frontend.py
       - name: Validate method-aware replay contract
         run: python scripts/validate_preparation_schedule_replay_contract.py
       - name: Validate accepted repaired draft contract
@@ -138,6 +145,7 @@ jobs:
           backend/tests/test_preparation_repair_cli.py
           backend/tests/test_preparation_repair_proposals.py
           backend/tests/test_preparation_repair_proposal_api.py
+          backend/tests/test_preparation_repair_proposal_invalidation.py
           backend/tests/test_preparation_repair_proposal_execution_boundary.py
           backend/tests/test_preparation_repair_proposal_acceptance.py
           backend/tests/test_preparation_repair_approval_guard.py
