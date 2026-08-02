@@ -1,5 +1,5 @@
 {
-  "contract_version": "2026-08-02.2",
+  "contract_version": "2026-08-02.3",
   "typescript_source": "frontend/src/lib/preparationOperationsApi.ts",
   "schemas": {
     "RecipePreparationOccurrence": "RecipePreparationOccurrence",
@@ -8,13 +8,20 @@
     "PreparationOperationsCoverageView": "PreparationOperationsCoverageView",
     "ResourceCalendarVersionView": "ResourceCalendarVersionView",
     "PersistedPreparationScheduleView": "PersistedPreparationScheduleView",
-    "PreparationScheduleEventView": "PreparationScheduleEventView"
+    "PreparationScheduleEventView": "PreparationScheduleEventView",
+    "PreparationTaskExecutionEventCreate": "PreparationTaskExecutionEventCreate",
+    "PreparationTaskExecutionEventView": "PreparationTaskExecutionEventView",
+    "PreparationTaskExecutionTaskView": "PreparationTaskExecutionTaskView",
+    "PreparationTaskExecutionOverview": "PreparationTaskExecutionOverview",
+    "PreparationTaskExecutionMutationView": "PreparationTaskExecutionMutationView"
   },
   "enums": {
     "DurationPolicy": "DurationPolicy",
     "CalendarEvidenceStatus": "CalendarEvidenceStatus",
     "PreparationScheduleStatus": "PreparationScheduleStatus",
-    "PreparationScheduleEventType": "PreparationScheduleEventType"
+    "PreparationScheduleEventType": "PreparationScheduleEventType",
+    "PreparationTaskExecutionEventType": "PreparationTaskExecutionEventType",
+    "PreparationTaskExecutionState": "PreparationTaskExecutionState"
   },
   "operations": [
     {
@@ -64,42 +71,70 @@
       "method": "get",
       "object": "preparationOperationsApi",
       "binding": "schedule",
-      "source_fragment": "${base(householdId)}/schedules/${scheduleId}"
+      "source_fragment": "schedulePath(householdId, scheduleId)"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/task-execution",
+      "method": "get",
+      "object": "preparationOperationsApi",
+      "binding": "taskExecution",
+      "source_fragment": "${schedulePath(householdId, scheduleId)}/task-execution"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/tasks/{task_id}/start",
+      "method": "post",
+      "object": "preparationOperationsApi",
+      "binding": "startTask",
+      "source_fragment": "${taskPath(householdId, scheduleId, taskId)}/start"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/tasks/{task_id}/complete",
+      "method": "post",
+      "object": "preparationOperationsApi",
+      "binding": "completeTask",
+      "source_fragment": "${taskPath(householdId, scheduleId, taskId)}/complete"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/tasks/{task_id}/skip",
+      "method": "post",
+      "object": "preparationOperationsApi",
+      "binding": "skipTask",
+      "source_fragment": "${taskPath(householdId, scheduleId, taskId)}/skip"
     },
     {
       "openapi_path": "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/approve",
       "method": "post",
       "object": "preparationOperationsApi",
       "binding": "approve",
-      "source_fragment": "${base(householdId)}/schedules/${scheduleId}/approve"
+      "source_fragment": "${schedulePath(householdId, scheduleId)}/approve"
     },
     {
       "openapi_path": "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/complete",
       "method": "post",
       "object": "preparationOperationsApi",
       "binding": "complete",
-      "source_fragment": "${base(householdId)}/schedules/${scheduleId}/complete"
+      "source_fragment": "${schedulePath(householdId, scheduleId)}/complete"
     },
     {
       "openapi_path": "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/cancel",
       "method": "post",
       "object": "preparationOperationsApi",
       "binding": "cancel",
-      "source_fragment": "${base(householdId)}/schedules/${scheduleId}/cancel"
+      "source_fragment": "${schedulePath(householdId, scheduleId)}/cancel"
     },
     {
       "openapi_path": "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/invalidate",
       "method": "post",
       "object": "preparationOperationsApi",
       "binding": "invalidate",
-      "source_fragment": "${base(householdId)}/schedules/${scheduleId}/invalidate"
+      "source_fragment": "${schedulePath(householdId, scheduleId)}/invalidate"
     },
     {
       "openapi_path": "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/events",
       "method": "get",
       "object": "preparationOperationsApi",
       "binding": "events",
-      "source_fragment": "${base(householdId)}/schedules/${scheduleId}/events"
+      "source_fragment": "${schedulePath(householdId, scheduleId)}/events"
     }
   ]
 }
