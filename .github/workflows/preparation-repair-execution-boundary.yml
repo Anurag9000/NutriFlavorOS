@@ -1,0 +1,48 @@
+name: validate-preparation-repair-execution-boundary
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-preparation-repair-execution-boundary-main
+  cancel-in-progress: true
+
+jobs:
+  execution-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: sqlite:////tmp/nutriflavor-repair-execution-boundary.db
+      JWT_SECRET: repair-execution-boundary-ci-secret-at-least-32-bytes
+      AUTO_CREATE_SCHEMA: "false"
+      SEED_REVIEWED_STORAGE_POLICIES: "false"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r backend/requirements.txt
+      - run: pip check
+      - name: Compile execution-aware repair proposal services
+        run: >-
+          python -m compileall -q
+          backend/services/preparation_repair_proposal_creation_service.py
+          backend/services/preparation_repair_proposal_read_service.py
+          backend/tests/test_preparation_repair_proposal_execution_boundary.py
+          scripts/validate_repair_proposal_execution_boundary.py
+      - name: Upgrade empty database to the exact reviewed head
+        run: |
+          rm -f /tmp/nutriflavor-repair-execution-boundary.db
+          alembic upgrade head
+          python -c "from backend.schema_verification import verify_runtime_schema; verify_runtime_schema()"
+      - name: Validate no-repair-after-execution contract
+        run: python scripts/validate_repair_proposal_execution_boundary.py
+      - name: Run execution-boundary regressions
+        run: pytest -q backend/tests/test_preparation_repair_proposal_execution_boundary.py
