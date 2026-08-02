@@ -13,6 +13,7 @@ import {
   PlayCircle,
   Settings,
   UtensilsCrossed,
+  Wrench,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -51,6 +52,11 @@ const navItems = [
     title: "Preparation Operations",
     url: "/preparation/operations",
     icon: CalendarRange,
+  },
+  {
+    title: "Schedule Repair Review",
+    url: "/preparation/operations/repair",
+    icon: Wrench,
   },
   {
     title: "Task Execution",
