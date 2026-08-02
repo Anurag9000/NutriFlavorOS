@@ -29,6 +29,12 @@ def _read(relative: str, errors: list[str]) -> str:
     return source
 
 
+def _normalized(value: str) -> str:
+    """Collapse formatting-only whitespace while preserving command order."""
+
+    return " ".join(value.split())
+
+
 def validate_contract() -> dict:
     errors: list[str] = []
     sources = {name: _read(path, errors) for name, path in FILES.items()}
@@ -57,15 +63,6 @@ def validate_contract() -> dict:
             '"lower_level_bypass_rows_added": 0',
             '"network_or_failover_simulated": False',
         },
-        "workflow": {
-            "alembic upgrade 20260802_0017",
-            "rehearse_repair_source_acceptance_migration_postgres.py seed",
-            "--count 64",
-            "alembic upgrade head",
-            "rehearse_repair_source_acceptance_migration_postgres.py verify",
-            "repair-source-acceptance-migration-seed.json",
-            "repair-source-acceptance-migration-report.json",
-        },
         "unit_test": {
             "test_source_acceptance_preflight_allows_unique_rows",
             "test_source_acceptance_preflight_lists_duplicate_rows",
@@ -81,6 +78,31 @@ def validate_contract() -> dict:
         for fragment in sorted(fragments):
             if fragment not in sources[label]:
                 errors.append(f"{FILES[label]} lacks rehearsal fragment: {fragment}")
+
+    normalized_workflow = _normalized(sources["workflow"])
+    workflow_commands = {
+        "alembic upgrade 20260802_0017",
+        (
+            "python scripts/rehearse_repair_source_acceptance_migration_postgres.py "
+            "seed --count 64 --manifest "
+            "reports/repair-source-acceptance-migration-seed.json"
+        ),
+        "alembic upgrade head",
+        (
+            "python scripts/rehearse_repair_source_acceptance_migration_postgres.py "
+            "verify --manifest reports/repair-source-acceptance-migration-seed.json "
+            "--report reports/repair-source-acceptance-migration-report.json"
+        ),
+        "python scripts/validate_preparation_repair_migration_rehearsal.py",
+        "reports/preparation-repair-postgres.xml",
+        "reports/repair-source-acceptance-migration-seed.json",
+        "reports/repair-source-acceptance-migration-report.json",
+    }
+    for command in sorted(workflow_commands):
+        if _normalized(command) not in normalized_workflow:
+            errors.append(
+                f"{FILES['workflow']} lacks normalized rehearsal command: {command}"
+            )
 
     for forbidden in {
         "INSERT INTO preparation_repair_proposal_acceptances",
@@ -98,6 +120,7 @@ def validate_contract() -> dict:
         "production_service_seed": True,
         "exact_hash_preservation": True,
         "database_constraint_bypass_probe": True,
+        "workflow_whitespace_normalized": True,
         "errors": errors,
     }
 
