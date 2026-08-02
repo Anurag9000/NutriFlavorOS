@@ -26,6 +26,8 @@ FILES = {
     "routes": "backend/api/preparation_repair_proposal_routes.py",
     "tests": "backend/tests/test_preparation_repair_proposal_invalidation.py",
     "api_tests": "backend/tests/test_preparation_repair_proposal_api.py",
+    "postgres_fixture": "backend/tests/postgres_preparation_fixture.py",
+    "postgres_tests": "backend/tests/test_preparation_repair_proposal_invalidation_postgres.py",
     "docs": "docs/PREPARATION_REPAIR_PROPOSALS.md",
 }
 
@@ -109,6 +111,19 @@ def validate_contract() -> dict:
             "test_acceptance_route_uses_source_version_uniqueness_guard",
             "test_owner_can_invalidate_but_editor_cannot",
         },
+        "postgres_fixture": {
+            'assert engine.dialect.name == "postgresql"',
+            "Base.metadata.drop_all(engine)",
+            "Base.metadata.create_all(engine)",
+            "expire_on_commit=False",
+        },
+        "postgres_tests": {
+            "test_postgres_acceptance_racing_invalidation_has_one_terminal_outcome",
+            "accept_repair_proposal_with_source_guard",
+            "invalidate_repair_proposal",
+            'final.status in {"accepted", "invalidated"}',
+            'event_types == ["created", "invalidated"]',
+        },
         "docs": {
             "Owner-only proposal invalidation",
             "observed stale reasons",
@@ -136,6 +151,7 @@ def validate_contract() -> dict:
         "path": PATH,
         "required_role": "owner",
         "schedule_persistence": False,
+        "postgres_race": True,
         "errors": errors,
     }
 
