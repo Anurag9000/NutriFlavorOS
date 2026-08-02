@@ -42,31 +42,41 @@ def validate_frontend() -> dict:
         },
         "client": {
             "PreparationScheduleDerivationEvidenceView",
+            "PreparationScheduleDerivationCoverageView",
             "source_repair_proposal_id",
             "source_repair_acceptance_id",
             "repair_request_hash",
             "repair_result_hash",
             "revised_request_hash",
             "repaired_response_hash",
-            "/${scheduleId}/derivation",
+            "schedule-derivation-coverage",
             "get:",
+            "coverage:",
         },
         "client_test": {
             "reads viewer-authorized schedule derivation evidence",
-            "exposes no mutation method",
+            "reads household derivation coverage denominators",
+            "exposes read-only methods only",
         },
         "page": {
             "Schedule derivation evidence",
+            "Household derivation coverage",
+            "Complete derivation coverage",
+            "Repair acceptance-link coverage",
+            "Incomplete derivation chains",
             "Original deterministic scheduler",
             "Accepted repair chain",
             "No repair proposal or acceptance applies",
             "preparationScheduleDerivationApi.get",
+            "preparationScheduleDerivationApi.coverage",
             "read-only provenance",
         },
         "page_test": {
+            "shows household coverage with explicit denominators",
             "shows original scheduler evidence without fabricated repair links",
             "shows the full accepted repair chain",
-            "reloads schedule and derivation scope after household change",
+            "surfaces incomplete derivation coverage warnings",
+            "reloads schedule, coverage, and derivation scope after household change",
             "surfaces fail-closed derivation errors",
         },
     }
@@ -76,10 +86,10 @@ def validate_frontend() -> dict:
                 errors.append(f"{FILES[label]} lacks derivation fragment: {fragment}")
 
     for forbidden in [
-        "method: \"POST\"",
-        "method: \"PUT\"",
-        "method: \"PATCH\"",
-        "method: \"DELETE\"",
+        'method: "POST"',
+        'method: "PUT"',
+        'method: "PATCH"',
+        'method: "DELETE"',
         "localStorage",
         "sessionStorage",
     ]:
@@ -89,7 +99,7 @@ def validate_frontend() -> dict:
     return {
         "valid": not errors,
         "route": "/preparation/operations/derivation",
-        "client_methods": ["get"],
+        "client_methods": ["get", "coverage"],
         "errors": errors,
     }
 
