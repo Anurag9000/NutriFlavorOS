@@ -22,6 +22,9 @@ from backend.domain.preparation_operations_coverage import (
     PreparationOperationsCoverageView,
 )
 from backend.domain.preparation_operations_runtime import PersistedScheduleCreateRequest
+from backend.domain.preparation_schedule_support_export import (
+    PreparationScheduleSupportExport,
+)
 from backend.domain.preparation_task_execution import (
     PreparationTaskExecutionEventCreate,
     PreparationTaskExecutionEventType,
@@ -47,6 +50,9 @@ from backend.services.preparation_operations_service import (
 )
 from backend.services.preparation_repair_approval_guard_service import (
     approve_schedule_with_repair_acceptance_guard,
+)
+from backend.services.preparation_schedule_support_export_service import (
+    export_preparation_schedule_support_snapshot,
 )
 from backend.services.preparation_task_completion_service import (
     complete_schedule_with_execution_guard,
@@ -205,6 +211,24 @@ def get_persisted_schedule_route(
 ):
     _access(db, household_id, current_user.id, HouseholdRole.VIEWER)
     return get_persisted_schedule(
+        db,
+        household_id=household_id,
+        schedule_id=schedule_id,
+    )
+
+
+@router.get(
+    "/schedules/{schedule_id}/support-export",
+    response_model=PreparationScheduleSupportExport,
+)
+def export_preparation_schedule_support_route(
+    household_id: str,
+    schedule_id: int,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    _access(db, household_id, current_user.id, HouseholdRole.VIEWER)
+    return export_preparation_schedule_support_snapshot(
         db,
         household_id=household_id,
         schedule_id=schedule_id,
