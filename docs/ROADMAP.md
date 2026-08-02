@@ -76,12 +76,28 @@ Dense/intermittent-demand forecasting, rolling-origin evaluation, ranking baseli
 
 Linear Alembic validation, repository/catalog/OpenAPI/frontend contracts, fresh SQLite/PostgreSQL migrations, backend/frontend/container jobs, retained reports, and focused task-execution concurrency workflow.
 
+## C13 — Deterministic minimal-change preparation repair
+
+- Strict previous/revised problem and previous deterministic-response contracts.
+- Validation of prior task identity and operational snapshots.
+- Deterministic greedy preservation-first repair.
+- Bounded exact small-instance comparator and deterministic fallback.
+- Lexicographic unresolved-count, changed-task, displacement, makespan, and stable-start objective.
+- Exact immutable-task placement, operational-signature, and predecessor-closure enforcement.
+- Revised dependency, deadline, horizon, multi-window, and cumulative-capacity validation.
+- Explicit partial mode and structured infeasibility reasons.
+- Preserved, moved, added, removed, and unscheduled classifications plus canonical hashes.
+- Authenticated advisory HTTP endpoint, strict offline CLI, benchmark suite, metamorphic properties, and dedicated CI contract.
+- Enforced boundary that computation never accepts or persists its own result.
+
+This milestone is a repair-computation baseline, not a persisted product repair lifecycle or a global-optimality claim.
+
 # P0 — Verification closure
 
 ## P0.1 Observe one exact complete workflow
 
 - Identify the latest `main` SHA and matching broad/focused Actions runs.
-- Inspect backend, migrations, PostgreSQL, frontend, and container jobs.
+- Inspect backend, migrations, PostgreSQL, frontend, repair, and container jobs.
 - Repair failures without weakening gates.
 - Inspect retained reports and record commit/run identity.
 - Make no green claim before observation.
@@ -96,7 +112,7 @@ Linear Alembic validation, repository/catalog/OpenAPI/frontend contracts, fresh 
 
 ## P0.3 Expand properties and state machines
 
-Add generated invariants for task transitions, dependency partial orders, identical/competing event races, plan/reservation lifecycles, inventory conservation, larger preparation DAGs, evidence supersession, FEFO/closed-loop replay, ranking leakage, and migration/catalog integrity.
+Add generated invariants for task transitions, dependency partial orders, identical/competing event races, plan/reservation lifecycles, inventory conservation, larger preparation and repair DAGs, evidence supersession, FEFO/closed-loop replay, ranking leakage, and migration/catalog integrity.
 
 ## P0.4 TypeScript and transport strictness
 
@@ -106,15 +122,25 @@ Enable stricter compiler settings incrementally; test nullable/omitted fields, e
 
 ## P1.1 Browser E2E and accessibility
 
-Playwright against PostgreSQL for generation → plan approval → occurrence confirmation → calendar selection → compile → handoff → persistence → approval → task execution → guarded completion → cancellation/invalidation → coverage/history. Add stale/tampered/adversarial paths plus axe, keyboard-only, screen-reader, and visual-regression tests.
+Playwright against PostgreSQL for generation → plan approval → occurrence confirmation → calendar selection → compile → handoff → persistence → approval → task execution → guarded completion → cancellation/invalidation → coverage/history. Add repair review and accepted-draft creation. Add stale/tampered/adversarial paths plus axe, keyboard-only, screen-reader, and visual-regression tests.
 
 ## P1.2 Local timers/reminders without inference
 
 Optional local assistance only. Timer expiration never writes completion or implies cooking. Explicit user confirmation remains mandatory. No presence, temperature, appliance, or food-safety inference.
 
-## P1.3 Joint minimal-change repair
+## P1.3 Human-reviewed repair lifecycle
 
-Two-stage and joint baselines, infeasibility cuts, small-horizon CP-SAT, large-neighborhood repair, preservation of completed work and historical provenance, scenario stress, and explicit human acceptance.
+- Protected side-by-side review of previous and proposed schedules.
+- Explicit acknowledgement of each moved, added, removed, or unresolved task.
+- Separate idempotent persistence action that creates a new draft and stores both source hashes.
+- Exact retry, stale-version, changed-source, and contradictory-key rejection.
+- Existing approval, invalidation, and execution transitions remain separate.
+- Append-only lifecycle evidence for repair proposal creation and accepted-draft persistence.
+- No implicit acceptance, automatic replacement, or execution inference.
+
+## P1.4 Larger and joint repair
+
+Two-stage meal/preparation baselines, joint CP-SAT for small horizons, infeasibility cuts/cores, large-neighborhood repair, completed-work preservation, historical provenance, scenario stress, representative-scale latency, and explicit human acceptance.
 
 # P1 — Evidence, forecasting, inventory, and ranking
 
@@ -140,11 +166,11 @@ Vision/multimodal nutrition, constrained generation, graph-neural substitution, 
 
 # Immediate execution order
 
-1. Inspect and close the exact latest hosted workflows.
+1. Inspect and close the exact latest hosted workflows and retained artifacts.
 2. Migrate low-level completion callers and make terminality authoritative.
 3. Add authenticated E2E and accessibility coverage.
-4. Add deterministic minimal-change repair.
+4. Build the human-reviewed repair lifecycle and accepted-draft persistence.
 5. Expand reviewed evidence and cross-domain coverage.
-6. Continue forecasting, inventory, ranking, security, and reliability hardening.
+6. Add joint/larger repair, forecasting, inventory, ranking, security, and reliability hardening.
 
-See `docs/HOUSEHOLD_PLAN_LIFECYCLE.md`, `docs/PREPARATION_OPERATIONS.md`, and the exhaustive audit continuation documents for exact scope and limitations.
+See `docs/HOUSEHOLD_PLAN_LIFECYCLE.md`, `docs/PREPARATION_OPERATIONS.md`, `docs/PREPARATION_REPAIR.md`, and the exhaustive audit continuation documents for exact scope and limitations.
