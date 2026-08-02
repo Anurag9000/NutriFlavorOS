@@ -1,0 +1,45 @@
+name: validate-preparation-repair-contract
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-preparation-repair-contract-main
+  cancel-in-progress: true
+
+jobs:
+  repair-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r backend/requirements.txt
+      - run: pip check
+      - run: python scripts/validate_preparation_repair_contract.py
+      - run: >-
+          python -m compileall -q
+          backend/domain/preparation_repair.py
+          backend/engines/prep_schedule_repair.py
+          scripts/repair_preparation_schedule.py
+          scripts/benchmark_preparation_repair.py
+      - run: >-
+          pytest -q
+          backend/tests/test_preparation_schedule_repair.py
+          backend/tests/test_preparation_repair_cli.py
+          backend/tests/test_preparation_repair_benchmark.py
+      - run: python scripts/benchmark_preparation_repair.py --output reports/preparation-repair-contract.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: preparation-repair-contract-report
+          path: reports/preparation-repair-contract.json
+          if-no-files-found: error
