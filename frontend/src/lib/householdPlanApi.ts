@@ -97,8 +97,8 @@ export interface ApprovedPlanOccurrenceCandidate {
   recipe_id: string;
   recipe_name: string;
   source_recipe_servings: number;
-  planned_portion_multiplier: number;
   planned_servings: number;
+  recipe_batch_scale: number;
   preparation_profile_status: PreparationProfileAvailability;
   preparation_profile_id: number | null;
   preparation_profile_version: string | null;
