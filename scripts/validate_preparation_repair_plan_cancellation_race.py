@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate source-plan cancellation serialization with repair acceptance."""
+"""Validate source-plan cancellation against repair acceptance and approval."""
 
 from __future__ import annotations
 
@@ -12,9 +12,12 @@ ROOT = Path(__file__).resolve().parents[1]
 FILES = {
     "plan_service": "backend/services/household_plan_lifecycle_service.py",
     "acceptance_service": "backend/services/preparation_repair_proposal_acceptance_service.py",
+    "approval_guard": "backend/services/preparation_repair_approval_guard_service.py",
+    "approval_service": "backend/services/preparation_schedule_approval_service.py",
     "source_guard": "backend/services/preparation_repair_source_acceptance_guard_service.py",
     "postgres_fixture": "backend/tests/postgres_preparation_fixture.py",
-    "postgres_test": "backend/tests/test_preparation_repair_plan_cancellation_postgres.py",
+    "acceptance_test": "backend/tests/test_preparation_repair_plan_cancellation_postgres.py",
+    "approval_test": "backend/tests/test_preparation_repair_plan_approval_postgres.py",
     "docs": "docs/PREPARATION_REPAIR_ACCEPTANCE.md",
 }
 
@@ -56,6 +59,18 @@ def validate_contract() -> dict:
             "status=PreparationScheduleStatus.DRAFT.value",
             "db.commit()",
         },
+        "approval_guard": {
+            "def approve_schedule_with_repair_acceptance_guard",
+            "_lock_household(db, household_id)",
+            "return approve_schedule_authoritative(",
+        },
+        "approval_service": {
+            "def approve_schedule_authoritative",
+            "assert_approved_source_plan(",
+            "source_plan_id=schedule.source_plan_id",
+            "source_plan_version=schedule.source_plan_version",
+            "PreparationScheduleStatus.DRAFT.value",
+        },
         "source_guard": {
             "def accept_repair_proposal_with_source_guard",
             "_lock_household(db, household_id)",
@@ -65,7 +80,7 @@ def validate_contract() -> dict:
             'assert engine.dialect.name == "postgresql"',
             "expire_on_commit=False",
         },
-        "postgres_test": {
+        "acceptance_test": {
             "test_postgres_source_plan_cancellation_dominates_repair_acceptance",
             "transition_household_plan(",
             "accept_repair_proposal_with_source_guard(",
@@ -75,10 +90,21 @@ def validate_contract() -> dict:
             "invalidated_schedule_ids == {source_id, replacement.id}",
             "live_linked_schedule_count == 0",
         },
+        "approval_test": {
+            "test_postgres_source_plan_cancellation_dominates_repaired_owner_approval",
+            "approve_schedule_with_repair_acceptance_guard(",
+            "transition_household_plan(",
+            'assert final_plan.status == "cancelled"',
+            'assert final_draft.status == "invalidated"',
+            'draft_event_types == ["created", "approved", "invalidated"]',
+            'draft_event_types == ["created", "invalidated"]',
+            "live_linked_schedule_count == 0",
+        },
         "docs": {
             "source plan cancellation",
             "invalidates",
             "accepted replacement",
+            "owner approval",
         },
     }
     for label, fragments in required.items():
@@ -91,6 +117,8 @@ def validate_contract() -> dict:
         "database": "postgresql",
         "final_plan_status": "cancelled",
         "live_linked_schedule_count": 0,
+        "acceptance_race": True,
+        "approval_race": True,
         "errors": errors,
     }
 
