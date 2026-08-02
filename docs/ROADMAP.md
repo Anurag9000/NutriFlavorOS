@@ -1,176 +1,252 @@
 # NutriFlavorOS Engineering and Research Roadmap
 
 **Roadmap date:** 2026-08-02  
-**Execution rule:** implement directly on `main` in coherent commits. Keep code, tests, migrations, contracts, fixtures, catalogs, CI, and public documentation synchronized. Do not rewrite history.
+**Execution rule:** implement directly on `main` in coherent commits; keep code, tests, migrations, contracts, frontend clients, CI, and documentation synchronized; never rewrite history.  
+**Current migration head:** `20260802_0018`  
+**Current API:** `0.15.1`  
+**Current OpenAPI contract:** `2026-08-02.11`
 
-Current boundary:
-
-- migration head `20260802_0014`;
-- API `0.12.1`;
-- OpenAPI contract `2026-08-02.6`;
-- food-evidence bindings `2026-08-01.2`;
-- preparation-operations bindings `2026-08-02.4`;
-- household-plan bindings `2026-08-02.4`;
-- catalog `2026-08-01.3`;
-- 37 task contracts, 30 dataset families, 75 model or algorithm families, 29 experiment contracts, and 39 feature contracts.
-
-## Definition of done
-
-A product capability requires strict contracts, authorization, persistence, migration, provenance, UX, tests, concurrency/failure handling, operational evidence, rollback, and truthful limitations. Research work requires licensed or consented data, leakage-safe evaluation, deterministic or seeded replay, calibration/subgroup analysis where relevant, artifact lineage, and explicit readiness.
+Current catalog boundary: 37 task contracts, 30 dataset families, 75 model or algorithm families, 29 experiment contracts, and 39 feature contracts.
 
 A class, endpoint, fixture, configured workflow, or catalog row is not completion or executed evidence by itself.
 
-# Completed architecture milestones
+## Completed architecture milestones
 
-## C1 — Transactional household platform
+### C1 — Transactional household platform
 
 Authentication, explicit profile completion, household roles, hashed invitations, transactional pantry/leftovers, reservations, optimistic versions, exact idempotency, and PostgreSQL race probes.
 
-## C2 — Quantity-aware meal planning
+### C2 — Quantity-aware meal planning
 
 Deterministic horizon planning, hard restrictions, household target aggregation, pantry-aware objectives, persisted plans, shopping reconciliation, reservations, batch grouping, Pareto, optional CP-SAT/MILP, robust scenarios, and exact comparators.
 
-## C3 — Human-reviewed plan lifecycle
+### C3 — Human-reviewed plan lifecycle
 
-Migration-backed draft/approved/cancelled states, owner approval, editor/owner cancellation, append-only events, stale-version and contradictory-key rejection, atomic reservation release, dependent schedule invalidation, protected review, and exact approved source-plan references.
+Draft/approved/cancelled states, owner approval, editor/owner cancellation, append-only events, stale-version and contradictory-key rejection, atomic reservation release, dependent schedule invalidation, protected review, and exact approved source-plan references.
 
-## C4 — Approved-plan occurrence confirmation
+### C4 — Reviewed preparation operations
 
-Exact approved-plan candidates, deterministic occurrence identity, serving-count semantics, descriptive batch scale, explicit inclusion/deadlines/priorities/duration policy, reviewed-profile compatibility, canonical non-persisted occurrence documents, and protected confirmation UX.
+Immutable resource calendars, complete occurrence/profile/request/response provenance, deterministic replay, schedule hashes, draft/approved/invalidated/completed/cancelled lifecycle, protected final review, append-only schedule events, and user-confirmed task execution.
 
-## C5 — Immutable evidence platform
+### C5 — Minimal-change preparation repair
 
-Reviewed preparation profiles, conversions, storage policies, exact leftover links, hashes, source/reviewer metadata, supersession, active uniqueness, import/lifecycle manifests, locks, and concurrency probes.
+Deterministic greedy repair, bounded exact comparator, immutable anchors, predecessor closure, capacity/window/deadline validation, structured conflicts, outcome partitions, canonical hashes, authenticated API, offline CLI, and advisory non-persistence.
 
-## C6 — Deterministic preparation scheduling
+### C6 — Repair proposal and accepted-draft lifecycle
 
-Strict task/resource/DAG contracts, multi-window capacity, gap containment, deadlines, dependency propagation, utilization, critical path, structured infeasibility, reviewed-profile compilation, bounded exact comparison, and metamorphic tests.
+Immutable server-recomputed proposals, exact changed-task acknowledgements, one-new-draft-only acceptance, source immutability, separate method-aware owner approval, tamper/staleness checks, and append-only proposal/schedule evidence.
 
-## C7 — Persisted preparation operations
+The one-replacement-per-source invariant is implemented through migration `20260802_0018`: multiple advisory proposals may exist for one source version, but only one may create the accepted replacement.
 
-Immutable reviewed calendars, structured calendar builder, canonical occurrence documents, exact profile maps, scheduler requests/responses/hashes, replay before persistence/approval, schedule lifecycle, append-only events, source-plan cancellation propagation, handoff v2, and PostgreSQL races.
+### C7 — Derivation and execution authority
 
-## C8 — User-confirmed task execution
+Schedule derivation evidence is implemented through per-schedule and household-coverage endpoints plus a protected inspector.
 
-Migration `20260802_0014`, append-only started/completed/skipped events, planned/in-progress/completed/skipped states, deterministic task identity, dependency chronology, completion-after-start, actual/deviation evidence, mandatory reasons, optimistic versions, idempotency, role controls, guarded HTTP schedule completion, protected execution workspace, and service/API/frontend/PostgreSQL tests.
+Task-execution eligibility is implemented through a viewer-authorized endpoint and proactive frontend gate. A source with an accepted replacement remains readable but cannot receive new task events or completion. Exact proposal, acceptance, and replacement identities are exposed.
 
-Compatibility hardening remains: migrate every older internal low-level completion caller to the task-terminal guard, then enforce terminality in the lowest authoritative transition service.
+## P0 — Observe and repair exact hosted verification
 
-## C9 — Provenance and execution coverage
+1. Inspect the exact latest `main` runs for SQLite, PostgreSQL, backend, frontend, OpenAPI, container, and focused repair workflows.
+2. Inspect retained benchmark, JUnit, migration, and build artifacts.
+3. Record exact commit SHA, workflow/run IDs, artifact IDs, durations, and failures.
+4. Repair every failure without deleting, skipping, xfail-ing, weakening, or narrowing a requirement.
+5. Re-run failed jobs and verify the exact replacement run.
+6. Do not report green until the exact current commit and artifacts are observed.
 
-- Operational provenance denominators for calendars, schedule states, occurrence documents, deterministic requests, replayability, source-plan linkage, and schedule events.
-- Separate execution denominators for execution-scope schedules, active approved schedules, schedules with task history, invalid histories, deterministic task states, terminal tasks, fully terminal schedules, deviations, skips, skip reasons, and latest task-event time.
-- Malformed histories excluded from task-state denominators and surfaced as warnings.
-- Backend, frontend, OpenAPI, TypeScript, and household-isolation tests.
-- Explicit interpretation boundary: stored structure and user-entered claims, not observation, correctness, nutrition quality, appliance state, temperature, or food safety.
+## P0 — Finish lowest-layer task terminality authority
 
-## C10 — Structured final operations persistence review
+The product endpoint is guarded and static analysis blocks new product-level low-level completion calls. The remaining compatibility boundary is the historical generic transition service.
 
-Exact plan/version, occurrence document/hash, profile identities, active reviewed calendar/hash, task DAG, durations, demands, deadlines, deterministic scheduled output, unresolved-work blocking, read-only canonical JSON, four confirmations, role controls, retry-stable idempotency, and explicit draft persistence are implemented. Approval and task execution remain separate actions.
+1. Inventory every direct schedule completion caller.
+2. Move task-terminality assertion into the lowest authoritative transition layer.
+3. Migrate all internal tests/callers through that layer.
+4. Remove or narrowly encapsulate compatibility behavior.
+5. Add direct-service, API, stale-version, duplicate-key, malformed-history, and PostgreSQL-race tests.
+6. Retain the non-claim that task events are user-entered evidence rather than observed execution.
 
-## C11 — Forecasting, ranking, and inventory evaluation
+## P0 — Complete execution eligibility evidence
 
-Dense/intermittent-demand forecasting, rolling-origin evaluation, ranking baselines and temporal hard filters, FEFO inventory replay, and forecast-to-inventory closed-loop metrics.
+Backend and frontend eligibility are implemented. Remaining work:
 
-## C12 — Release governance
+- add authenticated PostgreSQL-backed browser scenarios;
+- verify selection switches correctly to an eligible approved replacement;
+- cover replacement still in draft, invalidated, cancelled, completed, or missing states;
+- add accessibility evidence for blocked-state alerts and disabled controls;
+- include eligibility status in export/support tooling and operational metrics;
+- retain server-side mutation guards as authority even when the client preflights eligibility.
 
-Linear Alembic validation, repository/catalog/OpenAPI/frontend contracts, fresh SQLite/PostgreSQL migrations, backend/frontend/container jobs, retained reports, and focused task-execution concurrency workflow.
+## P0 — PostgreSQL lifecycle and recovery evidence
 
-## C13 — Deterministic minimal-change preparation repair
+Extend real-database probes for:
 
-- Strict previous/revised problem and previous deterministic-response contracts.
-- Validation of prior task identity and operational snapshots.
-- Deterministic greedy preservation-first repair.
-- Bounded exact small-instance comparator and deterministic fallback.
-- Lexicographic unresolved-count, changed-task, displacement, makespan, and stable-start objective.
-- Exact immutable-task placement, operational-signature, and predecessor-closure enforcement.
-- Revised dependency, deadline, horizon, multi-window, and cumulative-capacity validation.
-- Explicit partial mode and structured infeasibility reasons.
-- Preserved, moved, added, removed, and unscheduled classifications plus canonical hashes.
-- Authenticated advisory HTTP endpoint, strict offline CLI, benchmark suite, metamorphic properties, and dedicated CI contract.
-- Enforced boundary that computation never accepts or persists its own result.
+- source plan cancellation racing proposal acceptance;
+- target calendar supersession racing acceptance or approval;
+- proposal invalidation racing acceptance once invalidation tooling exists;
+- unknown commit outcome and exact retry recovery;
+- connection loss after flush but before response;
+- statement timeout/deadlock retry behavior;
+- migration `0018` on representative historical data volumes;
+- concurrent export/support reads during lifecycle mutation.
 
-This milestone is a repair-computation baseline, not a persisted product repair lifecycle or a global-optimality claim.
+Every probe must retain final proposal, acceptance, schedule, event, version, hash, and structured-error evidence.
 
-# P0 — Verification closure
+## P1 — Authenticated browser and accessibility evidence
 
-## P0.1 Observe one exact complete workflow
+PostgreSQL-backed Playwright should cover:
 
-- Identify the latest `main` SHA and matching broad/focused Actions runs.
-- Inspect backend, migrations, PostgreSQL, frontend, repair, and container jobs.
-- Repair failures without weakening gates.
-- Inspect retained reports and record commit/run identity.
-- Make no green claim before observation.
+1. signup, login, and profile completion;
+2. household creation, invitation, and role boundaries;
+3. plan generation, review, approval, and cancellation;
+4. occurrence confirmation;
+5. reviewed calendar creation and activation;
+6. schedule persistence, draft review, owner approval, and events;
+7. user-confirmed task start/complete/skip and guarded schedule completion;
+8. advisory repair and immutable proposal creation;
+9. exact changed-task acknowledgement and one-new-draft acceptance;
+10. separate method-aware owner approval;
+11. source replacement eligibility block and replacement selection;
+12. plan/calendar/source staleness, tamper, version conflicts, and `404` non-disclosure.
 
-## P0.2 Migrate low-level completion callers
+Accessibility evidence must include axe, keyboard-only operation, focus restoration, error summaries, live regions, labels, table semantics, reduced motion, zoom/reflow, and contrast.
 
-- Inventory direct `transition_schedule(...COMPLETED...)` callers.
-- Route product, script, fixture, and test callers through the terminality guard where execution semantics apply.
-- Preserve exact lifecycle idempotency and historical readability.
-- Add a repository contract rejecting new unguarded operational completion callers.
-- Move terminality into the authoritative low-level transition after migration.
+## P1 — Execution-aware repair
 
-## P0.3 Expand properties and state machines
+The current ordinary repair correctly abstains when source task history exists. A future execution-aware engine must:
 
-Add generated invariants for task transitions, dependency partial orders, identical/competing event races, plan/reservation lifecycles, inventory conservation, larger preparation and repair DAGs, evidence supersession, FEFO/closed-loop replay, ranking leakage, and migration/catalog integrity.
+- treat every task event as immutable historical fact;
+- preserve completed/skipped states and confirmed starts;
+- prohibit moving executed work;
+- distinguish actual historical work from remaining planned work;
+- preserve dependency chronology;
+- handle in-progress tasks, passive waiting, and supervision handoffs explicitly;
+- replan only remaining work;
+- retain event IDs, versions, actors, timestamps, and fingerprints;
+- create a new draft without rewriting source history;
+- surface structured infeasibility and minimal conflicts;
+- race execution onset against computation, proposal creation, acceptance, and approval.
 
-## P0.4 TypeScript and transport strictness
+## P1 — Joint meal, inventory, shopping, and preparation repair
 
-Enable stricter compiler settings incrementally; test nullable/omitted fields, enum drift, empty bodies, `204`/`205`; expand generated bindings; eliminate duplicate DTOs; and validate lowercase SHA-256 fields.
+- Jointly repair meal choices, servings, pantry allocations, reservations, shopping needs, leftovers, and preparation tasks.
+- Preserve approved-plan and source-schedule history.
+- Release old reservations and create replacements atomically only after explicit acceptance.
+- Add minimum-change objectives across meals, quantities, lots, purchases, and task starts.
+- Add partial repair with precise conflict explanations.
+- Add CP-SAT/MILP lower bounds, large-neighborhood search, ruin-and-recreate, and decomposition.
 
-# P1 — Complete preparation operations
+## P1 — Proposal administration and support
 
-## P1.1 Browser E2E and accessibility
+- Add explicit server-authoritative invalidation for stale proposed records.
+- Add role/actor/reason/idempotency/version contracts.
+- Preserve append-only events and exact historical readability.
+- Add support search by source, proposal, acceptance, replacement, actor, hash, and time.
+- Add evidence export packages without exposing secrets or internal-only data.
 
-Playwright against PostgreSQL for generation → plan approval → occurrence confirmation → calendar selection → compile → handoff → persistence → approval → task execution → guarded completion → cancellation/invalidation → coverage/history. Add repair review and accepted-draft creation. Add stale/tampered/adversarial paths plus axe, keyboard-only, screen-reader, and visual-regression tests.
+## P1/P2 — Scheduling and optimization frontier
 
-## P1.2 Local timers/reminders without inference
+- Optional interval-variable CP-SAT model.
+- MILP relaxation and infeasibility diagnosis.
+- Min-cost flow for allocation/shopping subproblems.
+- Large-neighborhood search seeded by deterministic repair.
+- Conflict-targeted ruin-and-recreate.
+- Logic-based Benders decomposition between meal choice and kitchen scheduling.
+- Robust/stochastic duration, attendance, demand, and price scenarios.
+- Chance-constrained service and waste targets.
+- Epsilon-constraint Pareto frontiers.
+- Unsat cores or minimal conflict sets.
+- Representative latency, memory, optimality-gap, and failure-rate reports.
 
-Optional local assistance only. Timer expiration never writes completion or implies cooking. Explicit user confirmation remains mandatory. No presence, temperature, appliance, or food-safety inference.
+## P2 — Evidence and normalization
 
-## P1.3 Human-reviewed repair lifecycle
+- Expand reviewed ingredient, conversion, preparation-profile, and storage-policy coverage with explicit denominators.
+- Add multilingual/Indic ingredient normalization with retrieval, reranking, and abstention.
+- Add reviewed parse queues and adjudication.
+- Add signed evidence documents, trust roots, revocation, and retained immutable objects.
+- Add micronutrient normalization and uncertainty.
+- Keep time-temperature, microbial, medication, allergy, and clinical conclusions blocked without qualified review and validated instrumentation.
 
-- Protected side-by-side review of previous and proposed schedules.
-- Explicit acknowledgement of each moved, added, removed, or unresolved task.
-- Separate idempotent persistence action that creates a new draft and stores both source hashes.
-- Exact retry, stale-version, changed-source, and contradictory-key rejection.
-- Existing approval, invalidation, and execution transitions remain separate.
-- Append-only lifecycle evidence for repair proposal creation and accepted-draft persistence.
-- No implicit acceptance, automatic replacement, or execution inference.
+## P2 — Inventory and shopping
 
-## P1.4 Larger and joint repair
+- Receipt/barcode OCR with reviewed correction.
+- Lot split/merge, recall/quarantine, and offline reconciliation.
+- Pending orders, lead times, delivery windows, substitutions, minimum packs, and prices.
+- Waste/disposal costs and stochastic service-level optimization.
+- Exact lot-allocation explanation and bulk reconciliation.
 
-Two-stage meal/preparation baselines, joint CP-SAT for small horizons, infeasibility cuts/cores, large-neighborhood repair, completed-work preservation, historical provenance, scenario stress, representative-scale latency, and explicit human acceptance.
+## P2 — Forecasting
 
-# P1 — Evidence, forecasting, inventory, and ranking
+- Last-value, drift, SBA, ADIDA, IMAPA, Theta, ETS, and ARIMA baselines.
+- Hierarchical reconciliation across ingredient, recipe, household, and horizon levels.
+- Quantile regression and rolling/split conformal intervals.
+- DeepAR, N-BEATS/N-HiTS, TFT, and PatchTST research baselines.
+- Change-point, drift, OOD, and abstention models.
+- Temporal splits, rolling origin, intermittent-demand strata, interval coverage, calibration, and closed-loop inventory metrics.
 
-## Evidence coverage and trust
+## P2 — Ranking and personalization
 
-Preparation-profile, conversion, storage-policy, review-age, stale-evidence, abstention, source/reviewer, and exact-link denominators; optional detached signatures/trust roots/revocation; and broader reviewed evidence.
+- BPR, LightFM, two-tower retrieval, SASRec, and graph recommenders.
+- Calibrated constrained reranking for restrictions, pantry, cuisine, repetition, and diversity.
+- Contextual bandits only after propensity validation.
+- Doubly robust off-policy evaluation and safe-policy-improvement gates.
+- Continual/federated personalization only with privacy, deletion, drift, subgroup, and rollback evidence.
 
-## Forecasting and inventory
+## P2 — Vision, OCR, multimodal, and graph research
 
-Last-value, drift, SBA, ADIDA, IMAPA, Theta, optional ARIMA/ETS, quantile/conformal intervals, hierarchical reconciliation, shift strata, variable lead times, pending orders, explicit costs, and service/waste/cost Pareto analysis without autonomous procurement.
+Research-only until licensed data, uncertainty, OOD, subgroup, latency, privacy, monitoring, and rollback gates pass:
 
-## Ranking and policy safety
+- receipt/layout OCR;
+- label/barcode extraction;
+- food image retrieval and segmentation;
+- portion/nutrition estimation;
+- constrained structured extraction;
+- graph-based substitutions with hard evidence/restriction filters;
+- multimodal recipe/ingredient retrieval.
 
-Cold-start/sparse-user strata, exposure/popularity bias, calibration, serendipity, long-tail metrics, propensity validation, safe-policy improvement, monitoring, rollback, and kill switches before online learning.
+## P2 — Security, privacy, and identity lifecycle
 
-# P2 — Security, privacy, reliability, and operations
+- Verified email and password reset.
+- MFA and recovery.
+- Refresh-token rotation/revocation.
+- Rate limiting and abuse controls.
+- Ownership transfer/recovery.
+- Household archive/delete.
+- Complete export/delete and research-data deletion propagation.
+- Audit-log access/retention and secret rotation.
 
-Verified email, reset, MFA, token rotation/revocation, rate limiting, ownership recovery, account/household lifecycle, backup/restore, point-in-time recovery, large-table rehearsal, pooling/failover, SLOs, tracing, incidents, SBOM, scans, and attestations.
+## P2 — Operations and release engineering
 
-# P3 — Gated research
+- Backup/restore and point-in-time recovery.
+- PostgreSQL pooling, replicas, failover, and large-table migration rehearsal.
+- Structured logs, metrics, traces, SLOs, alerts, and runbooks.
+- SBOM, dependency/container/static/dynamic scans, signed artifacts, and provenance attestations.
+- Canary/shadow/kill-switch contracts for future online models.
+- Incident, rollback, and postmortem evidence.
 
-Vision/multimodal nutrition, constrained generation, graph-neural substitution, causal/off-policy promotion, continual/federated personalization, privacy-sensitive learning, sustainability claims, clinical personalization, and autonomous appliance/procurement control remain disabled pending licensed/consented data, leakage-safe evaluation, calibration, OOD/subgroup analysis, privacy review, human review, lineage, rollback, and monitoring.
+## P3 — High-risk blocked areas
 
-# Immediate execution order
+These remain disabled by default and require specialist review, qualified data, explicit consent, validated instrumentation, monitoring, rollback, and jurisdictional analysis:
 
-1. Inspect and close the exact latest hosted workflows and retained artifacts.
-2. Migrate low-level completion callers and make terminality authoritative.
-3. Add authenticated E2E and accessibility coverage.
-4. Build the human-reviewed repair lifecycle and accepted-draft persistence.
-5. Expand reviewed evidence and cross-domain coverage.
-6. Add joint/larger repair, forecasting, inventory, ranking, security, and reliability hardening.
+- clinical nutrition or medical personalization;
+- medication interaction decisions;
+- allergy-safety guarantees;
+- microbial or contamination conclusions;
+- autonomous appliance control;
+- autonomous procurement/payment;
+- food-safety certification;
+- sustainability claims presented as verified consumer facts.
 
-See `docs/HOUSEHOLD_PLAN_LIFECYCLE.md`, `docs/PREPARATION_OPERATIONS.md`, `docs/PREPARATION_REPAIR.md`, and the exhaustive audit continuation documents for exact scope and limitations.
+## Non-negotiable release rules
+
+- No clinical, allergy, medication, contamination, temperature, or food-safety claim without appropriate evidence and qualified review.
+- No task execution, presence, appliance, or sensor inference from plans, schedules, or user-entered events.
+- Advisory repair computation can never report acceptance or persistence.
+- Proposal creation can never create a schedule.
+- Proposal acceptance can create only one new draft and can never imply approval, execution, or completion.
+- Repair-derived approval requires exact acceptance evidence and method-aware replay.
+- Replaced source schedules remain readable but cannot receive new execution events.
+- Frontend eligibility is preflight UX; server mutation guards remain authoritative.
+- No global-optimality claim for greedy or truncated search.
+- No readiness claim from catalog registration, importability, or synthetic tests.
+- No green-build claim until exact hosted workflows and artifacts are observed.
+- No force push or history rewrite.
+- All implementation belongs on `main`; legacy branch refs must contain no unique work and should be deleted when branch deletion is available.
