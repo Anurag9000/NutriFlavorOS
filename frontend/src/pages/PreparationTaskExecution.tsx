@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   History,
   Play,
+  ShieldAlert,
   SkipForward,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -32,6 +33,10 @@ import {
   type PreparationTaskExecutionEventType,
   type PreparationTaskExecutionTaskView,
 } from "@/lib/preparationOperationsApi";
+import {
+  preparationTaskExecutionEligibilityApi,
+  type PreparationTaskExecutionEligibilityView,
+} from "@/lib/preparationTaskExecutionEligibilityApi";
 
 interface TaskDraft {
   actualMinute: string;
@@ -60,6 +65,32 @@ function stateLabel(value: string): string {
 function defaultMinute(task: PreparationTaskExecutionTaskView): number {
   if (task.state === "in_progress") return task.task.finish_minute;
   return task.task.start_minute;
+}
+
+function eligibilityTitle(value: PreparationTaskExecutionEligibilityView): string {
+  if (value.reason_code === "source_schedule_has_accepted_replacement") {
+    return "Execution blocked by accepted replacement";
+  }
+  if (value.schedule_status === "completed") return "Completed schedule is read-only";
+  return "Schedule is not execution eligible";
+}
+
+function eligibilityDescription(
+  value: PreparationTaskExecutionEligibilityView,
+): string {
+  if (value.reason_code === "source_schedule_has_accepted_replacement") {
+    return (
+      `Source schedule #${value.schedule_id} was superseded by accepted ` +
+      `repair proposal #${value.accepted_proposal_id}, acceptance ` +
+      `#${value.acceptance_id}, and replacement schedule ` +
+      `#${value.replacement_schedule_id}. Source history remains readable, ` +
+      "but new task events and schedule completion are prohibited."
+    );
+  }
+  return (
+    `Schedule #${value.schedule_id} has status ${value.schedule_status}. ` +
+    "Only an approved schedule without an accepted replacement can receive new task events."
+  );
 }
 
 export default function PreparationTaskExecutionPage() {
@@ -109,7 +140,22 @@ export default function PreparationTaskExecutionPage() {
       ),
     enabled: Boolean(activeHouseholdId && activeScheduleId),
   });
+  const eligibilityQ = useQuery({
+    queryKey: [
+      "preparation-operations",
+      activeHouseholdId,
+      "task-execution-eligibility",
+      activeScheduleId,
+    ],
+    queryFn: () =>
+      preparationTaskExecutionEligibilityApi.get(
+        activeHouseholdId,
+        activeScheduleId,
+      ),
+    enabled: Boolean(activeHouseholdId && activeScheduleId),
+  });
   const overview = overviewQ.data;
+  const eligibility = eligibilityQ.data;
   const role = detailQ.data?.role;
 
   useEffect(() => {
@@ -150,9 +196,26 @@ export default function PreparationTaskExecutionPage() {
         ],
       }),
       queryClient.invalidateQueries({
+        queryKey: [
+          "preparation-operations",
+          activeHouseholdId,
+          "task-execution-eligibility",
+          activeScheduleId,
+        ],
+      }),
+      queryClient.invalidateQueries({
         queryKey: ["preparation-operations", activeHouseholdId, "schedules"],
       }),
     ]);
+  };
+
+  const assertExecutionEligible = () => {
+    if (!eligibility) {
+      throw new Error("Execution eligibility has not been verified yet");
+    }
+    if (!eligibility.eligible) {
+      throw new Error(eligibilityDescription(eligibility));
+    }
   };
 
   const taskMutation = useMutation({
@@ -164,6 +227,7 @@ export default function PreparationTaskExecutionPage() {
       eventType: PreparationTaskExecutionEventType;
     }) => {
       if (!overview) throw new Error("Select an execution schedule");
+      assertExecutionEligible();
       const draft = taskDrafts[task.task.task_id];
       const actualMinute = Number(draft?.actualMinute);
       if (
@@ -235,6 +299,7 @@ export default function PreparationTaskExecutionPage() {
   const completeSchedule = useMutation({
     mutationFn: () => {
       if (!overview) throw new Error("Select an execution schedule");
+      assertExecutionEligible();
       const reason = completionReason.trim();
       if (!reason) throw new Error("Enter a schedule completion reason");
       return preparationOperationsApi.complete(
@@ -267,8 +332,18 @@ export default function PreparationTaskExecutionPage() {
     () => schedules.find((value) => value.id === activeScheduleId) ?? null,
     [activeScheduleId, schedules],
   );
+  const replacementSelectable = Boolean(
+    eligibility?.replacement_schedule_id
+      && schedules.some(
+        (value) => value.id === eligibility.replacement_schedule_id,
+      ),
+  );
   const pageError =
-    householdsQ.error || detailQ.error || schedulesQ.error || overviewQ.error;
+    householdsQ.error
+    || detailQ.error
+    || schedulesQ.error
+    || overviewQ.error
+    || eligibilityQ.error;
 
   return (
     <AppLayout>
@@ -298,7 +373,7 @@ export default function PreparationTaskExecutionPage() {
         </Alert>
 
         {pageError && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" role="alert">
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Execution workspace unavailable</AlertTitle>
             <AlertDescription>{messageOf(pageError)}</AlertDescription>
@@ -353,10 +428,71 @@ export default function PreparationTaskExecutionPage() {
                 <Badge variant="outline" className="capitalize">
                   {role ?? "no role"}
                 </Badge>
+                {eligibility && (
+                  <Badge variant={eligibility.eligible ? "default" : "destructive"}>
+                    {eligibility.eligible ? "execution eligible" : "execution blocked"}
+                  </Badge>
+                )}
               </div>
             )}
           </CardContent>
         </Card>
+
+        {eligibilityQ.isLoading && activeScheduleId > 0 && (
+          <Alert aria-live="polite">
+            <ShieldAlert className="h-4 w-4" />
+            <AlertTitle>Verifying execution eligibility</AlertTitle>
+            <AlertDescription>
+              Task controls remain disabled until the authoritative eligibility
+              evidence is loaded.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {eligibility && !eligibility.eligible && (
+          <Alert
+            variant={
+              eligibility.reason_code === "source_schedule_has_accepted_replacement"
+                ? "destructive"
+                : "default"
+            }
+            role="status"
+          >
+            <ShieldAlert className="h-4 w-4" />
+            <AlertTitle>{eligibilityTitle(eligibility)}</AlertTitle>
+            <AlertDescription className="space-y-3">
+              <p>{eligibilityDescription(eligibility)}</p>
+              {eligibility.reason_code === "source_schedule_has_accepted_replacement" && (
+                <div className="flex flex-wrap gap-2">
+                  {replacementSelectable ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setScheduleId(String(eligibility.replacement_schedule_id))
+                      }
+                    >
+                      Open replacement schedule
+                    </Button>
+                  ) : (
+                    <Button asChild size="sm" variant="outline">
+                      <Link to="/preparation/operations">
+                        Review replacement schedule
+                      </Link>
+                    </Button>
+                  )}
+                  <Badge variant="outline">
+                    replacement status {eligibility.replacement_schedule_status}
+                  </Badge>
+                  <Badge variant="outline">
+                    source events {eligibility.task_event_count}
+                  </Badge>
+                </div>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
 
         {!schedulesQ.isLoading && schedules.length === 0 && activeHouseholdId && (
           <Alert>
@@ -411,7 +547,9 @@ export default function PreparationTaskExecutionPage() {
                   notes: "",
                 };
                 const mutable =
-                  overview.schedule.status === "approved" && canEdit(role);
+                  overview.schedule.status === "approved"
+                  && canEdit(role)
+                  && eligibility?.eligible === true;
                 return (
                   <Card key={task.task_id}>
                     <CardHeader>
@@ -600,7 +738,11 @@ export default function PreparationTaskExecutionPage() {
                     <Textarea
                       id="execution-completion-reason"
                       value={completionReason}
-                      disabled={!canEdit(role) || completeSchedule.isPending}
+                      disabled={
+                        !canEdit(role)
+                        || eligibility?.eligible !== true
+                        || completeSchedule.isPending
+                      }
                       onChange={(event) => setCompletionReason(event.target.value)}
                     />
                   </div>
@@ -608,6 +750,7 @@ export default function PreparationTaskExecutionPage() {
                     type="button"
                     disabled={
                       !canEdit(role)
+                      || eligibility?.eligible !== true
                       || overview.remaining_count !== 0
                       || completeSchedule.isPending
                     }
