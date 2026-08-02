@@ -33,6 +33,11 @@ const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Meal Planner", url: "/meals", icon: UtensilsCrossed },
   { title: "Plan Review", url: "/household/plans", icon: ClipboardCheck },
+  {
+    title: "Plan Occurrences",
+    url: "/household/plans/occurrences",
+    icon: ListChecks,
+  },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
   { title: "Household & Pantry", url: "/household", icon: Home },
   { title: "Preparation Editor", url: "/preparation", icon: Clock3 },
@@ -102,6 +107,7 @@ export function AppSidebar() {
                       end={
                         item.url === "/dashboard"
                         || item.url === "/household"
+                        || item.url === "/household/plans"
                         || item.url === "/preparation"
                         || item.url === "/preparation/operations"
                       }
