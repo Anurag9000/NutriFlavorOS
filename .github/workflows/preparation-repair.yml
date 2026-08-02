@@ -34,7 +34,7 @@ jobs:
           scripts/benchmark_preparation_repair.py
           scripts/repair_preparation_schedule.py
           scripts/validate_preparation_repair_contract.py
-      - name: Validate repair contract and advisory API
+      - name: Validate repair contract, advisory API, and frontend surface
         run: python scripts/validate_preparation_repair_contract.py
       - name: Run repair tests
         run: >-
@@ -46,6 +46,20 @@ jobs:
           backend/tests/test_preparation_repair_cli.py
       - name: Run benchmark and retain report
         run: python scripts/benchmark_preparation_repair.py --output reports/preparation-repair.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Type-check repair frontend
+        working-directory: frontend
+        run: npm run typecheck
+      - name: Run advisory repair review tests
+        working-directory: frontend
+        run: npm test -- --run src/pages/PreparationRepairReview.test.tsx
       - uses: actions/upload-artifact@v7
         with:
           name: preparation-repair-report
