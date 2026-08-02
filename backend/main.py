@@ -15,6 +15,7 @@ from backend.api import (
     auth_routes,
     conversion_routes,
     evidence_history_routes,
+    household_plan_routes,
     household_routes,
     meal_routes,
     nutrition_routes,
@@ -67,7 +68,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="NutriFlavorOS API",
-    version="0.8.0",
+    version="0.9.0",
     description=(
         "Experimental meal-planning, household-inventory, reviewed preparation "
         "operations, immutable evidence, and offline-research API. Outputs are "
@@ -116,6 +117,7 @@ app.include_router(auth_routes.router)
 app.include_router(user_routes.router)
 app.include_router(meal_routes.router)
 app.include_router(household_routes.router)
+app.include_router(household_plan_routes.router)
 app.include_router(preparation_operations_routes.router)
 app.include_router(conversion_routes.router)
 app.include_router(evidence_history_routes.router)
