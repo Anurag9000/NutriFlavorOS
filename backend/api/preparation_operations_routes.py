@@ -45,6 +45,9 @@ from backend.services.preparation_operations_service import (
     register_resource_calendar,
     transition_schedule,
 )
+from backend.services.preparation_schedule_approval_service import (
+    approve_schedule_authoritative,
+)
 from backend.services.preparation_task_completion_service import (
     complete_schedule_with_execution_guard,
 )
@@ -349,14 +352,13 @@ def approve_schedule_route(
     db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_user),
 ):
-    return _transition(
-        db=db,
+    _access(db, household_id, current_user.id, HouseholdRole.OWNER)
+    return approve_schedule_authoritative(
+        db,
         household_id=household_id,
         schedule_id=schedule_id,
-        current_user=current_user,
+        actor_user_id=current_user.id,
         payload=payload,
-        event_type=PreparationScheduleEventType.APPROVED,
-        required_role=HouseholdRole.OWNER,
     )
 
 
