@@ -242,6 +242,7 @@ def test_postgres_schedule_cannot_complete_ahead_of_final_task_event(db):
     assert row is not None
     assert row.status == PreparationScheduleStatus.APPROVED.value
     assert row.version == race_version + 1
+    terminal_version = row.version
 
     task_events = (
         db.query(DBPreparationTaskExecutionEvent)
@@ -271,13 +272,13 @@ def test_postgres_schedule_cannot_complete_ahead_of_final_task_event(db):
         actor_user_id=OWNER_ID,
         event_type=PreparationScheduleEventType.COMPLETED,
         payload=transition_payload(
-            row.version,
+            terminal_version,
             "pg-schedule-completion-after-final-task",
             "Complete only after the final task event committed",
         ),
     )
     assert completed.status == PreparationScheduleStatus.COMPLETED
-    assert completed.version == row.version + 1
+    assert completed.version == terminal_version + 1
     assert (
         db.query(DBPreparationScheduleEvent)
         .filter(
