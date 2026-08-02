@@ -50,6 +50,17 @@ Owner-only proposal invalidation is implemented through an authenticated API, st
 
 Invalidation cannot accept, persist, approve, execute, complete, or mutate a source schedule. It permanently closes only a `proposed` review record.
 
+### C9 — Lowest-layer schedule completion authority
+
+**Lowest-layer task terminality** is implemented in the exported `transition_schedule` service.
+
+- Direct low-level `COMPLETED` calls require all deterministic tasks to be explicitly completed or skipped.
+- The public authority facade preserves the established operations implementation and existing error precedence.
+- The named completion service is a delegate, not a second proof/commit path.
+- Static validation forbids product code from importing the preserved implementation directly.
+- The complete historical operations test corpus is retained, with the obsolete implicit-completion case replaced by explicit terminality evidence.
+- A real PostgreSQL final-task-versus-schedule-completion race proves completion cannot commit ahead of the last task event.
+
 ## P0 — Observe and repair exact hosted verification
 
 1. Inspect exact latest `main` runs for SQLite, PostgreSQL, backend, frontend, OpenAPI, container, and focused repair workflows.
@@ -58,17 +69,6 @@ Invalidation cannot accept, persist, approve, execute, complete, or mutate a sou
 4. Repair every failure without deleting, skipping, xfail-ing, weakening, or narrowing requirements.
 5. Re-run failed jobs and verify the exact replacement run.
 6. Do not report green until the exact current commit and artifacts are observed.
-
-## P0 — Finish lowest-layer task terminality authority
-
-The product endpoint is guarded and static analysis blocks new product-level low-level completion calls. The historical generic transition service remains a compatibility boundary.
-
-1. Inventory every direct completion caller.
-2. Move task-terminal assertion into the lowest authoritative transition layer.
-3. Migrate all internal tests/callers through that layer.
-4. Remove or narrowly encapsulate compatibility behavior.
-5. Add direct-service, API, stale-version, duplicate-key, malformed-history, and PostgreSQL-race tests.
-6. Retain the non-claim that task events are user-entered evidence, not observed execution.
 
 ## P0 — Complete execution eligibility evidence
 
@@ -168,6 +168,7 @@ Clinical nutrition, medication decisions, allergy-safety guarantees, microbial/c
 - Proposal invalidation creates no schedule and permanently prevents later acceptance.
 - Repair-derived approval requires exact acceptance evidence and method-aware replay.
 - Replaced sources remain readable but cannot receive new execution events.
+- Every new schedule completion transition requires explicit terminal task evidence at the lowest exported authority.
 - Frontend preflight never replaces server authority.
 - No global-optimality or model-readiness claim from greedy/truncated search, catalog registration, importability, or synthetic tests.
 - No green-build claim until exact hosted workflows/artifacts are observed.
