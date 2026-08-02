@@ -26,6 +26,7 @@ CURRENT_REQUIRED_TABLES = REQUIRED_RUNTIME_TABLES | {
     "household_preparation_resources",
     "persisted_preparation_schedules",
     "preparation_schedule_events",
+    "preparation_task_execution_events",
     "household_plan_events",
 }
 
