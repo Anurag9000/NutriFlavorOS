@@ -31,9 +31,9 @@ def complete_schedule_with_execution_guard(
     """Complete only after every deterministic task is user-terminal.
 
     The household row/advisory lock remains held while the task terminality
-    proof and the existing optimistic schedule transition execute. Task events
-    can be written only for approved schedules and terminal tasks cannot accept
-    later events, so the proof cannot be invalidated inside this transaction.
+    proof and the existing optimistic schedule transition execute. The
+    authoritative transition service remains the only version/idempotency
+    arbiter, so exact retries still resolve to the original completion event.
     """
 
     _lock_household(db, household_id)
@@ -48,15 +48,6 @@ def complete_schedule_with_execution_guard(
     )
     if schedule is None:
         raise HTTPException(status_code=404, detail="Resource not found")
-    if schedule.version != payload.expected_version:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "code": "schedule_version_conflict",
-                "message": "Schedule version changed; reload before mutating it",
-                "current_version": schedule.version,
-            },
-        )
     assert_schedule_tasks_terminal(db, schedule=schedule)
     return transition_schedule(
         db,
