@@ -105,8 +105,8 @@ class PreparationRepairProposalView(StrictRepairModel):
     rejection_reason: Optional[str]
     current: bool
     stale_reasons: List[str]
-    accepted: Literal[False] = False
-    schedule_persistence_performed: Literal[False] = False
+    accepted: Literal[False]
+    schedule_persistence_performed: Literal[False]
     created_at: str
     updated_at: str
 
