@@ -15,16 +15,17 @@ from backend.domain.preparation_repair_proposals import (
     PreparationRepairProposalAcceptedDraftView,
     PreparationRepairProposalCreateRequest,
     PreparationRepairProposalEventView,
+    PreparationRepairProposalInvalidateRequest,
     PreparationRepairProposalRejectRequest,
     PreparationRepairProposalStatus,
     PreparationRepairProposalView,
 )
 from backend.services.household_access_service import require_household_access
-from backend.services.preparation_repair_proposal_acceptance_service import (
-    accept_repair_proposal,
-)
 from backend.services.preparation_repair_proposal_creation_service import (
     create_repair_proposal,
+)
+from backend.services.preparation_repair_proposal_invalidation_service import (
+    invalidate_repair_proposal,
 )
 from backend.services.preparation_repair_proposal_read_service import (
     get_repair_proposal,
@@ -32,6 +33,9 @@ from backend.services.preparation_repair_proposal_read_service import (
     list_repair_proposal_events,
     list_repair_proposals,
     reject_repair_proposal,
+)
+from backend.services.preparation_repair_source_acceptance_guard_service import (
+    accept_repair_proposal_with_source_guard,
 )
 from backend.utils.security import get_current_user
 
@@ -150,7 +154,7 @@ def accept_repair_proposal_route(
     current_user: DBUser = Depends(get_current_user),
 ):
     _access(db, household_id, current_user.id, HouseholdRole.EDITOR)
-    return accept_repair_proposal(
+    return accept_repair_proposal_with_source_guard(
         db,
         household_id=household_id,
         proposal_id=proposal_id,
@@ -172,6 +176,27 @@ def reject_repair_proposal_route(
 ):
     _access(db, household_id, current_user.id, HouseholdRole.EDITOR)
     return reject_repair_proposal(
+        db,
+        household_id=household_id,
+        proposal_id=proposal_id,
+        actor_user_id=current_user.id,
+        payload=payload,
+    )
+
+
+@router.post(
+    "/{proposal_id}/invalidate",
+    response_model=PreparationRepairProposalView,
+)
+def invalidate_repair_proposal_route(
+    household_id: str,
+    proposal_id: int,
+    payload: PreparationRepairProposalInvalidateRequest,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    _access(db, household_id, current_user.id, HouseholdRole.OWNER)
+    return invalidate_repair_proposal(
         db,
         household_id=household_id,
         proposal_id=proposal_id,
