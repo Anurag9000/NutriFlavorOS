@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit product code for unguarded preparation schedule completion calls."""
+"""Validate lowest-layer preparation schedule completion authority."""
 
 from __future__ import annotations
 
@@ -9,108 +9,135 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-LOW_LEVEL_MODULE = "backend.services.preparation_operations_service"
-GUARDED_MODULE = "backend.services.preparation_task_completion_service"
+PUBLIC_MODULE = "backend.services.preparation_operations_service"
+IMPLEMENTATION_MODULE = "backend.services.preparation_operations_service_impl"
+PUBLIC_FILE = ROOT / "backend/services/preparation_operations_service.py"
+IMPLEMENTATION_FILE = ROOT / "backend/services/preparation_operations_service_impl.py"
+COMPLETION_SERVICE = ROOT / "backend/services/preparation_task_completion_service.py"
 ROUTES = ROOT / "backend/api/preparation_operations_routes.py"
-COMPLETION_SERVICE = (
-    ROOT / "backend/services/preparation_task_completion_service.py"
-)
+DIRECT_TEST = ROOT / "backend/tests/test_preparation_operations_service.py"
+PRESERVED_TESTS = ROOT / "backend/tests/preparation_operations_service_cases.py"
 
 
-def _is_completed_expression(node: ast.AST) -> bool:
-    if isinstance(node, ast.Constant):
-        return node.value == "completed"
-    if isinstance(node, ast.Attribute):
-        return node.attr == "COMPLETED"
-    return False
-
-
-def _call_requests_completion(node: ast.Call) -> bool:
-    for keyword in node.keywords:
-        if keyword.arg in {"event_type", "to_status", "target_status"}:
-            if _is_completed_expression(keyword.value):
-                return True
-    return False
-
-
-def _scan_file(path: Path, errors: list[str]) -> None:
-    relative = path.relative_to(ROOT).as_posix()
+def _read(path: Path, errors: list[str]) -> str:
+    if not path.is_file():
+        errors.append(f"missing completion-authority file: {path.relative_to(ROOT)}")
+        return ""
     source = path.read_text(encoding="utf-8")
-    tree = ast.parse(source, filename=relative)
-    low_level_aliases: set[str] = set()
-    low_level_modules: set[str] = set()
+    if path.suffix == ".py":
+        ast.parse(source, filename=str(path.relative_to(ROOT)))
+    return source
 
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module == LOW_LEVEL_MODULE:
-            for alias in node.names:
-                if alias.name == "transition_schedule":
-                    low_level_aliases.add(alias.asname or alias.name)
-        elif isinstance(node, ast.Import):
-            for alias in node.names:
-                if alias.name == LOW_LEVEL_MODULE:
-                    low_level_modules.add(alias.asname or alias.name)
 
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call) or not _call_requests_completion(node):
-            continue
-        direct = isinstance(node.func, ast.Name) and node.func.id in low_level_aliases
-        qualified = (
-            isinstance(node.func, ast.Attribute)
-            and node.func.attr == "transition_schedule"
-            and isinstance(node.func.value, ast.Name)
-            and node.func.value.id in low_level_modules
-        )
-        if direct or qualified:
-            errors.append(
-                f"{relative}:{node.lineno} directly requests low-level schedule completion"
-            )
+def _scan_implementation_imports(errors: list[str]) -> int:
+    inspected = 0
+    allowed = {PUBLIC_FILE}
+    for base in [ROOT / "backend/api", ROOT / "backend/services"]:
+        for path in sorted(base.rglob("*.py")):
+            if path in allowed or path == IMPLEMENTATION_FILE:
+                continue
+            source = path.read_text(encoding="utf-8")
+            tree = ast.parse(source, filename=str(path.relative_to(ROOT)))
+            inspected += 1
+            for node in ast.walk(tree):
+                if (
+                    isinstance(node, ast.ImportFrom)
+                    and node.module == IMPLEMENTATION_MODULE
+                ):
+                    errors.append(
+                        f"{path.relative_to(ROOT)} imports compatibility implementation directly"
+                    )
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        if alias.name == IMPLEMENTATION_MODULE:
+                            errors.append(
+                                f"{path.relative_to(ROOT)} imports compatibility implementation directly"
+                            )
+    return inspected
 
 
 def validate_completion_authority() -> dict:
     errors: list[str] = []
-    inspected = 0
-    for base in [ROOT / "backend/api", ROOT / "backend/services"]:
-        for path in sorted(base.rglob("*.py")):
-            if path == COMPLETION_SERVICE:
-                continue
-            _scan_file(path, errors)
-            inspected += 1
+    public_source = _read(PUBLIC_FILE, errors)
+    implementation_source = _read(IMPLEMENTATION_FILE, errors)
+    completion_source = _read(COMPLETION_SERVICE, errors)
+    route_source = _read(ROUTES, errors)
+    direct_test_source = _read(DIRECT_TEST, errors)
+    preserved_test_source = _read(PRESERVED_TESTS, errors)
 
-    if not ROUTES.is_file():
-        errors.append("missing preparation operations routes")
-        route_source = ""
-    else:
-        route_source = ROUTES.read_text(encoding="utf-8")
-    for fragment in [
-        "complete_schedule_with_execution_guard",
-        '"/{schedule_id}/complete"',
-        "HouseholdRole.EDITOR",
-    ]:
-        if fragment not in route_source:
-            errors.append(f"completion route lacks guarded fragment: {fragment}")
+    required_public = {
+        "preparation_operations_service_impl as _impl",
+        "def _assert_completion_authority",
+        "event_type != PreparationScheduleEventType.COMPLETED",
+        "existing_event =",
+        "schedule.version != payload.expected_version",
+        "schedule.status != PreparationScheduleStatus.APPROVED.value",
+        "from backend.services.preparation_task_execution_service import",
+        "assert_schedule_tasks_terminal(db, schedule=schedule)",
+        "def transition_schedule",
+        "return _original_transition_schedule(",
+    }
+    for fragment in sorted(required_public):
+        if fragment not in public_source:
+            errors.append(f"public transition facade lacks authority fragment: {fragment}")
 
-    if not COMPLETION_SERVICE.is_file():
-        errors.append("missing task completion guard service")
-        service_source = ""
-    else:
-        service_source = COMPLETION_SERVICE.read_text(encoding="utf-8")
-        ast.parse(
-            service_source,
-            filename=str(COMPLETION_SERVICE.relative_to(ROOT)),
-        )
-    for fragment in [
-        "def complete_schedule_with_execution_guard",
-        "remaining_count",
-        "transition_schedule(",
+    for fragment in {
+        "def transition_schedule",
         "PreparationScheduleEventType.COMPLETED",
-    ]:
-        if fragment not in service_source:
-            errors.append(f"task completion service lacks guarded fragment: {fragment}")
+        "schedule.status = target.value",
+    }:
+        if fragment not in implementation_source:
+            errors.append(f"preserved transition implementation lacks: {fragment}")
+
+    required_wrapper = {
+        "def complete_schedule_with_execution_guard",
+        "return transition_schedule(",
+        "PreparationScheduleEventType.COMPLETED",
+        "lowest authoritative transition layer",
+    }
+    for fragment in sorted(required_wrapper):
+        if fragment not in completion_source:
+            errors.append(f"completion compatibility service lacks: {fragment}")
+    for forbidden in {
+        "assert_schedule_tasks_terminal",
+        "DBPersistedPreparationSchedule",
+        "_lock_household",
+        ".with_for_update()",
+    }:
+        if forbidden in completion_source:
+            errors.append(
+                f"completion compatibility service duplicates authority: {forbidden}"
+            )
+
+    for fragment in {
+        "complete_schedule_with_execution_guard",
+        '"/schedules/{schedule_id}/complete"',
+        "HouseholdRole.EDITOR",
+    }:
+        if fragment not in route_source:
+            errors.append(f"completion route lacks protected fragment: {fragment}")
+
+    required_test = {
+        "test_transitions_are_optimistic_idempotent_and_terminal",
+        "Direct low-level completion must fail closed",
+        'exc.value.detail["code"] == "schedule_tasks_not_terminal"',
+        "record_task_execution_event(",
+        "completion_retry = transition_schedule(",
+    }
+    for fragment in sorted(required_test):
+        if fragment not in direct_test_source:
+            errors.append(f"direct transition regression lacks: {fragment}")
+    if "test_transitions_are_optimistic_idempotent_and_terminal" not in preserved_test_source:
+        errors.append("preserved historical test corpus is incomplete")
+
+    inspected = _scan_implementation_imports(errors)
 
     return {
         "valid": not errors,
-        "low_level_module": LOW_LEVEL_MODULE,
-        "guarded_module": GUARDED_MODULE,
+        "public_module": PUBLIC_MODULE,
+        "implementation_module": IMPLEMENTATION_MODULE,
+        "authority": "transition_schedule",
+        "compatibility_entry_point": "complete_schedule_with_execution_guard",
         "inspected_product_file_count": inspected,
         "errors": errors,
     }
