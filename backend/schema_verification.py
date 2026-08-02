@@ -29,6 +29,7 @@ CURRENT_REQUIRED_TABLES = REQUIRED_RUNTIME_TABLES | {
     "preparation_task_execution_events",
     "preparation_repair_proposals",
     "preparation_repair_proposal_events",
+    "preparation_repair_proposal_acceptances",
     "household_plan_events",
 }
 
