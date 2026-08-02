@@ -16,7 +16,7 @@ from backend.services.preparation_operations_service import register_resource_ca
 from backend.services.preparation_repair_proposal_creation_service import (
     create_repair_proposal,
 )
-from backend.services.preparation_repair_proposal_service import (
+from backend.services.preparation_repair_proposal_read_service import (
     get_repair_proposal,
     list_repair_proposal_events,
     list_repair_proposals,
@@ -82,6 +82,8 @@ def test_proposal_is_server_recomputed_hash_addressed_and_non_accepted(db):
     assert proposal.stale_reasons == []
     assert proposal.accepted is False
     assert proposal.schedule_persistence_performed is False
+    assert proposal.accepted_schedule_id is None
+    assert proposal.accepted_schedule_hash is None
     assert proposal.repair_result.requires_human_acceptance is True
     assert proposal.repair_result.accepted is False
     assert proposal.repair_result.persistence_performed is False
