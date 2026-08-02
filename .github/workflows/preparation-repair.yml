@@ -45,6 +45,7 @@ jobs:
           backend/services/preparation_repair_proposal_creation_service.py
           backend/services/preparation_repair_proposal_read_service.py
           backend/services/preparation_repair_proposal_acceptance_service.py
+          backend/services/preparation_repair_approval_guard_service.py
           backend/services/preparation_schedule_replay_service.py
           backend/services/preparation_schedule_approval_service.py
           backend/migrations/versions/20260802_0015_preparation_repair_proposals.py
@@ -90,6 +91,7 @@ jobs:
           backend/tests/test_preparation_repair_proposal_api.py
           backend/tests/test_preparation_repair_proposal_execution_boundary.py
           backend/tests/test_preparation_repair_proposal_acceptance.py
+          backend/tests/test_preparation_repair_approval_guard.py
           backend/tests/test_openapi_contract_validator.py
       - name: Run benchmark and retain report
         run: python scripts/benchmark_preparation_repair.py --output reports/preparation-repair.json
