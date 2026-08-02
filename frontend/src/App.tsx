@@ -25,8 +25,14 @@ const PreparationOperations = lazy(() => import("./pages/PreparationOperations")
 const PreparationRepairReview = lazy(
   () => import("./pages/PreparationRepairReview"),
 );
+const PreparationRepairProposals = lazy(
+  () => import("./pages/PreparationRepairProposals"),
+);
 const PreparationTaskExecution = lazy(
   () => import("./pages/PreparationTaskExecution"),
+);
+const PreparationScheduleDerivation = lazy(
+  () => import("./pages/PreparationScheduleDerivation"),
 );
 const PreparationCalendarBuilder = lazy(
   () => import("./pages/PreparationCalendarBuilder"),
@@ -65,6 +71,14 @@ function ProfileRoute({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function ProtectedPage({ children }: { children: ReactNode }) {
+  return (
+    <ProtectedRoute>
+      <PageTransition>{children}</PageTransition>
+    </ProtectedRoute>
+  );
+}
+
 function AppRoutes() {
   const location = useLocation();
   return (
@@ -74,21 +88,37 @@ function AppRoutes() {
           <Route path="/" element={<PageTransition><Landing /></PageTransition>} />
           <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
           <Route path="/signup" element={<PageTransition><Signup /></PageTransition>} />
-          <Route path="/dashboard" element={<ProtectedRoute><PageTransition><Dashboard /></PageTransition></ProtectedRoute>} />
-          <Route path="/meals" element={<ProtectedRoute><ProfileRoute><PageTransition><MealPlanner /></PageTransition></ProfileRoute></ProtectedRoute>} />
-          <Route path="/household/plans" element={<ProtectedRoute><PageTransition><HouseholdPlanReview /></PageTransition></ProtectedRoute>} />
-          <Route path="/household/plans/occurrences" element={<ProtectedRoute><PageTransition><ApprovedPlanOccurrences /></PageTransition></ProtectedRoute>} />
-          <Route path="/analytics" element={<ProtectedRoute><ProfileRoute><PageTransition><Analytics /></PageTransition></ProfileRoute></ProtectedRoute>} />
-          <Route path="/household" element={<ProtectedRoute><PageTransition><Household /></PageTransition></ProtectedRoute>} />
-          <Route path="/preparation" element={<ProtectedRoute><PageTransition><Preparation /></PageTransition></ProtectedRoute>} />
-          <Route path="/preparation/pipeline" element={<ProtectedRoute><PageTransition><PreparationPipeline /></PageTransition></ProtectedRoute>} />
-          <Route path="/preparation/operations" element={<ProtectedRoute><PageTransition><PreparationOperations /></PageTransition></ProtectedRoute>} />
-          <Route path="/preparation/operations/repair" element={<ProtectedRoute><PageTransition><PreparationRepairReview /></PageTransition></ProtectedRoute>} />
-          <Route path="/preparation/operations/execution" element={<ProtectedRoute><PageTransition><PreparationTaskExecution /></PageTransition></ProtectedRoute>} />
-          <Route path="/preparation/operations/calendars/new" element={<ProtectedRoute><PageTransition><PreparationCalendarBuilder /></PageTransition></ProtectedRoute>} />
-          <Route path="/preparation/operations/coverage" element={<ProtectedRoute><PageTransition><PreparationOperationsCoverage /></PageTransition></ProtectedRoute>} />
-          <Route path="/research" element={<ProtectedRoute><PageTransition><Research /></PageTransition></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><PageTransition><SettingsPage /></PageTransition></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
+          <Route
+            path="/meals"
+            element={
+              <ProtectedRoute>
+                <ProfileRoute><PageTransition><MealPlanner /></PageTransition></ProfileRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/household/plans" element={<ProtectedPage><HouseholdPlanReview /></ProtectedPage>} />
+          <Route path="/household/plans/occurrences" element={<ProtectedPage><ApprovedPlanOccurrences /></ProtectedPage>} />
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute>
+                <ProfileRoute><PageTransition><Analytics /></PageTransition></ProfileRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/household" element={<ProtectedPage><Household /></ProtectedPage>} />
+          <Route path="/preparation" element={<ProtectedPage><Preparation /></ProtectedPage>} />
+          <Route path="/preparation/pipeline" element={<ProtectedPage><PreparationPipeline /></ProtectedPage>} />
+          <Route path="/preparation/operations" element={<ProtectedPage><PreparationOperations /></ProtectedPage>} />
+          <Route path="/preparation/operations/repair" element={<ProtectedPage><PreparationRepairReview /></ProtectedPage>} />
+          <Route path="/preparation/operations/repair-proposals" element={<ProtectedPage><PreparationRepairProposals /></ProtectedPage>} />
+          <Route path="/preparation/operations/execution" element={<ProtectedPage><PreparationTaskExecution /></ProtectedPage>} />
+          <Route path="/preparation/operations/derivation" element={<ProtectedPage><PreparationScheduleDerivation /></ProtectedPage>} />
+          <Route path="/preparation/operations/calendars/new" element={<ProtectedPage><PreparationCalendarBuilder /></ProtectedPage>} />
+          <Route path="/preparation/operations/coverage" element={<ProtectedPage><PreparationOperationsCoverage /></ProtectedPage>} />
+          <Route path="/research" element={<ProtectedPage><Research /></ProtectedPage>} />
+          <Route path="/settings" element={<ProtectedPage><SettingsPage /></ProtectedPage>} />
           <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
         </Routes>
       </AnimatePresence>
