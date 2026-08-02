@@ -14,6 +14,9 @@ const Signup = lazy(() => import("./pages/Signup"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const MealPlanner = lazy(() => import("./pages/MealPlanner"));
 const HouseholdPlanReview = lazy(() => import("./pages/HouseholdPlanReview"));
+const ApprovedPlanOccurrences = lazy(
+  () => import("./pages/ApprovedPlanOccurrences"),
+);
 const Analytics = lazy(() => import("./pages/Analytics"));
 const Household = lazy(() => import("./pages/Household"));
 const Preparation = lazy(() => import("./pages/Preparation"));
@@ -68,6 +71,7 @@ function AppRoutes() {
           <Route path="/dashboard" element={<ProtectedRoute><PageTransition><Dashboard /></PageTransition></ProtectedRoute>} />
           <Route path="/meals" element={<ProtectedRoute><ProfileRoute><PageTransition><MealPlanner /></PageTransition></ProfileRoute></ProtectedRoute>} />
           <Route path="/household/plans" element={<ProtectedRoute><PageTransition><HouseholdPlanReview /></PageTransition></ProtectedRoute>} />
+          <Route path="/household/plans/occurrences" element={<ProtectedRoute><PageTransition><ApprovedPlanOccurrences /></PageTransition></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute><ProfileRoute><PageTransition><Analytics /></PageTransition></ProfileRoute></ProtectedRoute>} />
           <Route path="/household" element={<ProtectedRoute><PageTransition><Household /></PageTransition></ProtectedRoute>} />
           <Route path="/preparation" element={<ProtectedRoute><PageTransition><Preparation /></PageTransition></ProtectedRoute>} />
