@@ -60,8 +60,26 @@ def _acceptance_record(
 
 
 def _acceptance_view(
+    db: Session,
     value: DBPreparationRepairProposalAcceptance,
 ) -> PreparationRepairProposalAcceptanceView:
+    schedule = db.get(DBPersistedPreparationSchedule, value.created_schedule_id)
+    if schedule is None or schedule.household_id != value.household_id:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "repair_acceptance_schedule_missing",
+                "message": "Accepted repair evidence references a missing draft",
+            },
+        )
+    if schedule.source_repair_proposal_id != value.proposal_id:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "repair_acceptance_schedule_link_mismatch",
+                "message": "Accepted draft does not link back to its proposal",
+            },
+        )
     return PreparationRepairProposalAcceptanceView(
         id=value.id,
         household_id=value.household_id,
@@ -73,6 +91,7 @@ def _acceptance_view(
         created_schedule_id=value.created_schedule_id,
         created_schedule_version=value.created_schedule_version,
         created_schedule_status="draft",
+        created_schedule_hash=schedule.schedule_hash,
         derivation_method=value.derivation_method,
         source_schedule_hash=value.source_schedule_hash,
         source_schedule_request_hash=value.source_schedule_request_hash,
@@ -168,6 +187,7 @@ def _proposal_view(
                 "message": "Non-accepted proposal has contradictory acceptance evidence",
             },
         )
+    acceptance_view = _acceptance_view(db, acceptance) if acceptance else None
     return PreparationRepairProposalView(
         id=proposal.id,
         household_id=proposal.household_id,
@@ -198,7 +218,12 @@ def _proposal_view(
         stale_reasons=stale,
         accepted=is_accepted,
         schedule_persistence_performed=is_accepted,
-        accepted_schedule_id=(acceptance.created_schedule_id if acceptance else None),
+        accepted_schedule_id=(
+            acceptance_view.created_schedule_id if acceptance_view else None
+        ),
+        accepted_schedule_hash=(
+            acceptance_view.created_schedule_hash if acceptance_view else None
+        ),
         accepted_by_user_id=(acceptance.actor_user_id if acceptance else None),
         accepted_at=(acceptance.created_at.isoformat() if acceptance else None),
         acceptance_reason=(acceptance.reason if acceptance else None),
@@ -274,7 +299,7 @@ def get_repair_proposal_acceptance(
     )
     if acceptance is None:
         raise HTTPException(status_code=404, detail="Resource not found")
-    return _acceptance_view(acceptance)
+    return _acceptance_view(db, acceptance)
 
 
 def list_repair_proposal_events(
