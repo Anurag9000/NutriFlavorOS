@@ -2,12 +2,13 @@
 
 ## Core rules
 
-Two independent rules protect execution history.
+Three independent rules protect execution history.
 
 1. A preparation schedule with any append-only task-execution event is not a valid source for the current ordinary minimal-change repair proposal lifecycle.
 2. Once a source schedule version has an accepted repair replacement, that source remains readable historical evidence but cannot receive any new task-execution event or schedule-completion action.
+3. Every new schedule `completed` transition, including a direct low-level service call, must prove that all deterministic tasks are explicitly completed or skipped.
 
-Schedule lifecycle status alone is therefore insufficient to determine repairability or executability.
+Schedule lifecycle status alone is therefore insufficient to determine repairability, executability, or completion eligibility.
 
 ## Repair creation after execution history
 
@@ -47,12 +48,7 @@ A forbidden source mutation fails with HTTP `409` and code:
 
 `source_schedule_has_accepted_replacement`
 
-The structured conflict includes:
-
-- accepted proposal ID;
-- immutable acceptance ID;
-- replacement schedule ID;
-- replacement status and version where applicable.
+The structured conflict includes accepted proposal ID, immutable acceptance ID, replacement schedule ID, and replacement status/version where applicable.
 
 The task-execution mutation route uses a household-locked replacement guard. Client behavior cannot weaken this server authority.
 
@@ -71,6 +67,40 @@ It reports exactly one reason partition:
 The protected task-execution workspace reads this evidence before enabling controls. While eligibility is loading, controls remain disabled. A blocked source displays proposal, acceptance, replacement schedule, replacement status/version, and source event count. It can link or switch to the replacement, but it cannot submit a source mutation.
 
 The mutation function independently reasserts eligibility immediately before submission. This frontend check improves clarity; the backend guard remains authoritative against stale tabs, direct API clients, retries, and races.
+
+## Lowest-layer schedule completion authority
+
+The exported `backend.services.preparation_operations_service.transition_schedule` is the lowest authoritative lifecycle transition. A `COMPLETED` request cannot bypass task terminality by calling that service directly.
+
+The public service is an authority facade over a preserved implementation module. It retains established calendar/schedule behavior while adding completion proof before delegation:
+
+1. acquire the household transaction/advisory lock;
+2. preserve exact event-idempotency retry and contradictory-key handling;
+3. preserve missing-resource, optimistic-version, and invalid-lifecycle error precedence;
+4. for a valid new `approved -> completed` request, lock the schedule;
+5. reconstruct deterministic tasks and append-only execution history;
+6. reject with `schedule_tasks_not_terminal` and sorted remaining task IDs unless every task is `completed` or `skipped`;
+7. delegate lifecycle mutation, event append, commit, and exact retry semantics to the preserved implementation.
+
+`complete_schedule_with_execution_guard` remains as a compatibility-named entry point, but it contains no independent lock, query, terminality proof, or commit path. It delegates directly to the authoritative transition.
+
+Only the public facade may import the preserved implementation module. Static repository validation rejects any product module that imports the compatibility implementation directly.
+
+## Final-task concurrency boundary
+
+Task execution events and schedule lifecycle completion use the same household transaction/advisory lock and schedule optimistic version.
+
+A real PostgreSQL probe races:
+
+- the final in-progress task’s `completed` event; and
+- schedule completion using the same pre-event schedule version.
+
+The schedule completion cannot win ahead of the task event. It must fail with either:
+
+- `schedule_tasks_not_terminal` when it obtains the lock first; or
+- `schedule_version_conflict` when the final task event commits first.
+
+After the final task event commits, a fresh completion request using the new schedule version succeeds and appends exactly one schedule `completed` event.
 
 ## Why automatic immutable-task conversion is prohibited
 
@@ -103,12 +133,6 @@ A future engine must:
 11. keep owner approval, future task execution, and completion separate;
 12. add PostgreSQL races for execution onset during computation, proposal creation, acceptance, approval, and replacement selection.
 
-## Completion authority
-
-The normal product completion endpoint requires every deterministic task to be explicitly completed or skipped. Static repository analysis rejects new product code that directly requests low-level schedule completion outside the task-terminality guard.
-
-A historical generic transition service retains compatibility behavior and remains scheduled for migration into the lowest authoritative terminality layer. It must not be used as a product bypass.
-
 ## Verification
 
 Configured verification includes:
@@ -118,9 +142,12 @@ Configured verification includes:
 - acceptance race: either source execution wins or accepted-draft creation wins, never both;
 - replacement guard: accepted source mutations fail with `source_schedule_has_accepted_replacement`;
 - replacement success: separately approved replacement task execution remains available;
+- direct low-level completion rejection before task terminality;
+- explicit task events followed by successful direct completion and exact retry;
+- real PostgreSQL final-task-versus-schedule-completion serialization;
 - eligibility service/API tests for approved, draft, replaced-source, and approved-replacement states;
 - frontend tests proving controls are disabled and exact replacement identities are displayed;
-- static authority scans for proposal, execution, eligibility, and completion paths;
+- static authority scans that require the facade, forbid implementation bypass, and prohibit duplicate wrapper authority;
 - fresh SQLite and PostgreSQL workflow configuration with retained machine-readable evidence.
 
 Configured tests and workflows are not represented as executed green evidence until the exact current hosted run and artifacts are observed.
