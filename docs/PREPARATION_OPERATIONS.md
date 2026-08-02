@@ -14,9 +14,9 @@ NutriFlavorOS persists preparation calendars, deterministic schedules, and expli
 Current boundary:
 
 - migration head `20260802_0014`;
-- API `0.12.0`;
-- OpenAPI contract `2026-08-02.5`;
-- preparation bindings `2026-08-02.3`;
+- API `0.12.1`;
+- OpenAPI contract `2026-08-02.6`;
+- preparation bindings `2026-08-02.4`;
 - household-plan bindings `2026-08-02.4`.
 
 ## Reviewed resource calendars
@@ -68,10 +68,7 @@ A source-linked preparation schedule may be created only when:
 
 A new plan is initially `draft`. Owner approval increments its version and records actor/time and an append-only plan event. The schedule retains the approved version, not the original draft version.
 
-Rejection codes include:
-
-- `source_plan_not_approved`;
-- `source_plan_version_mismatch`.
+Rejection codes include `source_plan_not_approved` and `source_plan_version_mismatch`.
 
 If plan cancellation races schedule creation, household serialization and the internal version recheck guarantee one of two outcomes:
 
@@ -211,9 +208,9 @@ Completed and skipped are terminal. Completion requires a prior explicit start e
 
 ### Dependency chronology
 
-A task cannot start until every deterministic dependency is explicitly completed or skipped. The server derives dependency IDs from the persisted schedule and returns `task_dependencies_not_terminal` with the blocking IDs when chronology is violated.
+A task cannot start until every deterministic dependency is explicitly completed or skipped. The server derives dependency IDs from the persisted schedule and returns `task_dependencies_not_terminal` with blocking IDs when chronology is violated.
 
-A skipped prerequisite is treated as terminal evidence, not as proof that its dependent work remains semantically valid. The household remains responsible for deciding whether proceeding is appropriate; future minimal-change repair must model this explicitly.
+A skipped prerequisite is treated as terminal evidence, not as proof that dependent work remains semantically valid. The household remains responsible for deciding whether proceeding is appropriate; future minimal-change repair must model this explicitly.
 
 ### Actual minutes and deviation evidence
 
@@ -221,29 +218,23 @@ Every event carries a horizon-relative `actual_minute`.
 
 - Start deviation = actual start minute − planned start minute.
 - Completion deviation = actual completion minute − planned finish minute.
-- Skip deviation is stored as zero because a skip is a categorical terminal decision rather than a timing observation.
+- Skip deviation is zero because a skip is a categorical terminal decision rather than a timing observation.
 
-A nonblank reason is mandatory for:
-
-- every skip;
-- any nonzero start deviation;
-- any nonzero completion deviation.
-
-Optional notes and metadata are retained as human-entered operational context.
+A nonblank reason is mandatory for every skip and every nonzero start or completion deviation. Optional notes and metadata retain human-entered operational context.
 
 ### Optimistic versions and idempotency
 
 Every task event:
 
 - requires the current schedule optimistic version;
-- increments that schedule version by exactly one;
-- stores schedule version before and after;
+- increments that version by exactly one;
+- stores versions before and after;
 - uses a schedule-scoped idempotency key and canonical request fingerprint;
 - returns the existing event for an exact retry;
 - rejects contradictory key reuse;
 - serializes through the same household operation lock used by schedule mutations.
 
-The task event does not change schedule status. Schedule status remains `approved` until guarded completion, cancellation, or invalidation.
+A task event does not change schedule status. Status remains `approved` until guarded completion, cancellation, or invalidation.
 
 ### API
 
@@ -261,16 +252,7 @@ Each mutation returns the updated schedule version, current task state, and appe
 
 ### Frontend
 
-The protected `/preparation/operations/execution` workspace provides:
-
-- household and approved/completed schedule selection;
-- explicit progress counts;
-- accessible task cards and state badges;
-- actual-minute, reason, and notes inputs;
-- start, completion, and skip confirmations;
-- viewer read-only behavior;
-- final schedule completion only when all tasks are terminal;
-- append-only actor, transition, deviation, reason, note, and version history.
+The protected `/preparation/operations/execution` workspace provides household/schedule selection, progress, accessible task cards, actual-minute/reason/notes inputs, start/completion/skip confirmations, viewer read-only behavior, guarded final completion, and append-only actor/transition/deviation/version history.
 
 Nothing is recorded on page load. No local timer, reminder, or UI state implies task execution.
 
@@ -280,7 +262,7 @@ Schedule events retain actor, from/to state, reason, metadata, idempotency, fing
 
 Household plan events retain equivalent transition provenance for approval and cancellation. Schedule invalidations caused by plan cancellation include source-plan ID/version and cancellation reason.
 
-Task execution events are separate from schedule lifecycle events so task-level evidence cannot be mistaken for a schedule status transition.
+Task execution events remain separate from schedule lifecycle events so task evidence cannot be mistaken for a schedule status transition.
 
 ## Legacy schedules
 
@@ -292,15 +274,61 @@ Replay state is explicit:
 
 Legacy rows remain readable but cannot be approved. An exact creation retry may backfill missing replay/occurrence payloads only when stored identity and hashes match.
 
-Task execution additionally requires a complete persisted deterministic response with at least one scheduled task and no unresolved tasks.
+Task execution additionally requires a complete deterministic response with at least one scheduled task and no unresolved tasks.
 
-## Provenance coverage
+## Provenance and execution coverage
 
-`GET /api/v1/households/{household_id}/preparation-operations/coverage` reports exact household denominators for calendars, schedule states, replay states, occurrence documents, scheduler requests, complete replay provenance, source-plan linkage, and append-only schedule events.
+`GET /api/v1/households/{household_id}/preparation-operations/coverage` returns two deliberately separate metric families.
 
-Task-execution coverage denominators are not yet included in this endpoint. They should be added as a separate explicit numerator/denominator set rather than folded into a misleading general completeness score.
+### Operational provenance
 
-Coverage proves record presence, not correctness, freshness, execution, nutrition quality, appliance condition, or food safety.
+- total, reviewed, and active reviewed calendars;
+- schedule totals and complete lifecycle state map;
+- replay-state counts;
+- occurrence-document, scheduler-request, and replayable-schedule numerators and ratios;
+- replayable drafts;
+- exact source-plan linkage;
+- append-only schedule event total;
+- latest calendar and schedule timestamps.
+
+### Task execution evidence
+
+Execution scope includes schedules currently `approved` or `completed`, plus historical schedules that retain task events after later cancellation or invalidation.
+
+The endpoint reports:
+
+- execution-scope schedule count;
+- currently approved execution schedule count;
+- schedules with at least one task event;
+- structurally invalid schedule/event-history count;
+- deterministic task count;
+- planned, in-progress, completed, and skipped state counts;
+- terminal task count;
+- fully terminal schedule count;
+- task-event total;
+- nonzero-deviation event count;
+- skipped-event count and skipped events with nonblank reasons;
+- execution-scope schedule-history ratio;
+- deterministic task-terminality ratio;
+- latest task-event timestamp.
+
+The service parses deterministic schedule responses and replays task events structurally in order. Schedules with unresolved work, no tasks, duplicate task IDs, unknown dependencies, unknown event tasks, inconsistent from-state history, or invalid event targets are excluded from task-state denominators and counted as invalid. This prevents malformed history from inflating apparent completion.
+
+Warnings expose missing active calendars, legacy provenance gaps, missing source-plan linkage, absent task history, invalid execution histories, orphaned events, or skipped events lacking reasons.
+
+### Interpretation boundary
+
+Coverage reports record presence, structural consistency, and user-entered claims. It does not prove:
+
+- that cooking occurred;
+- that timing entries are accurate;
+- task performance or quality;
+- nutritional correctness;
+- appliance condition;
+- temperature or contamination state;
+- food safety.
+
+The frontend presents provenance and execution sections independently and never combines them into one misleading score.
 
 ## Concurrency evidence
 
@@ -322,9 +350,9 @@ Task and schedule mutations share household serialization and exact optimistic-v
 - `/household/plans` — exact plan review, approval, cancellation, and events;
 - `/household/plans/occurrences` — explicit approved-plan occurrence confirmation;
 - `/preparation/operations` — calendars, schedules, hashes, replay state, transitions, and schedule events;
-- `/preparation/operations/execution` — explicit task execution and guarded schedule completion;
+- `/preparation/operations/execution` — explicit task execution and guarded completion;
 - `/preparation/operations/calendars/new` — structured reviewed calendar builder;
-- `/preparation/operations/coverage` — provenance denominators and warnings.
+- `/preparation/operations/coverage` — separate provenance and execution denominators.
 
 `preparation-operations-handoff-v2` transfers occurrence, profile, optional plan, resource, request, and deterministic response data without automatic persistence or approval.
 
@@ -335,6 +363,6 @@ Task and schedule mutations share household serialization and exact optimistic-v
 - Execution events are user-entered claims; the system does not observe execution.
 - Temperature, contamination, equipment condition, and safe food state are not verified.
 - Plan/calendar changes invalidate dependent work but do not create or approve replacements.
-- Structured final persistence review, timers/reminders, task-execution coverage denominators, minimal-change repair, and joint optimization remain incomplete.
+- Structured final persistence review, timers/reminders, minimal-change repair, and joint optimization remain incomplete.
 - Presence sensors, appliance integrations, autonomous procurement, and control remain disabled pending separate validation and governance.
 - Hosted workflow runs must be inspected before the current `main` commit is described as green.
