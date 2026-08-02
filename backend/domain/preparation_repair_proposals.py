@@ -174,6 +174,7 @@ class PreparationRepairProposalView(StrictRepairModel):
     accepted: bool
     schedule_persistence_performed: bool
     accepted_schedule_id: Optional[int]
+    accepted_schedule_hash: Optional[str]
     accepted_by_user_id: Optional[str]
     accepted_at: Optional[str]
     acceptance_reason: Optional[str]
@@ -184,6 +185,7 @@ class PreparationRepairProposalView(StrictRepairModel):
     def validate_acceptance_state(self):
         accepted_fields = [
             self.accepted_schedule_id,
+            self.accepted_schedule_hash,
             self.accepted_by_user_id,
             self.accepted_at,
             self.acceptance_reason,
@@ -229,6 +231,11 @@ class PreparationRepairProposalAcceptanceView(StrictRepairModel):
     created_schedule_id: int
     created_schedule_version: Literal[1]
     created_schedule_status: Literal["draft"]
+    created_schedule_hash: str = Field(
+        min_length=64,
+        max_length=64,
+        pattern=r"^[a-f0-9]{64}$",
+    )
     derivation_method: Literal[
         "deterministic_minimal_change_preparation_repair_v1"
     ] = REPAIR_SCHEDULER_METHOD
