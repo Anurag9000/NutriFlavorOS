@@ -279,8 +279,12 @@ describe("Advisory preparation repair review", () => {
         name: "Previous and repaired preparation task placements",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("rowheader", { name: "task.a" })).toBeInTheDocument();
-    expect(screen.getByRole("rowheader", { name: "task.b" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("rowheader", { name: /task\.a/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("rowheader", { name: /task\.b/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText("+10 min")).toBeInTheDocument();
   });
 
