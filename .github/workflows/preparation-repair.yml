@@ -107,7 +107,7 @@ jobs:
         run: python scripts/validate_preparation_repair_proposal_contract.py
       - name: Validate owner proposal invalidation
         run: python scripts/validate_preparation_repair_proposal_invalidation.py
-      - name: Validate proposal invalidation client
+      - name: Validate proposal invalidation administration
         run: python scripts/validate_preparation_repair_proposal_invalidation_frontend.py
       - name: Validate method-aware replay contract
         run: python scripts/validate_preparation_schedule_replay_contract.py
@@ -171,13 +171,14 @@ jobs:
       - name: Type-check repair and execution frontend
         working-directory: frontend
         run: npm run typecheck
-      - name: Run repair, derivation, and eligibility frontend tests
+      - name: Run repair, derivation, invalidation, and eligibility frontend tests
         working-directory: frontend
         run: >-
           npm test --
           src/pages/PreparationRepairReview.test.tsx
           src/lib/preparationRepairProposalApi.test.ts
           src/pages/PreparationRepairProposals.test.tsx
+          src/pages/PreparationRepairProposalInvalidation.test.tsx
           src/lib/preparationScheduleDerivationApi.test.ts
           src/pages/PreparationScheduleDerivation.test.tsx
           src/lib/preparationTaskExecutionEligibilityApi.test.ts
