@@ -22,6 +22,12 @@ from backend.domain.preparation_operations_coverage import (
     PreparationOperationsCoverageView,
 )
 from backend.domain.preparation_operations_runtime import PersistedScheduleCreateRequest
+from backend.domain.preparation_task_execution import (
+    PreparationTaskExecutionEventCreate,
+    PreparationTaskExecutionEventType,
+    PreparationTaskExecutionMutationView,
+    PreparationTaskExecutionOverview,
+)
 from backend.services.household_access_service import require_household_access
 from backend.services.household_plan_lifecycle_service import (
     assert_approved_source_plan,
@@ -38,6 +44,13 @@ from backend.services.preparation_operations_service import (
     list_schedule_events,
     register_resource_calendar,
     transition_schedule,
+)
+from backend.services.preparation_task_completion_service import (
+    complete_schedule_with_execution_guard,
+)
+from backend.services.preparation_task_execution_service import (
+    get_task_execution_overview,
+    record_task_execution_event,
 )
 from backend.utils.security import get_current_user
 
@@ -195,6 +208,115 @@ def get_persisted_schedule_route(
     )
 
 
+@router.get(
+    "/schedules/{schedule_id}/task-execution",
+    response_model=PreparationTaskExecutionOverview,
+)
+def get_task_execution_overview_route(
+    household_id: str,
+    schedule_id: int,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    _access(db, household_id, current_user.id, HouseholdRole.VIEWER)
+    return get_task_execution_overview(
+        db,
+        household_id=household_id,
+        schedule_id=schedule_id,
+    )
+
+
+def _task_event(
+    *,
+    db: Session,
+    household_id: str,
+    schedule_id: int,
+    task_id: str,
+    current_user: DBUser,
+    payload: PreparationTaskExecutionEventCreate,
+    event_type: PreparationTaskExecutionEventType,
+):
+    _access(db, household_id, current_user.id, HouseholdRole.EDITOR)
+    return record_task_execution_event(
+        db,
+        household_id=household_id,
+        schedule_id=schedule_id,
+        task_id=task_id,
+        actor_user_id=current_user.id,
+        event_type=event_type,
+        payload=payload,
+    )
+
+
+@router.post(
+    "/schedules/{schedule_id}/tasks/{task_id}/start",
+    response_model=PreparationTaskExecutionMutationView,
+)
+def start_task_route(
+    household_id: str,
+    schedule_id: int,
+    task_id: str,
+    payload: PreparationTaskExecutionEventCreate,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    return _task_event(
+        db=db,
+        household_id=household_id,
+        schedule_id=schedule_id,
+        task_id=task_id,
+        current_user=current_user,
+        payload=payload,
+        event_type=PreparationTaskExecutionEventType.STARTED,
+    )
+
+
+@router.post(
+    "/schedules/{schedule_id}/tasks/{task_id}/complete",
+    response_model=PreparationTaskExecutionMutationView,
+)
+def complete_task_route(
+    household_id: str,
+    schedule_id: int,
+    task_id: str,
+    payload: PreparationTaskExecutionEventCreate,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    return _task_event(
+        db=db,
+        household_id=household_id,
+        schedule_id=schedule_id,
+        task_id=task_id,
+        current_user=current_user,
+        payload=payload,
+        event_type=PreparationTaskExecutionEventType.COMPLETED,
+    )
+
+
+@router.post(
+    "/schedules/{schedule_id}/tasks/{task_id}/skip",
+    response_model=PreparationTaskExecutionMutationView,
+)
+def skip_task_route(
+    household_id: str,
+    schedule_id: int,
+    task_id: str,
+    payload: PreparationTaskExecutionEventCreate,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    return _task_event(
+        db=db,
+        household_id=household_id,
+        schedule_id=schedule_id,
+        task_id=task_id,
+        current_user=current_user,
+        payload=payload,
+        event_type=PreparationTaskExecutionEventType.SKIPPED,
+    )
+
+
 def _transition(
     *,
     db: Session,
@@ -249,14 +371,13 @@ def complete_schedule_route(
     db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_user),
 ):
-    return _transition(
-        db=db,
+    _access(db, household_id, current_user.id, HouseholdRole.EDITOR)
+    return complete_schedule_with_execution_guard(
+        db,
         household_id=household_id,
         schedule_id=schedule_id,
-        current_user=current_user,
+        actor_user_id=current_user.id,
         payload=payload,
-        event_type=PreparationScheduleEventType.COMPLETED,
-        required_role=HouseholdRole.EDITOR,
     )
 
 
