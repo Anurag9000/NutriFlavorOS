@@ -29,6 +29,7 @@ class DBPreparationRepairProposal(Base):
         UniqueConstraint(
             "source_schedule_id",
             "source_schedule_version",
+            "target_calendar_version_id",
             "revised_request_hash",
             "repaired_response_hash",
             name="uq_preparation_repair_proposal_semantic_identity",
