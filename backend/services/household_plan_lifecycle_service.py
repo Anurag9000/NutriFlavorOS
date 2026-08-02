@@ -26,8 +26,16 @@ from backend.domain.household_plan_lifecycle import (
     HouseholdPlanTransitionRequest,
     PersistedHouseholdPlanView,
 )
+from backend.domain.preparation_operations import (
+    PreparationScheduleEventType,
+    PreparationScheduleStatus,
+)
 from backend.meal_plan_lifecycle_models import DBHouseholdPlanEvent
 from backend.models import PlanResponse
+from backend.preparation_operations_models import (
+    DBPersistedPreparationSchedule,
+    DBPreparationScheduleEvent,
+)
 
 
 def utcnow() -> datetime:
@@ -256,6 +264,79 @@ def _release_active_reservations(
     return len(rows)
 
 
+def _invalidate_dependent_schedules(
+    db: Session,
+    *,
+    household_id: str,
+    plan_id: int,
+    plan_version: int,
+    actor_user_id: str,
+    reason: str,
+    now: datetime,
+) -> int:
+    schedules = (
+        db.query(DBPersistedPreparationSchedule)
+        .filter(
+            DBPersistedPreparationSchedule.household_id == household_id,
+            DBPersistedPreparationSchedule.source_plan_id == plan_id,
+            DBPersistedPreparationSchedule.status.in_(
+                [
+                    PreparationScheduleStatus.DRAFT.value,
+                    PreparationScheduleStatus.APPROVED.value,
+                ]
+            ),
+        )
+        .order_by(DBPersistedPreparationSchedule.id)
+        .with_for_update()
+        .all()
+    )
+    for schedule in schedules:
+        previous = schedule.status
+        schedule.status = PreparationScheduleStatus.INVALIDATED.value
+        schedule.version += 1
+        schedule.invalidated_at = now
+        schedule.invalidation_reason = (
+            f"Source household plan {plan_id} cancelled at version {plan_version}: "
+            f"{reason}"
+        )
+        schedule.updated_at = now
+        db.add(schedule)
+        event_key = (
+            f"source-plan-cancel:{plan_id}:version:{plan_version}:"
+            f"schedule:{schedule.id}"
+        )
+        fingerprint = _canonical_hash(
+            {
+                "schedule_id": schedule.id,
+                "source_plan_id": plan_id,
+                "source_plan_version": plan_version,
+                "actor_user_id": actor_user_id,
+                "from_status": previous,
+                "reason": reason,
+            }
+        )
+        db.add(
+            DBPreparationScheduleEvent(
+                schedule_id=schedule.id,
+                household_id=household_id,
+                event_type=PreparationScheduleEventType.INVALIDATED.value,
+                actor_user_id=actor_user_id,
+                from_status=previous,
+                to_status=PreparationScheduleStatus.INVALIDATED.value,
+                reason=schedule.invalidation_reason,
+                event_metadata={
+                    "source_plan_id": plan_id,
+                    "source_plan_version": plan_version,
+                    "source_plan_event": "cancelled",
+                },
+                idempotency_key=event_key,
+                request_fingerprint=fingerprint,
+                created_at=now,
+            )
+        )
+    return len(schedules)
+
+
 def transition_household_plan(
     db: Session,
     *,
@@ -356,13 +437,24 @@ def transition_household_plan(
         plan.status = next_status.value
         plan.cancelled_at = now
         plan.cancellation_reason = payload.reason
+        next_version = plan.version + 1
         released = _release_active_reservations(
             db,
             household_id=household_id,
             plan_id=plan_id,
             now=now,
         )
+        invalidated = _invalidate_dependent_schedules(
+            db,
+            household_id=household_id,
+            plan_id=plan_id,
+            plan_version=next_version,
+            actor_user_id=actor_user_id,
+            reason=payload.reason,
+            now=now,
+        )
         metadata["released_reservation_count"] = released
+        metadata["invalidated_preparation_schedule_count"] = invalidated
     else:  # pragma: no cover - enum exhaustiveness guard
         raise HTTPException(status_code=422, detail="Unsupported plan transition")
 
