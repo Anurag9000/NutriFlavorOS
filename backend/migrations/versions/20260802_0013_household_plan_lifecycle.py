@@ -111,7 +111,7 @@ def upgrade() -> None:
             sa.ForeignKey("users.id", ondelete="RESTRICT"),
             nullable=False,
         ),
-        sa.Column("from_status", sa.String(length=32), nullable=True),
+        sa.Column("from_status", sa.String(length=32), nullable=False),
         sa.Column("to_status", sa.String(length=32), nullable=False),
         sa.Column("reason", sa.String(length=1000), nullable=False),
         sa.Column("event_metadata", sa.JSON(), nullable=False),
