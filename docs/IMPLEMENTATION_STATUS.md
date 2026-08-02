@@ -1,6 +1,6 @@
 # NutriFlavorOS Implementation Status
 
-**Status date:** 2026-08-02  
+**Status date:** 2026-08-03  
 **Development policy:** coherent direct commits to `main`; no feature pull requests or development branches; no history rewriting.  
 **Database migration head:** `20260802_0018`  
 **API version:** `0.15.2`  
@@ -37,11 +37,13 @@ Verified email, password reset, MFA, refresh-token rotation/revocation, authenti
 - Fresh SQLite/PostgreSQL migration workflows.
 - API/OpenAPI/repository release-identity validation.
 - Migration `0018` duplicate-data preflight and source-version acceptance uniqueness.
+- Populated PostgreSQL `0017 → 0018` rehearsal with 64 valid accepted lifecycles created through production services, exact identity/hash preservation, PostgreSQL catalog verification, and a lower-level bypass rollback probe.
+- Sanitized operational-database response boundary for transaction aborts and ambiguous connection failures.
 - Immutable hashes, optimistic versions, append-only events, full request fingerprints, and idempotency constraints.
 
 ### Remaining
 
-Observe the exact current hosted workflow runs/artifacts; add production-scale migration rehearsal, backup/restore, point-in-time recovery, signed releases, SBOM/provenance attestations, and deployment runbooks.
+Observe the exact current hosted workflow runs/artifacts; add production-snapshot/production-scale migration rehearsal, backup/restore, point-in-time recovery, connection-loss/failover exercises, signed releases, SBOM/provenance attestations, and deployment runbooks.
 
 ## Transactional household food state
 
@@ -114,7 +116,7 @@ Migration `20260802_0018` enforces one accepted replacement for each source sche
 
 ### Remaining
 
-Uncertain-commit recovery evidence and execution-aware lifecycle semantics after task history exists.
+Connection-loss-during-commit/failover evidence and execution-aware lifecycle semantics after task history exists.
 
 ## Schedule derivation evidence
 
@@ -158,6 +160,21 @@ A replaced source remains readable but cannot receive new task events or complet
 
 Authenticated PostgreSQL-backed browser evidence and execution-aware repair.
 
+## Database transient failures and exact recovery
+
+### Implemented
+
+- SQLSTATEs `40001`, `40P01`, `57014`, and `55P03` return sanitized HTTP `503` responses with `database_transaction_retry_required`, `Retry-After: 1`, and same-idempotency-key guidance.
+- PostgreSQL connection exceptions (`08xxx`) and invalidated connections return `database_commit_outcome_unknown` because commit state may be ambiguous.
+- No automatic retry occurs in the exception handler.
+- Real PostgreSQL statement-timeout evidence locks the household row, forces SQLSTATE `57014`, rolls back, and proves a fresh exact retry creates one accepted draft.
+- Real PostgreSQL deadlock evidence creates an actual row-lock/advisory-lock cycle, requires exactly one `40P01` victim, and proves exact retry converges to one acceptance and one replacement.
+- Lost-response evidence discards committed responses for acceptance, invalidation, and completion, then proves fresh same-key retries return the original result without duplicate rows/events.
+
+### Remaining
+
+Real connection loss during or immediately after commit, database failover, pool invalidation under load, repeated serialization failures, bounded client retry policy, and operational metrics/alerts for SQLSTATE classes.
+
 ## Provenance and coverage
 
 ### Implemented
@@ -182,7 +199,20 @@ Authenticated PostgreSQL-backed Playwright, axe, keyboard/focus/reflow/contrast 
 
 ### Configured
 
-Real PostgreSQL-only fixtures cover duplicate/competing acceptance, acceptance versus rejection, two proposals competing for one source version, acceptance versus invalidation, acceptance versus source task start, final task completion versus schedule completion, duplicate/competing owner approval, and exact migration/dialect assertions with retained JUnit.
+Real PostgreSQL-only fixtures cover:
+
+- duplicate/competing acceptance and source-version uniqueness;
+- acceptance versus rejection and acceptance versus invalidation;
+- rejection versus invalidation;
+- acceptance versus source task start;
+- source-plan cancellation versus acceptance and repaired owner approval;
+- calendar supersession versus acceptance and repaired owner approval;
+- final task completion versus schedule completion;
+- duplicate/competing repaired owner approval;
+- discarded-response exact retries;
+- statement timeout and genuine deadlock recovery;
+- populated `0017 → 0018` migration rehearsal;
+- exact migration/dialect assertions and retained JUnit/JSON artifacts.
 
 ### Evidence status
 
@@ -200,4 +230,4 @@ Vision/multimodal nutrition, constrained generation, graph learning, causal/off-
 
 ## Non-claims
 
-NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, or current hosted green-build status.
+NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, current connection-loss/failover recovery, or current hosted green-build status.
