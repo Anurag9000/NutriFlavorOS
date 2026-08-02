@@ -23,6 +23,8 @@ from backend.api import (
     preparation_operations_routes,
     preparation_repair_proposal_routes,
     preparation_routes,
+    preparation_schedule_derivation_routes,
+    preparation_task_execution_eligibility_routes,
     recipe_routes,
     research_routes,
     substitution_routes,
@@ -66,7 +68,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="NutriFlavorOS API",
-    version="0.14.0",
+    version="0.15.1",
     description=(
         "Experimental meal-planning, household-inventory, reviewed preparation "
         "operations, immutable evidence, and offline-research API. Outputs are "
@@ -118,6 +120,8 @@ app.include_router(household_routes.router)
 app.include_router(household_plan_routes.router)
 app.include_router(preparation_operations_routes.router)
 app.include_router(preparation_repair_proposal_routes.router)
+app.include_router(preparation_schedule_derivation_routes.router)
+app.include_router(preparation_task_execution_eligibility_routes.router)
 app.include_router(conversion_routes.router)
 app.include_router(evidence_history_routes.router)
 app.include_router(analytics_routes.router)
