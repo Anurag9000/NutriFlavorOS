@@ -151,13 +151,12 @@ def validate_contract() -> dict:
     ]:
         errors.append("proposal status enum drifted")
     view_fields = PreparationRepairProposalView.model_fields
-    if view_fields.get("accepted") is None or view_fields["accepted"].default is not False:
-        errors.append("proposal view must remain non-accepted")
-    if (
-        view_fields.get("schedule_persistence_performed") is None
-        or view_fields["schedule_persistence_performed"].default is not False
-    ):
-        errors.append("proposal view must report no schedule persistence")
+    accepted = view_fields.get("accepted")
+    persisted = view_fields.get("schedule_persistence_performed")
+    if accepted is None or not accepted.is_required():
+        errors.append("proposal view must require the non-accepted flag")
+    if persisted is None or not persisted.is_required():
+        errors.append("proposal view must require the non-persistence flag")
 
     document = app.openapi()
     create_operation = _operation(document, COLLECTION, "post", errors)
