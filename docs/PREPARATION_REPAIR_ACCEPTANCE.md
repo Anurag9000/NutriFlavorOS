@@ -179,6 +179,26 @@ Real PostgreSQL probes implement **lost-response recovery** for acceptance, prop
 
 This models an application/client that cannot determine whether a committed response was received. It does not simulate a network disconnect, connection loss during commit, statement timeout, deadlock, or database failover. Those remain separate operational tests.
 
+## Statement timeout and deadlock recovery
+
+The API installs a sanitized operational-database error boundary for PostgreSQL transaction and connection failures.
+
+Transaction-abort SQLSTATEs `40001`, `40P01`, `57014`, and `55P03` return HTTP `503` with code `database_transaction_retry_required`, `Retry-After: 1`, and explicit direction to retry the exact request with the **same idempotency key**. PostgreSQL connection exceptions (`08xxx`) or driver-invalidated connections return `database_commit_outcome_unknown`, because the server cannot safely assert whether a commit occurred.
+
+The boundary performs **no automatic retry**. It does not sleep, loop, replay a request, or issue a second commit. Automatic retry inside an HTTP exception handler could duplicate a mutation or conceal an ambiguous commit. Instead, exact request identity, existing idempotency records, uniqueness constraints, and fresh-session retry determine the final outcome.
+
+Real PostgreSQL evidence includes:
+
+1. a household row is locked in one session;
+2. acceptance in another session uses `statement_timeout = 150ms` and receives SQLSTATE `57014`;
+3. the aborted session rolls back;
+4. a fresh exact retry creates exactly one acceptance and one replacement draft;
+5. a genuine cycle is created between a household row lock and transaction-scoped advisory lock;
+6. PostgreSQL selects exactly one deadlock victim with SQLSTATE `40P01`;
+7. regardless of which transaction loses, the exact acceptance retry converges to one immutable acceptance, one draft, and `created → accepted` proposal events.
+
+Non-retryable operational failures return a sanitized `500` without SQL text, parameters, or driver detail. The tests do not claim connection-loss-during-commit or failover recovery; connection-outcome uncertainty is currently a structured response contract only.
+
 ## API
 
 - `POST /api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/accept`
@@ -222,11 +242,13 @@ Configured real PostgreSQL probes include:
 - final task completion versus schedule completion;
 - duplicate/competing owner approval;
 - lost-response exact retry recovery for acceptance, invalidation, and completion;
+- statement-timeout exact recovery;
+- genuine PostgreSQL deadlock victim selection and exact recovery;
 - populated `0017 → 0018` migration rehearsal with 64 accepted lifecycles;
 - exact migration-head and PostgreSQL-dialect assertions.
 
-Final plan, calendar, proposal, acceptance, schedule, task/schedule event, version, hash, status, migration-manifest, migration-verification, and structured-error evidence is retained in workflow artifacts. Configuration is not reported as green until the exact hosted run is observed.
+Final plan, calendar, proposal, acceptance, schedule, task/schedule event, version, hash, status, SQLSTATE, migration-manifest, migration-verification, and structured-error evidence is retained in workflow artifacts. Configuration is not reported as green until the exact hosted run is observed.
 
 ## Non-claims
 
-Acceptance means only that an authorized household member reviewed the proposal and created a new draft. It does not establish owner approval, actual task execution, human presence, appliance state, temperature/contamination status, food safety, clinical/nutritional validity, global repair optimality, actual network-failure recovery, production-scale migration performance, or green hosted workflows without observed runs.
+Acceptance means only that an authorized household member reviewed the proposal and created a new draft. It does not establish owner approval, actual task execution, human presence, appliance state, temperature/contamination status, food safety, clinical/nutritional validity, global repair optimality, actual connection-loss/failover recovery, production-scale migration performance, or green hosted workflows without observed runs.
