@@ -92,6 +92,7 @@ def _approved_schedule(db, suffix: str = "primary"):
         payload=persisted_payload(
             calendar,
             f"coverage-schedule-key-{suffix}",
+            household_id=HOUSEHOLD_ID,
         ),
     )
     return transition_schedule(
