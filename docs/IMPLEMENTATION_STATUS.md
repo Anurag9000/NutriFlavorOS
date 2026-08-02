@@ -90,7 +90,7 @@ Execution-aware repair, joint meal/lot/reservation/shopping/leftover/preparation
 - Immutable server-recomputed proposals and append-only events.
 - Exact source/calendar/plan/occurrence/profile and repair hashes.
 - Complete-only proposal persistence.
-- Exact creation/acceptance/rejection idempotency.
+- Exact creation/acceptance/rejection/invalidation idempotency.
 - Exact changed-task acknowledgement.
 - Acceptance that creates one new draft only and never mutates the source.
 - Separate owner approval with locked cross-record validation and method-aware replay.
@@ -102,18 +102,19 @@ Migration `20260802_0018` enforces one accepted replacement for each source sche
 
 ### Owner-only proposal invalidation
 
-**Owner-only proposal invalidation** is implemented through an authenticated endpoint and typed frontend client.
+**Owner-only proposal invalidation** is implemented through an authenticated endpoint, typed frontend client, and protected administration workspace.
 
 - Only `proposed` records can be invalidated.
 - Requires expected version, reason, `acknowledge_historical_only=true`, metadata, and idempotency key.
 - Server-observed stale reasons are recorded in the append-only invalidation event.
 - No acceptance, schedule persistence, approval, execution, source mutation, or rejection-field reuse occurs.
 - Exact retry is idempotent; contradictory keys, stale versions, and terminal proposals fail closed.
-- Editors cannot invalidate.
+- Editors and viewers remain read-only.
+- The workspace exposes exact source/repair evidence, stale reasons, destructive confirmation, append-only history, and live no-schedule-created feedback.
 
 ### Remaining
 
-Primary owner administrative UI for invalidation, uncertain-commit recovery evidence, and execution-aware lifecycle semantics after task history exists.
+Uncertain-commit recovery evidence and execution-aware lifecycle semantics after task history exists.
 
 ## Schedule derivation evidence
 
@@ -155,17 +156,17 @@ Alerting/SLOs, exportable evidence packages, and support dashboards.
 
 ### Implemented
 
-Protected plan review, occurrence confirmation, profiles/calendars, schedule persistence/approval, advisory repair, repair proposals, accepted-draft review, schedule derivation, provenance coverage, and task execution with proactive eligibility gating. Typed clients and focused Vitest/static contracts exist for repair, acceptance, invalidation, derivation, and eligibility.
+Protected plan review, occurrence confirmation, profiles/calendars, schedule persistence/approval, advisory repair, repair proposals, owner invalidation administration, accepted-draft review, schedule derivation, provenance coverage, and task execution with proactive eligibility gating. Typed clients and focused Vitest/static contracts exist for repair, acceptance, invalidation, derivation, and eligibility.
 
 ### Remaining
 
-Owner invalidation controls, authenticated PostgreSQL-backed Playwright, axe, keyboard/focus/reflow/contrast evidence, and full generated-client parity.
+Authenticated PostgreSQL-backed Playwright, axe, keyboard/focus/reflow/contrast evidence, and full generated-client parity.
 
 ## PostgreSQL concurrency evidence
 
 ### Configured
 
-Duplicate/competing acceptance, acceptance versus rejection, two proposals competing for one source version, acceptance versus source task start, duplicate/competing owner approval, and exact migration/dialect assertions with retained JUnit.
+Real PostgreSQL-only fixtures cover duplicate/competing acceptance, acceptance versus rejection, two proposals competing for one source version, acceptance versus invalidation, acceptance versus source task start, duplicate/competing owner approval, and exact migration/dialect assertions with retained JUnit.
 
 ### Evidence status
 
