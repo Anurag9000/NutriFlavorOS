@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 
 from backend.domain.preparation_repair_proposals import (
     PreparationRepairProposalInvalidateRequest,
+    PreparationRepairProposalRejectRequest,
 )
 from backend.preparation_operations_models import DBPersistedPreparationSchedule
 from backend.preparation_repair_proposal_models import (
@@ -17,6 +18,9 @@ from backend.preparation_repair_proposal_models import (
 )
 from backend.services.preparation_repair_proposal_invalidation_service import (
     invalidate_repair_proposal,
+)
+from backend.services.preparation_repair_proposal_read_service import (
+    reject_repair_proposal,
 )
 from backend.services.preparation_repair_source_acceptance_guard_service import (
     accept_repair_proposal_with_source_guard,
@@ -44,6 +48,18 @@ def _session_factory(db):
     )
 
 
+def _error(exc: HTTPException) -> dict:
+    return {
+        "kind": "conflict",
+        "status": exc.status_code,
+        "code": (
+            exc.detail.get("code")
+            if isinstance(exc.detail, dict)
+            else str(exc.detail)
+        ),
+    }
+
+
 def _accept_worker(factory, barrier: Barrier, proposal):
     session = factory()
     try:
@@ -65,20 +81,18 @@ def _accept_worker(factory, barrier: Barrier, proposal):
         }
     except HTTPException as exc:
         session.rollback()
-        return {
-            "kind": "conflict",
-            "status": exc.status_code,
-            "code": (
-                exc.detail.get("code")
-                if isinstance(exc.detail, dict)
-                else str(exc.detail)
-            ),
-        }
+        return _error(exc)
     finally:
         session.close()
 
 
-def _invalidate_worker(factory, barrier: Barrier, proposal):
+def _invalidate_worker(
+    factory,
+    barrier: Barrier,
+    proposal,
+    *,
+    key: str = "pg-repair-invalidate-versus-accept",
+):
     session = factory()
     try:
         barrier.wait(timeout=20)
@@ -94,7 +108,7 @@ def _invalidate_worker(factory, barrier: Barrier, proposal):
                         "Owner withdrew this proposal during the PostgreSQL race"
                     ),
                     "acknowledge_historical_only": True,
-                    "idempotency_key": "pg-repair-invalidate-versus-accept",
+                    "idempotency_key": key,
                     "metadata": {"race_probe": True},
                 }
             ),
@@ -102,17 +116,63 @@ def _invalidate_worker(factory, barrier: Barrier, proposal):
         return {"kind": "invalidated", "proposal_id": result.id}
     except HTTPException as exc:
         session.rollback()
-        return {
-            "kind": "conflict",
-            "status": exc.status_code,
-            "code": (
-                exc.detail.get("code")
-                if isinstance(exc.detail, dict)
-                else str(exc.detail)
-            ),
-        }
+        return _error(exc)
     finally:
         session.close()
+
+
+def _reject_worker(factory, barrier: Barrier, proposal):
+    session = factory()
+    try:
+        barrier.wait(timeout=20)
+        result = reject_repair_proposal(
+            session,
+            household_id=HOUSEHOLD_ID,
+            proposal_id=proposal.id,
+            actor_user_id=OWNER_ID,
+            payload=PreparationRepairProposalRejectRequest.model_validate(
+                {
+                    "expected_version": proposal.version,
+                    "reason": (
+                        "Owner rejected this proposal during the PostgreSQL race"
+                    ),
+                    "idempotency_key": "pg-repair-reject-versus-invalidate",
+                    "metadata": {"race_probe": True},
+                }
+            ),
+        )
+        return {"kind": "rejected", "proposal_id": result.id}
+    except HTTPException as exc:
+        session.rollback()
+        return _error(exc)
+    finally:
+        session.close()
+
+
+def _terminal_evidence(db, proposal_id: int):
+    db.expire_all()
+    proposal = db.get(DBPreparationRepairProposal, proposal_id)
+    assert proposal is not None
+    acceptances = (
+        db.query(DBPreparationRepairProposalAcceptance)
+        .filter(DBPreparationRepairProposalAcceptance.proposal_id == proposal_id)
+        .all()
+    )
+    replacements = (
+        db.query(DBPersistedPreparationSchedule)
+        .filter(
+            DBPersistedPreparationSchedule.source_repair_proposal_id
+            == proposal_id
+        )
+        .all()
+    )
+    events = (
+        db.query(DBPreparationRepairProposalEvent)
+        .filter(DBPreparationRepairProposalEvent.proposal_id == proposal_id)
+        .order_by(DBPreparationRepairProposalEvent.id)
+        .all()
+    )
+    return proposal, acceptances, replacements, events
 
 
 def test_postgres_acceptance_racing_invalidation_has_one_terminal_outcome(db):
@@ -139,31 +199,11 @@ def test_postgres_acceptance_racing_invalidation_has_one_terminal_outcome(db):
             invalidation_future.result(timeout=40),
         ]
 
-    db.expire_all()
-    final = db.get(DBPreparationRepairProposal, proposal.id)
-    assert final is not None
-    acceptance_rows = (
-        db.query(DBPreparationRepairProposalAcceptance)
-        .filter(DBPreparationRepairProposalAcceptance.proposal_id == proposal.id)
-        .all()
+    final, acceptance_rows, replacement_rows, events = _terminal_evidence(
+        db,
+        proposal.id,
     )
-    replacement_rows = (
-        db.query(DBPersistedPreparationSchedule)
-        .filter(
-            DBPersistedPreparationSchedule.source_repair_proposal_id
-            == proposal.id
-        )
-        .all()
-    )
-    event_types = [
-        value.event_type
-        for value in (
-            db.query(DBPreparationRepairProposalEvent)
-            .filter(DBPreparationRepairProposalEvent.proposal_id == proposal.id)
-            .order_by(DBPreparationRepairProposalEvent.id)
-            .all()
-        )
-    ]
+    event_types = [value.event_type for value in events]
 
     assert final.status in {"accepted", "invalidated"}
     assert sum(
@@ -198,3 +238,65 @@ def test_postgres_acceptance_racing_invalidation_has_one_terminal_outcome(db):
             "repair_proposal_not_acceptable",
             "repair_acceptance_identity_mismatch",
         }
+
+
+def test_postgres_rejection_racing_invalidation_has_one_terminal_outcome(db):
+    factory = _session_factory(db)
+    _, source, proposal = create_proposal(db)
+    schedule_count = db.query(DBPersistedPreparationSchedule).count()
+    barrier = Barrier(2)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        rejection_future = pool.submit(
+            _reject_worker,
+            factory,
+            barrier,
+            proposal,
+        )
+        invalidation_future = pool.submit(
+            _invalidate_worker,
+            factory,
+            barrier,
+            proposal,
+            key="pg-repair-invalidate-versus-reject",
+        )
+        results = [
+            rejection_future.result(timeout=40),
+            invalidation_future.result(timeout=40),
+        ]
+
+    final, acceptance_rows, replacement_rows, events = _terminal_evidence(
+        db,
+        proposal.id,
+    )
+    assert final.status in {"rejected", "invalidated"}
+    assert final.version == proposal.version + 1
+    assert sum(
+        value["kind"] in {"rejected", "invalidated"}
+        for value in results
+    ) == 1
+    assert sum(value["kind"] == "conflict" for value in results) == 1
+    conflict = next(value for value in results if value["kind"] == "conflict")
+    assert conflict["status"] == 409
+
+    assert acceptance_rows == []
+    assert replacement_rows == []
+    assert db.query(DBPersistedPreparationSchedule).count() == schedule_count
+    source_after = db.get(DBPersistedPreparationSchedule, source.id)
+    assert source_after is not None
+    assert source_after.id == source.id
+    assert [value.event_type for value in events] in [
+        ["created", "rejected"],
+        ["created", "invalidated"],
+    ]
+
+    if final.status == "rejected":
+        assert final.rejected_by_user_id == OWNER_ID
+        assert final.rejected_at is not None
+        assert final.rejection_reason
+        assert conflict["code"] == "repair_proposal_not_invalidatable"
+    else:
+        assert final.rejected_by_user_id is None
+        assert final.rejected_at is None
+        assert final.rejection_reason is None
+        assert conflict["code"] == "repair_proposal_not_rejectable"
