@@ -13,11 +13,15 @@ const Login = lazy(() => import("./pages/Login"));
 const Signup = lazy(() => import("./pages/Signup"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const MealPlanner = lazy(() => import("./pages/MealPlanner"));
+const HouseholdPlanReview = lazy(() => import("./pages/HouseholdPlanReview"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const Household = lazy(() => import("./pages/Household"));
 const Preparation = lazy(() => import("./pages/Preparation"));
 const PreparationPipeline = lazy(() => import("./pages/PreparationPipeline"));
 const PreparationOperations = lazy(() => import("./pages/PreparationOperations"));
+const PreparationCalendarBuilder = lazy(
+  () => import("./pages/PreparationCalendarBuilder"),
+);
 const PreparationOperationsCoverage = lazy(
   () => import("./pages/PreparationOperationsCoverage"),
 );
@@ -63,11 +67,13 @@ function AppRoutes() {
           <Route path="/signup" element={<PageTransition><Signup /></PageTransition>} />
           <Route path="/dashboard" element={<ProtectedRoute><PageTransition><Dashboard /></PageTransition></ProtectedRoute>} />
           <Route path="/meals" element={<ProtectedRoute><ProfileRoute><PageTransition><MealPlanner /></PageTransition></ProfileRoute></ProtectedRoute>} />
+          <Route path="/household/plans" element={<ProtectedRoute><PageTransition><HouseholdPlanReview /></PageTransition></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute><ProfileRoute><PageTransition><Analytics /></PageTransition></ProfileRoute></ProtectedRoute>} />
           <Route path="/household" element={<ProtectedRoute><PageTransition><Household /></PageTransition></ProtectedRoute>} />
           <Route path="/preparation" element={<ProtectedRoute><PageTransition><Preparation /></PageTransition></ProtectedRoute>} />
           <Route path="/preparation/pipeline" element={<ProtectedRoute><PageTransition><PreparationPipeline /></PageTransition></ProtectedRoute>} />
           <Route path="/preparation/operations" element={<ProtectedRoute><PageTransition><PreparationOperations /></PageTransition></ProtectedRoute>} />
+          <Route path="/preparation/operations/calendars/new" element={<ProtectedRoute><PageTransition><PreparationCalendarBuilder /></PageTransition></ProtectedRoute>} />
           <Route path="/preparation/operations/coverage" element={<ProtectedRoute><PageTransition><PreparationOperationsCoverage /></PageTransition></ProtectedRoute>} />
           <Route path="/research" element={<ProtectedRoute><PageTransition><Research /></PageTransition></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><PageTransition><SettingsPage /></PageTransition></ProtectedRoute>} />
