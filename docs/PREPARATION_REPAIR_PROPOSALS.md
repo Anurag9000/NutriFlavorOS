@@ -2,20 +2,17 @@
 
 ## Purpose
 
-A repair proposal is a persisted, hash-addressed review record created from a server-recomputed deterministic preparation repair. It preserves the exact source schedule, source request, target reviewed calendar, revised request, repair result, outcome ledger, and human-review requirements.
+A repair proposal is a persisted, hash-addressed human-review record created from a server-recomputed deterministic preparation repair. It preserves the exact source schedule, source request, target reviewed calendar, revised request, repair result, outcome ledger, and required changed-task acknowledgements.
 
-A proposal is **not** an accepted schedule. It does not replace the source schedule, create a new draft, approve work, create task-execution evidence, complete work, or decide food safety.
+Proposal creation never implies acceptance. It does not replace the source schedule, create a new draft, approve work, create task-execution evidence, complete work, or decide food safety.
 
-Every API view reports:
-
-- `accepted = false`;
-- `schedule_persistence_performed = false`.
-
-The nested repair result independently reports:
+The nested repair computation permanently reports:
 
 - `requires_human_acceptance = true`;
 - `accepted = false`;
 - `persistence_performed = false`.
+
+Those computation fields never change after later proposal acceptance. Proposal lifecycle fields separately report whether a new draft was created.
 
 ## Creation contract
 
@@ -26,83 +23,161 @@ An editor or owner supplies:
 - revised strict scheduling request;
 - immutable task IDs;
 - repair strategy and bounded-search settings;
-- explicit acknowledgement that computation is neither acceptance nor persistence;
+- explicit acknowledgement that proposal creation is neither acceptance nor persistence;
 - notes and an idempotency key.
 
 The server does not trust a client-provided repair result. It:
 
 1. locks the household and source schedule;
-2. verifies the exact source version and supported source state;
-3. validates the complete persisted occurrence document, source request, deterministic response, and request hash;
-4. verifies any source plan is still the exact approved version;
+2. verifies exact source version, hash, request hash, status, and replay provenance;
+3. rejects any source with task-execution history;
+4. verifies the exact approved source plan when present;
 5. locks and verifies the active reviewed target calendar;
 6. requires revised resources and horizon to match that calendar exactly;
 7. recomputes repair with `allow_partial = false`;
 8. rejects incomplete repair;
-9. validates the revised task metadata against retained occurrence/profile provenance;
-10. computes canonical SHA-256 hashes for the repair request and result;
-11. persists only the proposal and a creation event.
+9. validates revised task metadata against occurrence/profile provenance;
+10. computes canonical SHA-256 request/result hashes;
+11. derives the sorted acknowledgement set from moved, added, removed, and unresolved tasks;
+12. persists only the proposal and a creation event.
 
 The source schedule remains unchanged.
 
-## Exact idempotency
+## Exact creation idempotency
 
 Proposal creation is unique by `(household_id, creation_idempotency_key)` and binds that key to a full request fingerprint including household, actor, and strict payload.
 
 - An exact retry returns the existing proposal.
 - Reusing the key with different content returns `409`.
-- Distinct idempotency keys create distinct review records, even when their semantic repair hashes match.
+- Distinct keys create distinct advisory review records even when semantic repair hashes match.
 
-Semantic source/calendar/request/response hashes are indexed evidence, not a replacement for exact request-key idempotency. This avoids silently aliasing a second key that was never durably reserved.
-
-Proposal events are independently idempotent by `(proposal_id, idempotency_key)`.
+Semantic source/calendar/request/response hashes are indexed evidence, not a replacement for exact request-key idempotency.
 
 ## Persisted identity and hashes
 
 Each proposal retains:
 
 - household ID;
-- source schedule ID, version, schedule hash, and source request hash;
-- target calendar version ID and content hash;
-- strict repair request payload and hash;
-- strict repair result payload and hash;
+- source schedule ID/version/hash and source request hash;
+- target calendar ID and content hash;
+- strict repair request payload/hash;
+- strict repair result payload/hash;
 - revised request hash;
 - repaired response hash;
 - required acknowledgement task IDs;
-- actor, notes, status, optimistic version, and timestamps.
+- actor, notes, status, optimistic version, and timestamps;
+- rejection or acceptance evidence when the corresponding transition occurs.
 
-The required acknowledgement set is the sorted union of moved, added, removed, and unresolved tasks.
+## Lifecycle
 
-## Status and events
-
-Current proposal states are:
+Proposal states are:
 
 - `proposed`;
+- `accepted`;
 - `rejected`;
-- `invalidated` reserved for future server-authoritative invalidation transitions.
+- `invalidated` reserved for server-authoritative invalidation tooling.
 
-Current events are:
+Proposal events are:
 
 - `created`;
+- `accepted`;
 - `rejected`;
-- `invalidated` reserved for future transition tooling.
+- `invalidated`.
 
-Creation starts at proposal version `1`. Rejection is an editor/owner action from `proposed` to `rejected`, increments the optimistic version, requires a nonblank reason, and appends one immutable event. Exact retry returns the same result; stale versions and contradictory event-key reuse fail closed.
+Creation starts at proposal version `1`.
 
-## Staleness
+### Rejection
 
-Reads compute whether a proposal remains current without mutating history. Stale reasons include:
+An editor or owner may reject a current proposal. Rejection requires the expected proposal version, nonblank reason, metadata, and idempotency key. It increments the version and appends one immutable event. Exact retries collapse; stale versions and contradictory key reuse fail closed.
 
-- proposal no longer in `proposed` state;
-- source schedule missing, version changed, hash changed, request hash changed, or unsupported status;
+### Acceptance
+
+Acceptance creates a new draft. It is a distinct editor/owner action and requires:
+
+- exact expected proposal version;
+- exact source schedule version/hash and request hash;
+- exact target calendar content hash;
+- exact repair request/result/revised-request/repaired-response hashes;
+- acknowledgement of every required changed task, with no missing or extra IDs;
+- a nonblank reason;
+- explicit confirmation that only a draft will be created;
+- exact idempotency key and metadata.
+
+At acceptance time the server re-locks and revalidates the household, proposal, source schedule, source plan, target calendar, occurrence/profile provenance, task-execution boundary, and every retained hash. It performs method-aware repair replay and requires a complete deterministic match.
+
+If valid, one transaction:
+
+1. creates exactly one new schedule in `draft` state and version `1`;
+2. binds the draft to the repair derivation method and all proposal hashes;
+3. computes a combined schedule hash that includes derivation identity;
+4. records immutable acceptance evidence;
+5. transitions the proposal from `proposed` to `accepted`;
+6. appends proposal `accepted` and schedule `created` events.
+
+The source schedule is never updated or deleted.
+
+Acceptance does not approve, execute, complete, cancel, or invalidate the new draft.
+
+## One accepted replacement per source schedule version
+
+Migration `20260802_0018` enforces one accepted replacement per source schedule version using a unique constraint on `(source_schedule_id, source_schedule_version)`.
+
+- Multiple advisory proposals may exist for one source version.
+- Only one proposal may create the accepted replacement draft.
+- Exact retry of the winning acceptance is idempotent.
+- A competing proposal or distinct acceptance key receives `repair_source_already_has_accepted_replacement` and the winning proposal, acceptance, and replacement schedule identities.
+- Migration preflight refuses to add the constraint if conflicting historical acceptance rows already exist.
+- The database constraint prevents direct lower-level service use from bypassing the invariant.
+
+## Separate owner approval
+
+Owner approval remains a different endpoint and action. A repaired draft cannot use the original-scheduler-only replay path.
+
+Before approval the system locks and cross-checks:
+
+- repaired draft and derivation method;
+- source proposal and immutable acceptance record;
+- exact acknowledged-task set;
+- source schedule identity and absence of execution history;
+- target reviewed calendar;
+- approved source plan;
+- occurrence/profile provenance;
+- every repair and schedule hash.
+
+It then performs a second method-aware replay. Only an exact match may transition the draft to `approved` and append a schedule approval event.
+
+No step implies a later step: proposal creation does not imply acceptance; acceptance does not imply approval; approval does not imply execution; task events do not imply schedule completion.
+
+## Execution boundary after acceptance
+
+After a source version has an accepted replacement:
+
+- the source remains readable historical evidence;
+- no new source task may start, complete, or skip;
+- the source cannot be completed;
+- forbidden mutations return `source_schedule_has_accepted_replacement` with exact proposal, acceptance, and replacement identities;
+- the replacement remains non-executable while `draft`;
+- only the separately owner-approved replacement may become task-execution eligible.
+
+The viewer-authorized eligibility endpoint and protected execution workspace surface this boundary before mutation, while the backend replacement guard remains authoritative.
+
+## Staleness and tamper detection
+
+Before acceptance, proposal reads compute whether the evidence remains current without mutating history. Reasons include:
+
+- proposal no longer `proposed`;
+- source missing, version/hash/request changed, status unsupported, or execution history present;
 - source plan no longer the exact approved version;
-- target calendar missing, hash changed, inactive, or no longer reviewed.
+- target calendar missing, changed, inactive, or no longer reviewed.
 
-A stale proposal remains readable as historical evidence but cannot be represented as current or accepted.
+Reads revalidate the nested repair payload and all canonical hashes. Acceptance and approval independently repeat exact cross-record checks. Invalid payloads, contradictory identities, or tampered evidence return structured `409` errors.
 
 ## Authorization and non-disclosure
 
-Household viewers may list, read, and inspect events. Editors and owners may create and reject proposals. Household access uses the same role and `404` non-disclosure rules as other preparation operations.
+- Viewers may list/read proposals, proposal events, and acceptance evidence.
+- Editors and owners may create, accept, or reject proposals.
+- Only owners may approve the resulting draft.
+- Household access uses the same role and `404` non-disclosure rules as other preparation operations.
 
 API surface:
 
@@ -110,53 +185,57 @@ API surface:
 - `GET /api/v1/households/{household_id}/preparation-operations/repair-proposals`;
 - `GET /api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}`;
 - `GET /api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/events`;
+- `GET /api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/acceptance`;
+- `POST /api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/accept`;
 - `POST /api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/reject`.
 
-There is deliberately no accept, approve, persist, complete, or execute endpoint.
+Approval, task execution, and schedule completion remain schedule endpoints, not proposal shortcuts.
 
-## Tamper detection
+## Frontend
 
-Proposal reads revalidate the strict nested repair result, recompute its canonical hash, and verify the revised-request and repaired-response hashes match the proposal columns. Invalid payloads or hash mismatches return structured `409` errors.
+The protected Repair Proposals workspace provides:
 
-## Why accepted-draft persistence is still blocked
+- advisory proposal creation with non-acceptance/non-persistence confirmations;
+- exact source/calendar/request/hash evidence;
+- outcome and changed-task review;
+- exact acknowledgement checkboxes;
+- draft-only acceptance confirmation and reason;
+- immutable acceptance/draft evidence;
+- explicit link to separate owner approval;
+- versioned rejection;
+- append-only proposal events;
+- viewer read-only behavior and stale-proposal blocking.
 
-Existing persisted schedule approval replays the original deterministic scheduler. A repair response uses a distinct deterministic repair method. Creating a repaired draft before method-aware replay exists would create a record that cannot pass the existing approval replay contract.
-
-Accepted-draft persistence therefore remains blocked until all of the following are implemented together:
-
-- method-aware replay for original and repaired schedules;
-- explicit acknowledgement of every required changed task;
-- stale source/calendar/plan/evidence revalidation at acceptance time;
-- exact acceptance idempotency and PostgreSQL concurrency behavior;
-- append-only accepted-draft evidence;
-- a new draft preserving source proposal and all hashes;
-- separate owner approval and task execution.
+The workspace does not expose proposal-side approval, task execution, or completion controls and does not use browser storage to bypass server authority.
 
 ## Verification
 
-The proposal contract validator checks:
+Configured verification covers:
 
-- migration head and required runtime tables;
-- ORM/Alembic idempotency, status, event, index, and hash contracts;
-- generated authenticated OpenAPI paths;
-- absence of accept/approve/persist/complete proposal endpoints;
-- server recomputation and complete-only repair;
-- exact request-key idempotency rather than cross-key semantic aliasing;
-- no call to persisted-schedule creation or lifecycle/execution mutation;
-- required service and API regression tests.
+- migrations `0015` through `0018` and runtime schema head;
+- ORM uniqueness, status, event, index, hash, and derivation contracts;
+- generated authenticated OpenAPI paths and schemas;
+- server recomputation and complete-only proposals;
+- exact creation, acceptance, and rejection idempotency;
+- one-replacement-per-source enforcement at guard and database layers;
+- changed-task acknowledgement mismatch;
+- source/calendar/plan/provenance/execution staleness;
+- method-aware replay and owner approval;
+- source immutability and one-new-draft-only persistence;
+- cross-record tamper rejection;
+- PostgreSQL acceptance, rejection, source-execution, and approval races;
+- protected frontend creation/acceptance/rejection behavior.
 
-Focused tests cover server recomputation, hashes, non-acceptance, exact retries, contradictory reuse, distinct-key review records, stale source versions, provenance drift, calendar supersession, staleness, rejection, append-only events, and tamper failure.
+Configured workflows are not reported as green until the exact current hosted run and retained artifacts are observed.
 
 ## Non-claims
 
-A proposal does not establish:
+A proposal, acceptance, or approved schedule does not establish:
 
-- acceptance or approval;
-- a persisted replacement schedule;
-- task execution or human presence;
+- actual task execution or human presence;
 - appliance or sensor state;
 - temperature or contamination evidence;
 - food safety;
 - clinical or nutrition validation;
 - global repair optimality;
-- hosted green-build evidence without an observed exact workflow run.
+- current hosted green-build status without observed evidence.
