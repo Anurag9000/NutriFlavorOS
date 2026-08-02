@@ -25,18 +25,28 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r backend/requirements.txt
       - run: pip check
-      - name: Compile repair implementation
+      - name: Compile repair implementation and proposal lifecycle
         run: >-
           python -m compileall -q
           backend/api/preparation_routes.py
+          backend/api/preparation_repair_proposal_routes.py
           backend/domain/preparation_repair.py
+          backend/domain/preparation_repair_proposals.py
           backend/engines/prep_schedule_repair.py
+          backend/preparation_repair_proposal_models.py
+          backend/services/preparation_repair_proposal_creation_service.py
+          backend/services/preparation_repair_proposal_service.py
+          backend/migrations/versions/20260802_0015_preparation_repair_proposals.py
+          backend/migrations/versions/20260802_0016_repair_proposal_calendar_identity.py
           scripts/benchmark_preparation_repair.py
           scripts/repair_preparation_schedule.py
           scripts/validate_preparation_repair_contract.py
-      - name: Validate repair contract, advisory API, and frontend surface
+          scripts/validate_preparation_repair_proposal_contract.py
+      - name: Validate advisory repair contract and frontend surface
         run: python scripts/validate_preparation_repair_contract.py
-      - name: Run repair tests
+      - name: Validate repair proposal lifecycle contract
+        run: python scripts/validate_preparation_repair_proposal_contract.py
+      - name: Run repair and proposal tests
         run: >-
           pytest -q
           backend/tests/test_preparation_schedule_repair.py
@@ -44,6 +54,8 @@ jobs:
           backend/tests/test_preparation_repair_api.py
           backend/tests/test_preparation_repair_benchmark.py
           backend/tests/test_preparation_repair_cli.py
+          backend/tests/test_preparation_repair_proposals.py
+          backend/tests/test_preparation_repair_proposal_api.py
       - name: Run benchmark and retain report
         run: python scripts/benchmark_preparation_repair.py --output reports/preparation-repair.json
       - uses: actions/setup-node@v6
