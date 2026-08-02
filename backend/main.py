@@ -21,6 +21,7 @@ from backend.api import (
     nutrition_routes,
     online_learning_routes,
     preparation_operations_routes,
+    preparation_repair_proposal_routes,
     preparation_routes,
     recipe_routes,
     research_routes,
@@ -116,6 +117,7 @@ app.include_router(meal_routes.router)
 app.include_router(household_routes.router)
 app.include_router(household_plan_routes.router)
 app.include_router(preparation_operations_routes.router)
+app.include_router(preparation_repair_proposal_routes.router)
 app.include_router(conversion_routes.router)
 app.include_router(evidence_history_routes.router)
 app.include_router(analytics_routes.router)
