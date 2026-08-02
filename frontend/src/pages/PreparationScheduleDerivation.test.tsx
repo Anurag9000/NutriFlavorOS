@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   households: vi.fn(),
   schedules: vi.fn(),
   derivation: vi.fn(),
+  coverage: vi.fn(),
 }));
 
 vi.mock("@/components/AppLayout", () => ({
@@ -22,13 +23,40 @@ vi.mock("@/lib/preparationOperationsApi", () => ({
   preparationOperationsApi: { schedules: mocks.schedules },
 }));
 vi.mock("@/lib/preparationScheduleDerivationApi", () => ({
-  preparationScheduleDerivationApi: { get: mocks.derivation },
+  preparationScheduleDerivationApi: {
+    get: mocks.derivation,
+    coverage: mocks.coverage,
+  },
 }));
 
 const schedules = [
   { id: 10, status: "approved", version: 2 },
   { id: 22, status: "draft", version: 1 },
 ];
+
+const coverage = {
+  household_id: "home-1",
+  generated_at: "2026-08-02T00:00:00Z",
+  schedule_total: 2,
+  original_schedule_count: 1,
+  repair_schedule_count: 1,
+  unknown_method_count: 0,
+  complete_derivation_count: 2,
+  incomplete_derivation_count: 0,
+  accepted_proposal_count: 1,
+  acceptance_record_count: 1,
+  repaired_draft_count: 1,
+  repaired_approved_count: 0,
+  repaired_execution_history_count: 0,
+  method_counts: {
+    deterministic_dependency_aware_resource_scheduler_v2: 1,
+    deterministic_minimal_change_preparation_repair_v1: 1,
+  },
+  derivation_coverage_ratio: 1,
+  repair_acceptance_link_coverage_ratio: 1,
+  latest_acceptance_at: "2026-08-02T01:00:00Z",
+  warnings: [] as string[],
+};
 
 const originalEvidence = {
   schedule_id: 10,
@@ -102,18 +130,11 @@ function renderPage() {
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.households.mockResolvedValue([
-    {
-      id: "home-1",
-      name: "Home One",
-      current_role: "viewer",
-    },
-    {
-      id: "home-2",
-      name: "Home Two",
-      current_role: "owner",
-    },
+    { id: "home-1", name: "Home One", current_role: "viewer" },
+    { id: "home-2", name: "Home Two", current_role: "owner" },
   ]);
   mocks.schedules.mockResolvedValue(schedules);
+  mocks.coverage.mockResolvedValue(coverage);
   mocks.derivation.mockImplementation(
     async (_householdId: string, scheduleId: number) =>
       scheduleId === 22 ? repairEvidence : originalEvidence,
@@ -121,6 +142,19 @@ beforeEach(() => {
 });
 
 describe("Preparation schedule derivation inspector", () => {
+  it("shows household coverage with explicit denominators", async () => {
+    renderPage();
+
+    expect(
+      await screen.findByText("Household derivation coverage"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Schedules")).toBeInTheDocument();
+    expect(screen.getByText("Repair-derived")).toBeInTheDocument();
+    expect(screen.getAllByText("100.0%")).toHaveLength(2);
+    expect(screen.getByText("2 complete of 2")).toBeInTheDocument();
+    expect(mocks.coverage).toHaveBeenCalledWith("home-1");
+  });
+
   it("shows original scheduler evidence without fabricated repair links", async () => {
     renderPage();
 
@@ -156,7 +190,26 @@ describe("Preparation schedule derivation inspector", () => {
     expect(mocks.derivation).toHaveBeenCalledWith("home-1", 22);
   });
 
-  it("reloads schedule and derivation scope after household change", async () => {
+  it("surfaces incomplete derivation coverage warnings", async () => {
+    mocks.coverage.mockResolvedValueOnce({
+      ...coverage,
+      complete_derivation_count: 1,
+      incomplete_derivation_count: 1,
+      derivation_coverage_ratio: 0.5,
+      repair_acceptance_link_coverage_ratio: 0,
+      warnings: ["schedule 22 has incomplete repair derivation evidence"],
+    });
+    renderPage();
+
+    expect(
+      await screen.findByText("Incomplete derivation chains"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("schedule 22 has incomplete repair derivation evidence"),
+    ).toBeInTheDocument();
+  });
+
+  it("reloads schedule, coverage, and derivation scope after household change", async () => {
     renderPage();
     await screen.findByText("Original deterministic scheduler");
 
@@ -166,6 +219,7 @@ describe("Preparation schedule derivation inspector", () => {
 
     await waitFor(() => {
       expect(mocks.schedules).toHaveBeenCalledWith("home-2");
+      expect(mocks.coverage).toHaveBeenCalledWith("home-2");
       expect(mocks.derivation).toHaveBeenCalledWith("home-2", 10);
     });
   });
