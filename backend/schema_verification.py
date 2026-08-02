@@ -13,9 +13,9 @@ from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 
 from backend.database import REQUIRED_RUNTIME_TABLES, engine
+from backend.schema_revision import CURRENT_ALEMBIC_REVISION
 
 
-CURRENT_ALEMBIC_REVISION = "20260801_0011"
 CURRENT_REQUIRED_TABLES = REQUIRED_RUNTIME_TABLES | {
     "recipe_preparation_profiles",
     "ingredient_conversion_versions",
@@ -26,6 +26,7 @@ CURRENT_REQUIRED_TABLES = REQUIRED_RUNTIME_TABLES | {
     "household_preparation_resources",
     "persisted_preparation_schedules",
     "preparation_schedule_events",
+    "household_plan_events",
 }
 
 
