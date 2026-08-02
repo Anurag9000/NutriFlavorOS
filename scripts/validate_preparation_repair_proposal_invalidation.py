@@ -119,10 +119,15 @@ def validate_contract() -> dict:
         },
         "postgres_tests": {
             "test_postgres_acceptance_racing_invalidation_has_one_terminal_outcome",
+            "test_postgres_rejection_racing_invalidation_has_one_terminal_outcome",
             "accept_repair_proposal_with_source_guard",
+            "reject_repair_proposal",
             "invalidate_repair_proposal",
             'final.status in {"accepted", "invalidated"}',
-            'event_types == ["created", "invalidated"]',
+            'final.status in {"rejected", "invalidated"}',
+            'assert acceptance_rows == []',
+            'assert replacement_rows == []',
+            'conflict["code"] == "repair_proposal_not_rejectable"',
         },
         "docs": {
             "Owner-only proposal invalidation",
@@ -151,7 +156,8 @@ def validate_contract() -> dict:
         "path": PATH,
         "required_role": "owner",
         "schedule_persistence": False,
-        "postgres_race": True,
+        "postgres_acceptance_race": True,
+        "postgres_rejection_race": True,
         "errors": errors,
     }
 
