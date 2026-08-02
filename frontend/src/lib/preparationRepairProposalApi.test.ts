@@ -125,7 +125,27 @@ describe("preparationRepairProposalApi", () => {
     );
   });
 
-  it("exposes acceptance but no approval, execution, or completion method", () => {
+  it("invalidates only through an explicit historical-only owner request", async () => {
+    const payload = {
+      expected_version: 1,
+      reason: "Withdraw superseded proposal evidence",
+      acknowledge_historical_only: true as const,
+      idempotency_key: "repair-proposal-invalidate-client-0001",
+      metadata: { admin_review: true },
+    };
+
+    await preparationRepairProposalApi.invalidate("home one", 11, payload);
+
+    expect(mocks.apiRequest).toHaveBeenCalledWith(
+      "/households/home%20one/preparation-operations/repair-proposals/11/invalidate",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  });
+
+  it("exposes review lifecycle but no approval, execution, or completion method", () => {
     const methods = Object.keys(preparationRepairProposalApi);
     expect(methods).toEqual([
       "create",
@@ -135,6 +155,7 @@ describe("preparationRepairProposalApi", () => {
       "events",
       "accept",
       "reject",
+      "invalidate",
     ]);
     expect(methods).not.toContain("approve");
     expect(methods).not.toContain("persist");
