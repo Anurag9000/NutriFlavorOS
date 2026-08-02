@@ -4,11 +4,13 @@ import type { PreparationScheduleRequest } from "@/lib/preparationOperationsApi"
 
 export type PreparationRepairProposalStatus =
   | "proposed"
+  | "accepted"
   | "rejected"
   | "invalidated";
 
 export type PreparationRepairProposalEventType =
   | "created"
+  | "accepted"
   | "rejected"
   | "invalidated";
 
@@ -40,6 +42,23 @@ export interface PreparationRepairProposalRejectRequest {
   metadata?: Record<string, unknown>;
 }
 
+export interface PreparationRepairProposalAcceptRequest {
+  expected_proposal_version: number;
+  expected_source_schedule_version: number;
+  expected_source_schedule_hash: string;
+  expected_source_schedule_request_hash: string;
+  expected_target_calendar_content_hash: string;
+  expected_repair_request_hash: string;
+  expected_repair_result_hash: string;
+  expected_revised_request_hash: string;
+  expected_repaired_response_hash: string;
+  acknowledged_task_ids: string[];
+  reason: string;
+  acknowledge_creates_new_draft_only: true;
+  idempotency_key: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface PreparationRepairProposalView {
   id: number;
   household_id: string;
@@ -64,8 +83,13 @@ export interface PreparationRepairProposalView {
   rejection_reason: string | null;
   current: boolean;
   stale_reasons: string[];
-  accepted: false;
-  schedule_persistence_performed: false;
+  accepted: boolean;
+  schedule_persistence_performed: boolean;
+  accepted_schedule_id: number | null;
+  accepted_schedule_hash: string | null;
+  accepted_by_user_id: string | null;
+  accepted_at: string | null;
+  acceptance_reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -85,6 +109,44 @@ export interface PreparationRepairProposalEventView {
   idempotency_key: string;
   request_fingerprint: string;
   created_at: string;
+}
+
+export interface PreparationRepairProposalAcceptanceView {
+  id: number;
+  household_id: string;
+  proposal_id: number;
+  proposal_version_before: number;
+  proposal_version_after: number;
+  source_schedule_id: number;
+  source_schedule_version: number;
+  created_schedule_id: number;
+  created_schedule_version: 1;
+  created_schedule_status: "draft";
+  created_schedule_hash: string;
+  derivation_method: "deterministic_minimal_change_preparation_repair_v1";
+  source_schedule_hash: string;
+  source_schedule_request_hash: string;
+  target_calendar_content_hash: string;
+  repair_request_hash: string;
+  repair_result_hash: string;
+  revised_request_hash: string;
+  repaired_response_hash: string;
+  acknowledged_task_ids: string[];
+  reason: string;
+  actor_user_id: string;
+  metadata: Record<string, unknown>;
+  idempotency_key: string;
+  request_fingerprint: string;
+  created_at: string;
+}
+
+export interface PreparationRepairProposalAcceptedDraftView {
+  proposal: PreparationRepairProposalView;
+  acceptance: PreparationRepairProposalAcceptanceView;
+  accepted: true;
+  schedule_persistence_performed: true;
+  approval_performed: false;
+  execution_performed: false;
 }
 
 function collection(householdId: string): string {
@@ -118,9 +180,27 @@ export const preparationRepairProposalApi = {
       `${collection(householdId)}/${proposalId}`,
     ),
 
+  acceptance: (householdId: string, proposalId: number) =>
+    apiRequest<PreparationRepairProposalAcceptanceView>(
+      `${collection(householdId)}/${proposalId}/acceptance`,
+    ),
+
   events: (householdId: string, proposalId: number) =>
     apiRequest<PreparationRepairProposalEventView[]>(
       `${collection(householdId)}/${proposalId}/events`,
+    ),
+
+  accept: (
+    householdId: string,
+    proposalId: number,
+    payload: PreparationRepairProposalAcceptRequest,
+  ) =>
+    apiRequest<PreparationRepairProposalAcceptedDraftView>(
+      `${collection(householdId)}/${proposalId}/accept`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
     ),
 
   reject: (
