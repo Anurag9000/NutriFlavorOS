@@ -63,6 +63,7 @@ jobs:
           backend/tests/test_preparation_repair_source_acceptance_postgres.py
           backend/tests/test_preparation_repair_proposal_invalidation_postgres.py
           backend/tests/test_preparation_repair_plan_cancellation_postgres.py
+          backend/tests/test_preparation_repair_plan_approval_postgres.py
           backend/tests/test_preparation_repair_calendar_supersession_postgres.py
           backend/tests/test_preparation_repair_calendar_approval_postgres.py
           backend/tests/test_preparation_schedule_completion_postgres.py
@@ -100,6 +101,7 @@ jobs:
           backend/tests/test_preparation_repair_source_acceptance_postgres.py
           backend/tests/test_preparation_repair_proposal_invalidation_postgres.py
           backend/tests/test_preparation_repair_plan_cancellation_postgres.py
+          backend/tests/test_preparation_repair_plan_approval_postgres.py
           backend/tests/test_preparation_repair_calendar_supersession_postgres.py
           backend/tests/test_preparation_repair_calendar_approval_postgres.py
           backend/tests/test_preparation_schedule_completion_postgres.py
