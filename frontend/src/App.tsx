@@ -112,9 +112,30 @@ function AppRoutes() {
           <Route path="/preparation/pipeline" element={<ProtectedPage><PreparationPipeline /></ProtectedPage>} />
           <Route path="/preparation/operations" element={<ProtectedPage><PreparationOperations /></ProtectedPage>} />
           <Route path="/preparation/operations/repair" element={<ProtectedPage><PreparationRepairReview /></ProtectedPage>} />
-          <Route path="/preparation/operations/repair-proposals" element={<ProtectedPage><PreparationRepairProposals /></ProtectedPage>} />
-          <Route path="/preparation/operations/execution" element={<ProtectedPage><PreparationTaskExecution /></ProtectedPage>} />
-          <Route path="/preparation/operations/derivation" element={<ProtectedPage><PreparationScheduleDerivation /></ProtectedPage>} />
+          <Route
+            path="/preparation/operations/repair-proposals"
+            element={
+              <ProtectedRoute>
+                <PageTransition><PreparationRepairProposals /></PageTransition>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/preparation/operations/execution"
+            element={
+              <ProtectedRoute>
+                <PageTransition><PreparationTaskExecution /></PageTransition>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/preparation/operations/derivation"
+            element={
+              <ProtectedRoute>
+                <PageTransition><PreparationScheduleDerivation /></PageTransition>
+              </ProtectedRoute>
+            }
+          />
           <Route path="/preparation/operations/calendars/new" element={<ProtectedPage><PreparationCalendarBuilder /></ProtectedPage>} />
           <Route path="/preparation/operations/coverage" element={<ProtectedPage><PreparationOperationsCoverage /></ProtectedPage>} />
           <Route path="/research" element={<ProtectedPage><Research /></ProtectedPage>} />
