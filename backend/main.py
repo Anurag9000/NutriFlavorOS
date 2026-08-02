@@ -14,6 +14,7 @@ from backend.api import (
     analytics_routes,
     auth_routes,
     conversion_routes,
+    database_error_handlers,
     evidence_history_routes,
     household_plan_routes,
     household_routes,
@@ -76,6 +77,7 @@ app = FastAPI(
     ),
     lifespan=lifespan,
 )
+database_error_handlers.install_database_error_handlers(app)
 
 
 def _cors_origins() -> list[str]:
