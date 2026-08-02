@@ -243,6 +243,11 @@ class DBPreparationRepairProposalAcceptance(Base):
             name="uq_preparation_repair_acceptance_proposal",
         ),
         UniqueConstraint(
+            "source_schedule_id",
+            "source_schedule_version",
+            name="uq_preparation_repair_acceptance_source_version",
+        ),
+        UniqueConstraint(
             "created_schedule_id",
             name="uq_preparation_repair_acceptance_schedule",
         ),
