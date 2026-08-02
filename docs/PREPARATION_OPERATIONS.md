@@ -1,8 +1,18 @@
 # Persisted Preparation Operations
 
-NutriFlavorOS persists preparation calendars, deterministic schedules, and explicit household execution events as a human-reviewed workflow. It does not control appliances, infer presence, verify cooking, measure temperature, or guarantee food safety or successful preparation.
+NutriFlavorOS persists reviewed resource calendars, deterministic preparation schedules, repair evidence, accepted replacement drafts, derivation provenance, and explicit household task events as a human-reviewed workflow. It does not control appliances, infer presence, verify cooking, measure temperature, or guarantee food safety or successful preparation.
 
-## Migration and contract history
+## Current boundary
+
+- Alembic head: `20260802_0018`
+- API: `0.15.2`
+- OpenAPI contract: `2026-08-02.12`
+- Preparation frontend binding: `2026-08-02.4`
+- Household-plan frontend binding: `2026-08-02.4`
+
+Configured workflows and tests are not reported as green until the exact current hosted run and artifacts are observed.
+
+## Migration history
 
 - `20260801_0009` — immutable resource calendars, resources, schedules, and lifecycle events.
 - `20260801_0010` — complete scheduler request and request hash.
@@ -10,148 +20,49 @@ NutriFlavorOS persists preparation calendars, deterministic schedules, and expli
 - `20260801_0012` — complete canonical occurrence document persistence.
 - `20260802_0013` — optimistic household-plan lifecycle and append-only plan events.
 - `20260802_0014` — append-only user-confirmed task execution events.
-
-Current boundary:
-
-- migration head `20260802_0014`;
-- API `0.12.1`;
-- OpenAPI contract `2026-08-02.6`;
-- preparation bindings `2026-08-02.4`;
-- household-plan bindings `2026-08-02.4`.
+- `20260802_0015` — immutable repair proposals and proposal events.
+- `20260802_0016` — exact target-calendar and semantic repair identity.
+- `20260802_0017` — immutable proposal acceptance and repair-derived schedule provenance.
+- `20260802_0018` — one accepted replacement per source schedule/version.
 
 ## Reviewed resource calendars
 
-A calendar belongs to one household and declares:
+A calendar belongs to one household and declares version, horizon, timezone, resources, integer capacities, non-overlapping availability windows, review state, canonical UTC review time, reviewer, notes, content hash, creator, request fingerprint, idempotency key, active state, and predecessor.
 
-- version, horizon, and timezone;
-- resource IDs, labels, kinds, integer capacities, and explicit windows;
-- review state, canonical UTC review time, reviewer, notes, and SHA-256;
-- creator, request fingerprint, idempotency key, active state, and predecessor.
+Only reviewed calendars can be active. Activating a successor deactivates its predecessor and atomically invalidates dependent draft or approved schedules.
 
-Only reviewed calendars can be active, and one active reviewed calendar is permitted per household. Activating a successor deactivates its predecessor and atomically invalidates every dependent draft or approved schedule.
-
-### Structured calendar builder
-
-The protected `/preparation/operations/calendars/new` route provides:
-
-- person, burner, oven, counter, refrigerator, and custom templates;
-- dynamic resource and multi-window editing;
-- duplicate-ID, numeric, horizon, empty-window, and overlap validation;
-- deterministic normalization;
-- operational predecessor diff;
-- canonical JSON import/export;
-- timezone-aware review preview;
-- mandatory human confirmations;
-- automatic confirmation reset after any reviewed change or household/predecessor switch;
-- owner-only activation.
-
-Importing a draft never activates a calendar.
+The protected Calendar Builder provides structured resource/window editing, duplicate/overlap/horizon validation, deterministic normalization, predecessor diff, canonical import/export, mandatory confirmations, and owner-only activation. Importing a draft never activates a calendar.
 
 ## Multi-window scheduling semantics
 
-A resource may use a preserved legacy continuous interval or an explicit non-empty window list. The forms cannot be mixed. Windows are ordered, non-overlapping, and horizon-bounded.
-
-Every task must fit entirely within one continuous containing window for every demanded resource. It cannot bridge a gap or cross an unavailable interval. Multi-resource tasks require simultaneous interval and cumulative-capacity feasibility.
+Every task must fit entirely inside one continuous containing window for every demanded resource. It cannot bridge an unavailable gap. Multi-resource tasks require simultaneous interval and cumulative-capacity feasibility.
 
 The deterministic heuristic and bounded exact comparator share window, capacity, dependency, deadline, normalization, and utilization semantics.
 
 ## Approved source-plan prerequisite
 
-Household plan generation is not approval.
+A source-linked schedule may be created only when:
 
-A source-linked preparation schedule may be created only when:
-
-- `source_plan_id` and `source_plan_version` are supplied together;
+- source plan ID/version are supplied together;
 - the plan belongs to the route household;
 - the exact optimistic version still matches;
-- the plan status is `approved`.
+- the plan remains `approved`.
 
-A new plan is initially `draft`. Owner approval increments its version and records actor/time and an append-only plan event. The schedule retains the approved version, not the original draft version.
+Plan cancellation releases active reservations and invalidates every linked schedule still in `draft` or `approved`. Household serialization guarantees that cancellation and schedule creation cannot leave a live schedule linked to a cancelled plan.
 
-Rejection codes include `source_plan_not_approved` and `source_plan_version_mismatch`.
+## Canonical occurrence and profile provenance
 
-If plan cancellation races schedule creation, household serialization and the internal version recheck guarantee one of two outcomes:
+Schedule creation requires a canonical `PreparationOccurrenceSetDocument` with household identity, occurrence-set version, duration policy, occurrence IDs, recipe IDs, deadlines, servings, and priorities.
 
-1. cancellation commits first and schedule creation fails as stale; or
-2. schedule creation commits first and cancellation immediately invalidates it.
+Each compiled task must match reviewed preparation-profile provenance: occurrence/recipe IDs, servings, priority, deadline, profile ID/version/hash, duration range/policy, template ID, and operational metadata. Missing, extra, or contradictory provenance fails closed.
 
-## Canonical occurrence document
+## Persisted deterministic schedule creation
 
-Schedule creation requires `PreparationOccurrenceSetDocument` with:
+Creation accepts the active reviewed calendar, optional exact approved source plan, complete occurrence document, normalized profile map, complete scheduler request/response, notes, and idempotency key.
 
-- document version;
-- household ID;
-- occurrence-set version;
-- duration policy;
-- occurrences containing occurrence ID, recipe ID, deadline, servings, and priority.
+The server locks household scope, validates calendar/plan/occurrence/profile identity, replays deterministic scheduling, requires exact response equality and no unresolved tasks, persists all payloads/hashes, and appends `created` in the same transaction.
 
-The server canonicalizes occurrence order and derives its SHA-256. A client cannot substitute a self-asserted hash.
-
-Each compiled task must match occurrence and reviewed-profile provenance:
-
-- occurrence and recipe IDs;
-- servings, priority, and deadline;
-- profile ID, version, and content hash;
-- duration minimum/maximum and selected policy;
-- task-template metadata.
-
-Missing, extra, or contradictory profile/task provenance fails closed.
-
-## Persisted schedule creation
-
-A creation request carries:
-
-1. active reviewed calendar ID;
-2. optional exact approved source-plan ID/version;
-3. complete occurrence document;
-4. normalized profile-version map;
-5. complete scheduler request;
-6. complete deterministic response;
-7. notes and idempotency key.
-
-The API and authoritative persistence path:
-
-1. authorize editor/owner access;
-2. require approved source-plan state when linked;
-3. lock household operation scope;
-4. verify route/occurrence household equality;
-5. verify active reviewed calendar identity, hash, and resources;
-6. recheck source-plan household and version;
-7. validate occurrence/profile/task/duration provenance;
-8. replay deterministic scheduling;
-9. require exact response equality and no unresolved tasks;
-10. persist document, request, response, and all hashes;
-11. append `created` in the same transaction.
-
-The combined schedule hash binds calendar hash, optional plan pair, occurrence version/hash, profile versions, complete request, and response.
-
-## Approval-time replay
-
-Owner approval repeats the full integrity proof:
-
-- require stored occurrence and request payloads;
-- parse strict contracts;
-- revalidate occurrence/profile/task/duration consistency;
-- recompute occurrence/request hashes;
-- verify active calendar and captured hash/resources;
-- verify source-plan identity/version;
-- replay scheduler and compare the response;
-- recompute combined schedule hash;
-- apply the optimistic transition only after all checks pass.
-
-Tampering with occurrence, task, profile, request, response, plan, calendar, or hashes fails explicitly.
-
-## Plan cancellation propagation
-
-Cancelling a draft or approved household plan:
-
-- increments the plan version and makes it terminal;
-- releases its active inventory reservations;
-- invalidates every linked preparation schedule still in `draft` or `approved`;
-- records plan cancellation metadata including affected counts;
-- appends one schedule invalidation event per affected schedule.
-
-Completed, cancelled, and already invalidated schedules are not rewritten.
+The combined schedule hash binds calendar, source plan, occurrence document, profile versions, request, response, and derivation identity.
 
 ## Schedule lifecycle
 
@@ -165,39 +76,38 @@ Statuses:
 
 Transitions:
 
-- draft to approved;
-- draft to invalidated or cancelled;
-- approved to completed, invalidated, or cancelled.
+- draft → approved;
+- draft → invalidated or cancelled;
+- approved → completed, invalidated, or cancelled.
 
-Terminal states are invalidated, completed, and cancelled. Every transition uses expected version, reason, metadata, and idempotency key. Identical retries return current state; contradictory reuse fails.
+Every transition requires expected version, nonblank reason, metadata, and idempotency key. Exact retries return the original result; contradictory key reuse fails. Invalidated, completed, and cancelled schedules are terminal.
 
-The normal HTTP `approved → completed` transition is guarded by the task execution ledger: every deterministic task must be explicitly `completed` or `skipped`. The established low-level transition service retains its historical completion behavior for compatibility with older internal callers; product code must use the guarded route or guarded completion service.
+### Approval authority
 
-Roles:
+Owner approval revalidates calendar, source plan, occurrence/profile provenance, request/response hashes, and deterministic replay.
 
-- owner: calendar registration, schedule approval/invalidation, and plan approval;
-- editor/owner: schedule persistence, task execution events, guarded completion/cancellation, and plan cancellation;
-- viewer/editor/owner: calendars, schedules, task execution state, plan records, coverage, and events.
+Original drafts use `deterministic_dependency_aware_resource_scheduler_v2`. Repair-derived drafts use `deterministic_minimal_change_preparation_repair_v1` and additionally require exact proposal, acceptance, source, acknowledgement, target-calendar, and repair-hash evidence.
 
-Cross-household or unauthorized access returns `404`.
+### Lowest-layer completion authority
 
-## Structured final persistence review
+The exported `backend.services.preparation_operations_service.transition_schedule` is the lowest authoritative schedule transition.
 
-The routed `/preparation/operations` page consumes `preparation-operations-handoff-v2` once and presents exact plan, occurrence/hash, profile, active reviewed calendar/hash, task-DAG, demand, deadline, and deterministic schedule content structurally. It performs no persistence on load.
+For every valid new `approved → completed` request it:
 
-Persistence requires four independent confirmations covering source/occurrence/profile evidence, calendar/resource evidence, task/schedule evidence, and the non-execution/non-safety boundary. Canonical JSON remains available only as read-only expert inspection. Extra profile recipes, unresolved tasks, task-ID mismatch, unknown dependencies, calendar drift, horizon drift, or resource-ID drift block the browser action; server replay remains authoritative.
+1. preserves exact retry, contradictory-key, missing-resource, optimistic-version, and invalid-transition precedence;
+2. holds household transaction/advisory and schedule row locks;
+3. reconstructs deterministic tasks and append-only execution history;
+4. requires every task to be explicitly `completed` or `skipped`;
+5. rejects nonterminal work with `schedule_tasks_not_terminal` and sorted remaining task IDs;
+6. delegates the final status mutation, version increment, event append, commit, and exact retry semantics to the preserved implementation.
 
-Editor/owner persistence creates a draft only. Owner approval, task execution, and completion remain separate actions.
+`complete_schedule_with_execution_guard` is a compatibility-named delegate only. It has no independent lock, terminality proof, event append, or commit path. Product modules are statically forbidden from importing the preserved implementation directly.
+
+A real PostgreSQL race proves schedule completion cannot commit ahead of the final task event. Completion fails with `schedule_tasks_not_terminal` if it locks first or `schedule_version_conflict` if the final event commits first; it succeeds only after retrying with the new version.
 
 ## Append-only task execution ledger
 
-Migration `20260802_0014` creates `preparation_task_execution_events`.
-
-### Task identity and planned timing
-
-Executable task IDs, planned starts, and planned finishes come only from the persisted deterministic schedule response. The server rejects unknown task IDs, duplicate persisted task IDs, incomplete schedules, or schedules with no deterministic tasks.
-
-### States and transitions
+Executable task IDs and planned timing come only from the persisted deterministic response. Unknown/duplicate task IDs, incomplete schedules, or schedules with no deterministic tasks fail closed.
 
 Task states:
 
@@ -208,161 +118,87 @@ Task states:
 
 Allowed events:
 
-- `started`: planned to in progress;
-- `completed`: in progress to completed;
-- `skipped`: planned or in progress to skipped.
+- `started`: planned → in progress;
+- `completed`: in progress → completed;
+- `skipped`: planned or in progress → skipped.
 
-Completed and skipped are terminal. Completion requires a prior explicit start event. The completion minute cannot precede the confirmed start minute.
+Completion requires an explicit start and cannot precede it. A task cannot start until every dependency is explicitly completed or skipped. Skips and nonzero timing deviations require a nonblank reason.
 
-### Dependency chronology
+Every task event requires the current schedule version, increments it exactly once, stores before/after versions, has a canonical fingerprint/idempotency key, returns the existing event on exact retry, and serializes through the same household lock as schedule transitions. Task events do not change schedule status.
 
-A task cannot start until every deterministic dependency is explicitly completed or skipped. The server derives dependency IDs from the persisted schedule and returns `task_dependencies_not_terminal` with blocking IDs when chronology is violated.
+## Task-execution eligibility
 
-A skipped prerequisite is treated as terminal evidence, not as proof that dependent work remains semantically valid. The household remains responsible for deciding whether proceeding is appropriate; future minimal-change repair must model this explicitly.
+Viewer-authorized preflight:
 
-### Actual minutes and deviation evidence
+`GET /api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/task-execution-eligibility`
 
-Every event carries a horizon-relative `actual_minute`.
+Reason partition:
 
-- Start deviation = actual start minute − planned start minute.
-- Completion deviation = actual completion minute − planned finish minute.
-- Skip deviation is zero because a skip is a categorical terminal decision rather than a timing observation.
+- `eligible`;
+- `schedule_not_approved`;
+- `source_schedule_has_accepted_replacement`.
 
-A nonblank reason is mandatory for every skip and every nonzero start or completion deviation. Optional notes and metadata retain human-entered operational context.
+A source with an accepted replacement remains readable historical evidence but cannot receive new task events or completion. The response exposes exact proposal, acceptance, replacement schedule, replacement status, and replacement version.
 
-### Optimistic versions and idempotency
+The protected execution workspace disables controls while eligibility is loading or false and reasserts eligibility immediately before submission. Backend mutation guards remain authoritative.
 
-Every task event:
+## Deterministic repair and proposal lifecycle
 
-- requires the current schedule optimistic version;
-- increments that version by exactly one;
-- stores versions before and after;
-- uses a schedule-scoped idempotency key and canonical request fingerprint;
-- returns the existing event for an exact retry;
-- rejects contradictory key reuse;
-- serializes through the same household operation lock used by schedule mutations.
+Advisory repair compares a complete source schedule with a revised strict request and returns preserved/moved/added/removed/unresolved outcomes plus canonical hashes. Computation permanently reports `requires_human_acceptance=true`, `accepted=false`, and `persistence_performed=false`.
 
-A task event does not change schedule status. Status remains `approved` until guarded completion, cancellation, or invalidation.
+Proposal creation is server-recomputed and persists review evidence only. It binds exact source schedule/version/hash/request, target calendar, source plan, occurrence/profile provenance, repair request/result, revised request, repaired response, and required changed-task acknowledgements.
 
-### API
+Acceptance requires exact evidence and creates exactly one new `draft`; it never mutates the source or performs approval/execution/completion. Migration `0018` permits multiple advisory proposals but only one accepted replacement per source schedule/version.
 
-Viewer-authorized read:
+## Owner-only proposal invalidation
 
-`GET /api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/task-execution`
+Only an owner can invalidate a still-`proposed` record. The request requires expected version, reason, `acknowledge_historical_only=true`, metadata, and idempotency key.
 
-Editor/owner mutations:
+The server recomputes observed stale reasons and appends one immutable `invalidated` event explicitly recording no acceptance, schedule persistence, approval, or execution. It creates no schedule and permanently prevents later acceptance.
 
-- `POST .../tasks/{task_id}/start`;
-- `POST .../tasks/{task_id}/complete`;
-- `POST .../tasks/{task_id}/skip`.
+The protected Proposal Invalidation workspace presents exact source/repair evidence, stale reasons, destructive confirmation, append-only events, live no-schedule-created feedback, and editor/viewer read-only behavior.
 
-Each mutation returns the updated schedule version, current task state, and append-only event.
+## Schedule derivation evidence
 
-### Frontend
+Per-schedule derivation and household coverage endpoints distinguish original schedules from accepted repair-derived schedules and cross-check proposal, acceptance, source, target calendar, acknowledgement, method, and hash evidence.
 
-The protected `/preparation/operations/execution` workspace provides household/schedule selection, progress, accessible task cards, actual-minute/reason/notes inputs, start/completion/skip confirmations, viewer read-only behavior, guarded final completion, and append-only actor/transition/deviation/version history.
-
-Nothing is recorded on page load. No local timer, reminder, or UI state implies task execution.
-
-## Append-only schedule and plan evidence
-
-Schedule events retain actor, from/to state, reason, metadata, idempotency, fingerprint, and time. Database constraints permit only valid event/state pairs.
-
-Household plan events retain equivalent transition provenance for approval and cancellation. Schedule invalidations caused by plan cancellation include source-plan ID/version and cancellation reason.
-
-Task execution events remain separate from schedule lifecycle events so task evidence cannot be mistaken for a schedule status transition.
-
-## Legacy schedules
-
-Replay state is explicit:
-
-- `replayable`;
-- `legacy_request_missing`;
-- `legacy_occurrence_set_missing`.
-
-Legacy rows remain readable but cannot be approved. An exact creation retry may backfill missing replay/occurrence payloads only when stored identity and hashes match.
-
-Task execution additionally requires a complete deterministic response with at least one scheduled task and no unresolved tasks.
-
-## Provenance and execution coverage
-
-`GET /api/v1/households/{household_id}/preparation-operations/coverage` returns two deliberately separate metric families.
-
-### Operational provenance
-
-- total, reviewed, and active reviewed calendars;
-- schedule totals and complete lifecycle state map;
-- replay-state counts;
-- occurrence-document, scheduler-request, and replayable-schedule numerators and ratios;
-- replayable drafts;
-- exact source-plan linkage;
-- append-only schedule event total;
-- latest calendar and schedule timestamps.
-
-### Task execution evidence
-
-Execution scope includes schedules currently `approved` or `completed`, plus historical schedules that retain task events after later cancellation or invalidation.
-
-The endpoint reports:
-
-- execution-scope schedule count;
-- currently approved execution schedule count;
-- schedules with at least one task event;
-- structurally invalid schedule/event-history count;
-- deterministic task count;
-- planned, in-progress, completed, and skipped state counts;
-- terminal task count;
-- fully terminal schedule count;
-- task-event total;
-- nonzero-deviation event count;
-- skipped-event count and skipped events with nonblank reasons;
-- execution-scope schedule-history ratio;
-- deterministic task-terminality ratio;
-- latest task-event timestamp.
-
-The service parses deterministic schedule responses and replays task events structurally in order. Schedules with unresolved work, no tasks, duplicate task IDs, unknown dependencies, unknown event tasks, inconsistent from-state history, or invalid event targets are excluded from task-state denominators and counted as invalid. This prevents malformed history from inflating apparent completion.
-
-Warnings expose missing active calendars, legacy provenance gaps, missing source-plan linkage, absent task history, invalid execution histories, orphaned events, or skipped events lacking reasons.
-
-### Interpretation boundary
-
-Coverage reports record presence, structural consistency, and user-entered claims. It does not prove:
-
-- that cooking occurred;
-- that timing entries are accurate;
-- task performance or quality;
-- nutritional correctness;
-- appliance condition;
-- temperature or contamination state;
-- food safety.
-
-The frontend presents provenance and execution sections independently and never combines them into one misleading score.
-
-## Concurrency evidence
-
-Configured PostgreSQL probes cover:
-
-- identical calendar retries;
-- identical schedule retries;
-- competing schedule approval/cancellation;
-- calendar supersession versus approval;
-- identical plan approval retries;
-- competing plan approval/cancellation;
-- identical task-start retries collapsing to one event;
-- competing start/skip decisions producing one winner.
-
-Task and schedule mutations share household serialization and exact optimistic-version checks.
+The protected derivation inspector shows explicit denominators, original/repair counts, acceptance-link coverage, incomplete-chain warnings, identities, and hashes without lifecycle mutation.
 
 ## Frontend routes
 
-- `/household/plans` — exact plan review, approval, cancellation, and events;
+- `/household/plans` — plan review, approval, cancellation, and events;
 - `/household/plans/occurrences` — explicit approved-plan occurrence confirmation;
-- `/preparation/operations` — calendars, schedules, hashes, replay state, transitions, and schedule events;
-- `/preparation/operations/execution` — explicit task execution and guarded completion;
-- `/preparation/operations/calendars/new` — structured reviewed calendar builder;
+- `/preparation/operations` — final persistence and schedule review;
+- `/preparation/operations/repair` — advisory repair review;
+- `/preparation/operations/repair-proposals` — proposal creation, acceptance, rejection, and events;
+- `/preparation/operations/repair-proposals/invalidation` — owner-only historical withdrawal;
+- `/preparation/operations/execution` — explicit task execution and terminal completion;
+- `/preparation/operations/derivation` — derivation evidence and household coverage;
+- `/preparation/operations/calendars/new` — reviewed calendar builder;
 - `/preparation/operations/coverage` — separate provenance and execution denominators.
 
-`preparation-operations-handoff-v2` transfers occurrence, profile, optional plan, resource, request, and deterministic response data without automatic persistence or approval.
+Nothing is persisted, accepted, approved, executed, completed, or invalidated merely by loading a page.
+
+## Coverage and interpretation
+
+Operations coverage reports calendar/schedule totals, lifecycle/replay states, occurrence/request provenance, task-state counts, terminality, task-event history, deviations, skips/reasons, invalid histories, and explicit denominators.
+
+Derivation coverage separately reports original/repair methods, complete/incomplete chains, accepted proposals, acceptance records, repaired draft/approved counts, execution-history counts, and coverage ratios.
+
+These metrics establish record presence and structural consistency only. They do not prove cooking occurred, entries are accurate, nutrition is correct, appliances are safe, temperatures are compliant, contamination is absent, or food is safe.
+
+## PostgreSQL concurrency evidence
+
+Configured real PostgreSQL probes cover:
+
+- exact duplicate and competing proposal acceptance;
+- acceptance versus rejection;
+- two proposals competing for one source version;
+- acceptance versus proposal invalidation;
+- acceptance versus source task start;
+- final task completion versus schedule completion;
+- duplicate/competing owner approval;
+- exact migration and dialect assertions.
 
 ## Deliberate limitations
 
@@ -370,7 +206,7 @@ Task and schedule mutations share household serialization and exact optimistic-v
 - Availability is declared, not inferred.
 - Execution events are user-entered claims; the system does not observe execution.
 - Temperature, contamination, equipment condition, and safe food state are not verified.
-- Plan/calendar changes invalidate dependent work but do not create or approve replacements.
-- Timers/reminders, minimal-change repair, and joint optimization remain incomplete.
-- Presence sensors, appliance integrations, autonomous procurement, and control remain disabled pending separate validation and governance.
+- Ordinary repair abstains after source task history begins; execution-aware repair remains future work.
+- Joint meal, inventory, shopping, leftover, reservation, and preparation repair remains future work.
+- Authenticated PostgreSQL-backed browser and automated accessibility evidence remain incomplete.
 - Hosted workflow runs must be inspected before the current `main` commit is described as green.
