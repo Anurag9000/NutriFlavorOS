@@ -1,0 +1,39 @@
+name: validate-preparation-repair-proposal-frontend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-preparation-repair-proposal-frontend-main
+  cancel-in-progress: true
+
+jobs:
+  proposal-client:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Validate proposal client boundary
+        run: python scripts/validate_preparation_repair_proposal_frontend_contract.py
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Type-check proposal client
+        working-directory: frontend
+        run: npm run typecheck
+      - name: Run proposal client tests
+        working-directory: frontend
+        run: npm test -- src/lib/preparationRepairProposalApi.test.ts
