@@ -31,13 +31,13 @@ from backend.services.preparation_operations_service import (
     _assert_schedule_matches_calendar,
     _lock_household,
 )
+from backend.services.preparation_repair_proposal_read_service import _proposal_view
 from backend.services.preparation_repair_proposal_service import (
     ACTIVE_SOURCE_STATUSES,
     _canonical_hash,
     _creation_fingerprint,
     _event,
     _load_source_payloads,
-    _proposal_view,
     _required_acknowledgements,
     _source_schedule,
     _target_calendar,
