@@ -1,0 +1,38 @@
+name: validate-final-structured-preparation-runtime
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-final-structured-preparation-runtime-main
+  cancel-in-progress: true
+
+jobs:
+  frontend-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: >-
+          npx vitest run
+          src/pages/PreparationOperationsStructuredReview.test.tsx
+          src/pages/PreparationOperationsPreload.test.tsx
+          src/pages/PreparationTaskExecutionIsolation.test.tsx
+          src/pages/PreparationTaskExecution.test.tsx
+          src/pages/PreparationOperationsCoverage.test.tsx
+      - run: npm run build
