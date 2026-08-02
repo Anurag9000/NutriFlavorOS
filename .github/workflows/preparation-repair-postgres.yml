@@ -15,7 +15,7 @@ concurrency:
 jobs:
   repair-acceptance-races:
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 65
     services:
       postgres:
         image: postgres:16
@@ -45,7 +45,7 @@ jobs:
       - run: pip install -r backend/requirements.txt
       - run: pip check
 
-      - name: Compile real PostgreSQL preparation race and recovery harness
+      - name: Compile real PostgreSQL migration, race, and recovery harness
         run: >-
           python -m compileall -q
           backend/services/household_plan_lifecycle_service.py
@@ -68,14 +68,42 @@ jobs:
           backend/tests/test_preparation_repair_calendar_approval_postgres.py
           backend/tests/test_preparation_schedule_completion_postgres.py
           backend/tests/test_preparation_repair_recovery_postgres.py
+          scripts/rehearse_repair_source_acceptance_migration_postgres.py
+          scripts/validate_preparation_repair_migration_rehearsal.py
           scripts/validate_preparation_repair_plan_cancellation_race.py
           scripts/validate_preparation_repair_calendar_supersession_race.py
           scripts/validate_preparation_schedule_completion_authority.py
           scripts/validate_preparation_repair_recovery_postgres.py
 
-      - name: Upgrade PostgreSQL to exact reviewed head 0018
+      - name: Upgrade PostgreSQL to migration predecessor 0017
+        run: |
+          alembic upgrade 20260802_0017
+          python - <<'PY'
+          from sqlalchemy import text
+          from backend.database import SessionLocal, engine
+          assert engine.dialect.name == "postgresql", engine.dialect.name
+          db = SessionLocal()
+          try:
+              revision = db.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+              assert revision == "20260802_0017", revision
+          finally:
+              db.close()
+          PY
+
+      - name: Seed 64 valid historical acceptances at 0017
+        run: >-
+          python scripts/rehearse_repair_source_acceptance_migration_postgres.py
+          seed
+          --count 64
+          --manifest reports/repair-source-acceptance-migration-seed.json
+
+      - name: Upgrade populated PostgreSQL to reviewed head 0018
         run: |
           alembic upgrade head
+          python scripts/rehearse_repair_source_acceptance_migration_postgres.py \
+            verify \
+            --manifest reports/repair-source-acceptance-migration-seed.json \
+            --report reports/repair-source-acceptance-migration-report.json
           python - <<'PY'
           from backend.database import engine
           from backend.schema_revision import CURRENT_ALEMBIC_REVISION
@@ -85,9 +113,10 @@ jobs:
           verify_runtime_schema()
           PY
 
-      - name: Validate lifecycle, dependency, completion, recovery, and release contracts
+      - name: Validate lifecycle, migration, dependency, completion, recovery, and release contracts
         run: |
           python scripts/validate_preparation_repair_source_acceptance_contract.py
+          python scripts/validate_preparation_repair_migration_rehearsal.py
           python scripts/validate_preparation_repair_proposal_invalidation.py
           python scripts/validate_preparation_repair_plan_cancellation_race.py
           python scripts/validate_preparation_repair_calendar_supersession_race.py
@@ -113,6 +142,9 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: preparation-repair-postgres-races
-          path: reports/preparation-repair-postgres.xml
+          name: preparation-repair-postgres-evidence
+          path: |
+            reports/preparation-repair-postgres.xml
+            reports/repair-source-acceptance-migration-seed.json
+            reports/repair-source-acceptance-migration-report.json
           if-no-files-found: error
