@@ -232,7 +232,9 @@ def test_viewer_can_read_candidates_but_cannot_confirm(api):
     assert body["source_plan_version"] == 2
     assert body["reviewed_compatible_count"] == 1
     assert body["unresolved_profile_count"] == 0
-    assert body["candidates"][0]["planned_servings"] == 4
+    assert body["candidates"][0]["source_recipe_servings"] == 2
+    assert body["candidates"][0]["planned_servings"] == 2
+    assert body["candidates"][0]["recipe_batch_scale"] == 1
     assert "required_finish_minute" not in body["candidates"][0]
 
     occurrence_id = body["candidates"][0]["occurrence_id"]
@@ -247,7 +249,7 @@ def test_viewer_can_read_candidates_but_cannot_confirm(api):
                 {
                     "occurrence_id": occurrence_id,
                     "include": True,
-                    "servings": 4,
+                    "servings": 2,
                     "required_finish_minute": 180,
                     "priority": 1,
                 }
@@ -268,7 +270,7 @@ def test_viewer_can_read_candidates_but_cannot_confirm(api):
                 {
                     "occurrence_id": occurrence_id,
                     "include": True,
-                    "servings": 4,
+                    "servings": 2,
                     "required_finish_minute": 180,
                     "priority": 1,
                 }
@@ -282,6 +284,9 @@ def test_viewer_can_read_candidates_but_cannot_confirm(api):
     assert confirmed_body["occurrence_set"]["occurrences"][0][
         "required_finish_minute"
     ] == 180
+    assert confirmed_body["occurrence_set"]["occurrences"][0][
+        "servings"
+    ] == 2
     assert confirmed_body["profile_versions"]["occurrence-api-recipe"].startswith(
         "profile:"
     )
