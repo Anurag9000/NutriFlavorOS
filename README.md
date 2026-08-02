@@ -8,12 +8,12 @@ NutriFlavorOS is an **experimental household food-planning, transactional invent
 
 Development is performed through coherent commits directly to `main`. Code, tests, migrations, fixtures, OpenAPI contracts, frontend bindings, catalogs, CI, and documentation must evolve together.
 
-- Database migration head: **`20260802_0013`**
-- API version: **`0.9.0`**
-- OpenAPI release contract: **`2026-08-02.3`**
+- Database migration head: **`20260802_0014`**
+- API version: **`0.12.0`**
+- OpenAPI release contract: **`2026-08-02.5`**
 - Food-evidence frontend binding contract: **`2026-08-01.2`**
-- Preparation-operations frontend binding contract: **`2026-08-02.2`**
-- Household-plan frontend binding contract: **`2026-08-02.3`**
+- Preparation-operations frontend binding contract: **`2026-08-02.3`**
+- Household-plan frontend binding contract: **`2026-08-02.4`**
 - Governed research catalog: **`2026-08-01.3`**
 
 ## Product platform
@@ -38,7 +38,7 @@ Development is performed through coherent commits directly to `main`. Code, test
 - Hard allergy and dietary filtering before optimization.
 - Household target aggregation.
 - Nutrition, taste, cost, cuisine, diversity, repetition, and pantry objectives.
-- Persisted plan documents, portions, warnings, diagnostics, shopping requirements, and optional reservations.
+- Persisted plan documents, serving counts, warnings, diagnostics, shopping requirements, and optional reservations.
 - Pareto, optional CP-SAT/MILP, robust-scenario, and exact small-instance comparators.
 
 ## Household plan review lifecycle
@@ -47,7 +47,7 @@ Migration `20260802_0013` separates **generation** from **approval**.
 
 Every generated household plan begins as `draft` with optimistic version `1`. The protected `/household/plans` workspace lets the household:
 
-- inspect exact plan ID, schema, version, meals, portions, warnings, and timestamps;
+- inspect exact plan ID, schema, version, meals, serving counts, warnings, and timestamps;
 - record a human decision reason;
 - approve an exact version as owner;
 - cancel a draft or approved plan as editor/owner;
@@ -59,7 +59,7 @@ Cancellation is atomic with downstream consequences:
 
 - active reservations for the plan are released;
 - dependent draft or approved preparation schedules are invalidated;
-- plan and schedule events retain the cancellation provenance and affected-row counts.
+- plan and schedule events retain cancellation provenance and affected-row counts.
 
 Preparation schedule creation accepts a source plan only when the exact plan ID/version belongs to the household and is currently `approved`. Generation or persistence alone is not approval.
 
@@ -99,7 +99,7 @@ The scheduler accepts only explicit resources, capacities, non-overlapping avail
 
 ## Persisted preparation operations
 
-Migrations `20260801_0009` through `20260801_0012` provide:
+Migrations `20260801_0009` through `20260802_0014` provide:
 
 - immutable reviewed household resource calendars;
 - structured calendar builder at `/preparation/operations/calendars/new`;
@@ -111,11 +111,32 @@ Migrations `20260801_0009` through `20260801_0012` provide:
 - replay before persistence and approval;
 - draft, approved, invalidated, completed, and cancelled lifecycle;
 - append-only schedule events;
+- append-only task execution events;
 - provenance coverage dashboard.
 
 The calendar builder includes resource templates, dynamic multi-window editing, strict validation, operational predecessor diff, canonical JSON import/export, mandatory review confirmations, automatic stale-review reset, and owner-only activation.
 
 The schedule API rejects unapproved or stale source plans. Cancelling an approved plan invalidates dependent operational schedules in the same transaction.
+
+## User-confirmed task execution
+
+Migration `20260802_0014` adds `preparation_task_execution_events`. Task identity and planned timing come only from the persisted deterministic schedule; a client cannot invent executable tasks.
+
+The protected `/preparation/operations/execution` workspace provides:
+
+- viewer-authorized task state and append-only history;
+- editor/owner `started`, `completed`, and `skipped` confirmations;
+- horizon-relative actual minutes;
+- planned-versus-actual start or finish deviation;
+- mandatory reasons for skips and nonzero timing deviations;
+- optional human-entered notes and metadata;
+- optimistic schedule-version increments for every event;
+- exact idempotent retries and contradictory-key rejection;
+- dependency blocking until prerequisite tasks are completed or skipped;
+- rejection of completion before the task's confirmed start minute;
+- final schedule completion only after every deterministic task is explicitly completed or skipped.
+
+Nothing starts, completes, or skips automatically. The ledger does not infer presence, observe appliances, verify cooking, measure temperatures, or declare food safe. The normal HTTP completion route is guarded by task terminality. A legacy low-level transition function remains for compatibility with older internal service tests and must not be used as an execution bypass.
 
 See [Preparation Operations](docs/PREPARATION_OPERATIONS.md).
 
@@ -125,9 +146,10 @@ Protected routes include:
 
 - dashboard and personal meal planner;
 - household, pantry, invitations, leftovers, reservations, shopping, and batch preparation;
-- household plan review;
+- household plan review and approved-plan occurrence confirmation;
 - preparation profile editor and reviewed pipeline;
 - preparation operations;
+- preparation task execution;
 - structured resource-calendar builder;
 - preparation provenance coverage;
 - research registry and settings.
@@ -150,13 +172,13 @@ Executable offline families include retrieval and ranking baselines, temporal ra
 
 ## Validation matrix
 
-The direct-`main` workflow is configured to run:
+The direct-`main` workflows are configured to run:
 
-- compile, dependency, backend, repository, Alembic, catalog, OpenAPI, and three frontend-binding gates;
+- compile, dependency, backend, repository, Alembic, catalog, OpenAPI, and frontend-binding gates;
 - planner, preparation, ranking, forecasting, inventory, and closed-loop benchmarks;
 - fresh SQLite and PostgreSQL migrations;
 - evidence import and lifecycle manifests;
-- PostgreSQL inventory, idempotency, evidence, preparation, preparation-operations, and household-plan lifecycle race probes;
+- PostgreSQL inventory, idempotency, evidence, preparation, preparation-operations, household-plan, and task-execution race probes;
 - frontend lint, Vitest, Vite build, and container build;
 - retained machine-readable reports.
 
@@ -185,13 +207,13 @@ PostgreSQL is recommended for hosted or concurrent deployments.
 ## Deliberately incomplete or disabled
 
 - Clinical, medication, allergy-safety, food-safety, and health-outcome claims are not validated.
-- Approved-plan occurrence generation and serving/deadline confirmation remain incomplete.
-- Raw schedule-bundle JSON still needs a structured review replacement.
-- Per-task execution/deviation events, timers, and reminders remain incomplete.
-- Joint meal/preparation repair remains offline future work.
+- Approved-plan occurrence confirmation is non-persisted until incorporated into a persisted schedule.
+- Raw schedule-bundle JSON still needs a fully structured final persistence-review replacement.
+- Timers and reminders remain local-assistance future work and must never imply completion.
+- Minimal-change plan/schedule repair and joint meal/preparation optimization remain future work.
 - Authenticated Playwright/PostgreSQL and automated accessibility coverage remain incomplete.
 - Vision, multimodal nutrition, constrained generation, graph learning, causal/off-policy promotion, continual/federated personalization, privacy-sensitive learning, sustainability claims, and autonomous appliance/procurement control remain gated research.
-- The latest exact hosted workflow has not yet been observed green in this execution context.
+- The latest exact hosted workflows have not yet been observed green in this execution context.
 
 ## Documentation
 
