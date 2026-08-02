@@ -80,8 +80,8 @@ const compatibleCandidate = {
   recipe_id: "recipe-compatible",
   recipe_name: "Compatible dinner",
   source_recipe_servings: 2,
-  planned_portion_multiplier: 2,
-  planned_servings: 4,
+  planned_servings: 2,
+  recipe_batch_scale: 1,
   preparation_profile_status: "reviewed_compatible" as const,
   preparation_profile_id: 7,
   preparation_profile_version: "v1",
@@ -98,8 +98,8 @@ const unresolvedCandidate = {
   recipe_id: "recipe-missing",
   recipe_name: "Unprofiled snack",
   source_recipe_servings: 1,
-  planned_portion_multiplier: 1,
   planned_servings: 1,
+  recipe_batch_scale: 1,
   preparation_profile_status: "missing_reviewed_profile" as const,
   preparation_profile_id: null,
   preparation_profile_version: null,
@@ -136,7 +136,7 @@ const confirmedResponse = {
         occurrence_id: compatibleCandidate.occurrence_id,
         recipe_id: compatibleCandidate.recipe_id,
         required_finish_minute: 180,
-        servings: 4,
+        servings: 2,
         priority: 3,
       },
     ],
@@ -181,7 +181,7 @@ beforeEach(() => {
 });
 
 describe("Approved-plan occurrence confirmation", () => {
-  it("derives servings but requires an explicit finish minute", async () => {
+  it("uses the stored serving count and requires an explicit finish minute", async () => {
     renderPage();
 
     expect(
@@ -201,10 +201,15 @@ describe("Approved-plan occurrence confirmation", () => {
     ).toBeChecked();
     expect(
       within(compatible as HTMLElement).getByLabelText("Confirmed servings"),
-    ).toHaveValue(4);
+    ).toHaveValue(2);
     expect(
       within(compatible as HTMLElement).getByLabelText("Required finish minute"),
     ).toHaveValue(null);
+    expect(
+      within(compatible as HTMLElement).getByText(
+        /Source recipe yield 2 servings · planned 2 servings · batch scale 1\.000×/,
+      ),
+    ).toBeInTheDocument();
 
     const unresolved = screen.getByText("Unprofiled snack").closest("fieldset");
     expect(unresolved).not.toBeNull();
@@ -257,7 +262,7 @@ describe("Approved-plan occurrence confirmation", () => {
       {
         occurrence_id: compatibleCandidate.occurrence_id,
         include: true,
-        servings: 4,
+        servings: 2,
         required_finish_minute: 180,
         priority: 3,
       },
