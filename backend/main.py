@@ -66,7 +66,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="NutriFlavorOS API",
-    version="0.13.0",
+    version="0.14.0",
     description=(
         "Experimental meal-planning, household-inventory, reviewed preparation "
         "operations, immutable evidence, and offline-research API. Outputs are "
