@@ -89,6 +89,10 @@ def validate_identity() -> dict:
             "Schedule derivation evidence",
             "Owner-only proposal invalidation",
             "Lowest-layer task terminality",
+            "Database transient failures and exact recovery",
+            "database_transaction_retry_required",
+            "database_commit_outcome_unknown",
+            "64 valid accepted lifecycles",
         },
         "docs/IMPLEMENTATION_STATUS.md": {
             f"**Database migration head:** `{EXPECTED_MIGRATION}`",
@@ -100,6 +104,10 @@ def validate_identity() -> dict:
             "Schedule derivation evidence",
             "Owner-only proposal invalidation",
             "Lowest-layer task terminality",
+            "Database transient failures and exact recovery",
+            "statement-timeout evidence",
+            "deadlock evidence",
+            "64 valid accepted lifecycles",
         },
         "docs/ROADMAP.md": {
             f"**Current migration head:** `{EXPECTED_MIGRATION}`",
@@ -110,12 +118,23 @@ def validate_identity() -> dict:
             "schedule derivation evidence is implemented",
             "Owner-only proposal invalidation is implemented",
             "Lowest-layer task terminality",
+            "C10 — PostgreSQL lifecycle, migration, and transient-failure evidence",
+            "automatic_retry_performed=false",
         },
         "docs/PREPARATION_REPAIR_EXECUTION_BOUNDARY.md": {
             "Lowest-layer schedule completion authority",
             "schedule_tasks_not_terminal",
             "Final-task concurrency boundary",
             "schedule_version_conflict",
+        },
+        "docs/PREPARATION_REPAIR_ACCEPTANCE.md": {
+            "Migration rehearsal",
+            "64 valid historical acceptances",
+            "Statement timeout and deadlock recovery",
+            "database_transaction_retry_required",
+            "database_commit_outcome_unknown",
+            "same idempotency key",
+            "no automatic retry",
         },
     }
     for relative, fragments in required_fragments.items():
@@ -131,9 +150,25 @@ def validate_identity() -> dict:
         "app.include_router(preparation_schedule_derivation_routes.router)",
         "app.include_router(preparation_task_execution_eligibility_routes.router)",
         "preparation_repair_proposal_routes",
+        "database_error_handlers",
+        "database_error_handlers.install_database_error_handlers(app)",
     }:
         if fragment not in main_source:
             errors.append(f"backend/main.py lacks mounted release fragment: {fragment}")
+
+    database_handler = _read("backend/api/database_error_handlers.py", errors)
+    for fragment in {
+        '"40001"',
+        '"40P01"',
+        '"57014"',
+        '"55P03"',
+        "database_transaction_retry_required",
+        "database_commit_outcome_unknown",
+        '"automatic_retry_performed": False',
+        'headers = {"Retry-After": "1"}',
+    }:
+        if fragment not in database_handler:
+            errors.append(f"database failure boundary lacks release fragment: {fragment}")
 
     proposal_routes = _read(
         "backend/api/preparation_repair_proposal_routes.py",
@@ -173,6 +208,33 @@ def validate_identity() -> dict:
         if fragment not in completion_race:
             errors.append(f"completion race lacks release fragment: {fragment}")
 
+    transient_races = _read(
+        "backend/tests/test_preparation_repair_transient_failures_postgres.py",
+        errors,
+    )
+    for fragment in {
+        "test_postgres_statement_timeout_rolls_back_then_exact_retry_succeeds",
+        '"sqlstate": "57014"',
+        "test_postgres_deadlock_victim_then_exact_retry_converges_once",
+        'value.get("sqlstate") == "40P01"',
+        'event_types == ["created", "accepted"]',
+    }:
+        if fragment not in transient_races:
+            errors.append(f"transient PostgreSQL evidence lacks release fragment: {fragment}")
+
+    migration_rehearsal = _read(
+        "scripts/rehearse_repair_source_acceptance_migration_postgres.py",
+        errors,
+    )
+    for fragment in {
+        "DEFAULT_COUNT = 64",
+        'PREDECESSOR = "20260802_0017"',
+        'HEAD = "20260802_0018"',
+        '"lower_level_bypass_rows_added": 0',
+    }:
+        if fragment not in migration_rehearsal:
+            errors.append(f"migration rehearsal lacks release fragment: {fragment}")
+
     return {
         "valid": not errors,
         "api_version": app.version,
@@ -181,6 +243,9 @@ def validate_identity() -> dict:
         "required_paths": sorted(required_paths),
         "required_schemas": sorted(required_schemas),
         "completion_authority": "transition_schedule",
+        "database_transient_failure_boundary": True,
+        "automatic_retry_performed": False,
+        "migration_rehearsal_count": 64,
         "errors": errors,
     }
 
