@@ -9,10 +9,10 @@ NutriFlavorOS is an **experimental household food-planning, transactional invent
 Development is performed through coherent commits directly to `main`. Code, tests, migrations, fixtures, OpenAPI contracts, frontend bindings, catalogs, CI, and documentation must evolve together.
 
 - Database migration head: **`20260802_0014`**
-- API version: **`0.12.0`**
-- OpenAPI release contract: **`2026-08-02.5`**
+- API version: **`0.12.1`**
+- OpenAPI release contract: **`2026-08-02.6`**
 - Food-evidence frontend binding contract: **`2026-08-01.2`**
-- Preparation-operations frontend binding contract: **`2026-08-02.3`**
+- Preparation-operations frontend binding contract: **`2026-08-02.4`**
 - Household-plan frontend binding contract: **`2026-08-02.4`**
 - Governed research catalog: **`2026-08-01.3`**
 
@@ -112,7 +112,7 @@ Migrations `20260801_0009` through `20260802_0014` provide:
 - draft, approved, invalidated, completed, and cancelled lifecycle;
 - append-only schedule events;
 - append-only task execution events;
-- provenance coverage dashboard.
+- provenance and execution-coverage dashboards.
 
 The calendar builder includes resource templates, dynamic multi-window editing, strict validation, operational predecessor diff, canonical JSON import/export, mandatory review confirmations, automatic stale-review reset, and owner-only activation.
 
@@ -138,6 +138,26 @@ The protected `/preparation/operations/execution` workspace provides:
 
 Nothing starts, completes, or skips automatically. The ledger does not infer presence, observe appliances, verify cooking, measure temperatures, or declare food safe. The normal HTTP completion route is guarded by task terminality. A legacy low-level transition function remains for compatibility with older internal service tests and must not be used as an execution bypass.
 
+## Provenance and execution coverage
+
+The protected `/preparation/operations/coverage` dashboard intentionally separates two metric families.
+
+**Operational provenance** reports calendars, schedule lifecycle, occurrence documents, deterministic requests, replayability, source-plan linkage, and append-only schedule events.
+
+**Task execution evidence** reports:
+
+- approved/completed schedules or historical schedules with task events;
+- currently approved execution schedules;
+- schedules with task-event history;
+- structurally invalid schedule or event histories;
+- deterministic task counts and planned/in-progress/completed/skipped states;
+- terminal tasks and fully terminal schedules;
+- task-event totals, nonzero deviations, skips, and skip reasons;
+- schedule-history and task-terminality coverage ratios;
+- latest task-event timestamp.
+
+Malformed execution histories are excluded from task-state denominators and surfaced as warnings so they cannot inflate apparent completion. These metrics describe stored structure and user-entered claims; they do not certify correctness, observation, task performance, nutrition, appliance condition, temperature, or food safety.
+
 See [Preparation Operations](docs/PREPARATION_OPERATIONS.md).
 
 ## Frontend
@@ -151,7 +171,7 @@ Protected routes include:
 - preparation operations;
 - preparation task execution;
 - structured resource-calendar builder;
-- preparation provenance coverage;
+- preparation provenance and execution coverage;
 - research registry and settings.
 
 TypeScript clients for food evidence, preparation operations, and household plan lifecycle are mechanically checked against generated OpenAPI.
