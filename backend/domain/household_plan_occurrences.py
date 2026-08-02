@@ -29,8 +29,8 @@ class ApprovedPlanOccurrenceCandidate(StrictHouseholdPlanModel):
     recipe_id: str = Field(min_length=1, max_length=240)
     recipe_name: str = Field(min_length=1, max_length=300)
     source_recipe_servings: float = Field(gt=0, le=1000)
-    planned_portion_multiplier: float = Field(gt=0, le=1000)
     planned_servings: float = Field(gt=0, le=1000)
+    recipe_batch_scale: float = Field(gt=0, le=1000)
     preparation_profile_status: PreparationProfileAvailability
     preparation_profile_id: Optional[int] = Field(default=None, ge=1)
     preparation_profile_version: Optional[str] = None
