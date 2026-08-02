@@ -21,6 +21,9 @@ from backend.preparation_operations_models import (  # noqa: F401
     DBPreparationScheduleEvent,
     DBResourceCalendarVersion,
 )
+from backend.preparation_task_execution_models import (  # noqa: F401
+    DBPreparationTaskExecutionEvent,
+)
 from backend.schema_verification import verify_runtime_schema
 
 
@@ -50,7 +53,7 @@ def test_stale_alembic_revision_is_rejected(tmp_path, monkeypatch):
 
     with pytest.raises(
         RuntimeError,
-        match="Expected 20260801_0011; observed 20260731_0005",
+        match="Expected 20260802_0014; observed 20260731_0005",
     ):
         verify_runtime_schema(create_engine(url))
 
