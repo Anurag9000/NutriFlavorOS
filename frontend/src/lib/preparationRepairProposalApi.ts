@@ -42,6 +42,14 @@ export interface PreparationRepairProposalRejectRequest {
   metadata?: Record<string, unknown>;
 }
 
+export interface PreparationRepairProposalInvalidateRequest {
+  expected_version: number;
+  reason: string;
+  acknowledge_historical_only: true;
+  idempotency_key: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface PreparationRepairProposalAcceptRequest {
   expected_proposal_version: number;
   expected_source_schedule_version: number;
@@ -150,7 +158,7 @@ export interface PreparationRepairProposalAcceptedDraftView {
 }
 
 function collection(householdId: string): string {
-  return `/households/${householdId}/preparation-operations/repair-proposals`;
+  return `/households/${encodeURIComponent(householdId)}/preparation-operations/repair-proposals`;
 }
 
 export const preparationRepairProposalApi = {
@@ -210,6 +218,19 @@ export const preparationRepairProposalApi = {
   ) =>
     apiRequest<PreparationRepairProposalView>(
       `${collection(householdId)}/${proposalId}/reject`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    ),
+
+  invalidate: (
+    householdId: string,
+    proposalId: number,
+    payload: PreparationRepairProposalInvalidateRequest,
+  ) =>
+    apiRequest<PreparationRepairProposalView>(
+      `${collection(householdId)}/${proposalId}/invalidate`,
       {
         method: "POST",
         body: JSON.stringify(payload),
