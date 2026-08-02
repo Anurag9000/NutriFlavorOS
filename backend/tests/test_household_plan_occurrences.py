@@ -206,7 +206,7 @@ def _create_plan(Session, *, status: str = "approved", version: int = 2) -> int:
         return plan.id
 
 
-def test_candidates_derive_servings_but_not_deadlines(Session):
+def test_candidates_use_stored_serving_counts_and_do_not_infer_deadlines(Session):
     plan_id = _create_plan(Session)
     with Session() as db:
         result = get_approved_plan_occurrence_candidates(
@@ -226,8 +226,8 @@ def test_candidates_derive_servings_but_not_deadlines(Session):
         value for value in result.candidates if value.meal_slot == "dinner"
     )
     assert dinner.source_recipe_servings == 2
-    assert dinner.planned_portion_multiplier == 2
-    assert dinner.planned_servings == 4
+    assert dinner.planned_servings == 2
+    assert dinner.recipe_batch_scale == 1
     assert dinner.preparation_profile_status.value == "reviewed_compatible"
     assert dinner.preparation_profile_id is not None
     assert dinner.supported_servings_min == 1
@@ -237,6 +237,8 @@ def test_candidates_derive_servings_but_not_deadlines(Session):
     snack = next(
         value for value in result.candidates if value.meal_slot == "late snack"
     )
+    assert snack.planned_servings == 1
+    assert snack.recipe_batch_scale == 1
     assert snack.preparation_profile_status.value == "missing_reviewed_profile"
     assert snack.preparation_profile_id is None
     assert any("must be entered explicitly" in value for value in result.warnings)
@@ -292,7 +294,7 @@ def test_confirmation_requires_explicit_decision_for_every_candidate(Session):
                             {
                                 "occurrence_id": dinner.occurrence_id,
                                 "include": True,
-                                "servings": 4,
+                                "servings": 2,
                                 "required_finish_minute": 180,
                                 "priority": 1,
                             }
@@ -360,12 +362,15 @@ def test_confirmation_returns_canonical_nonpersisted_document(Session):
             expected_version=2,
         )
         confirmations = []
+        compatible_profile_id = None
         for value in candidates.candidates:
+            if value.meal_slot == "dinner":
+                compatible_profile_id = value.preparation_profile_id
             confirmations.append(
                 {
                     "occurrence_id": value.occurrence_id,
                     "include": value.meal_slot == "dinner",
-                    "servings": 4 if value.meal_slot == "dinner" else None,
+                    "servings": 2 if value.meal_slot == "dinner" else None,
                     "required_finish_minute": (
                         180 if value.meal_slot == "dinner" else None
                     ),
@@ -385,6 +390,7 @@ def test_confirmation_returns_canonical_nonpersisted_document(Session):
                 }
             ),
         )
+        assert db.query(DBHouseholdPlanEvent).count() == 0
 
     assert result.source_plan_id == plan_id
     assert result.source_plan_version == 2
@@ -395,12 +401,12 @@ def test_confirmation_returns_canonical_nonpersisted_document(Session):
     assert len(result.occurrence_set.occurrences) == 1
     occurrence = result.occurrence_set.occurrences[0]
     assert occurrence.recipe_id == "recipe-compatible"
-    assert occurrence.servings == 4
+    assert occurrence.servings == 2
     assert occurrence.required_finish_minute == 180
     assert occurrence.priority == 3
+    assert compatible_profile_id is not None
     assert result.profile_versions == {
         "recipe-compatible": (
-            f"profile:1/version:v1/sha256:{PROFILE_HASH}"
+            f"profile:{compatible_profile_id}/version:v1/sha256:{PROFILE_HASH}"
         )
     }
-    assert db.query(DBHouseholdPlanEvent).count() == 0
