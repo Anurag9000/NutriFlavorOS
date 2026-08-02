@@ -1,8 +1,7 @@
-"""Schedule-completion guard backed by explicit task execution evidence."""
+"""Compatibility entry point for authoritative schedule completion."""
 
 from __future__ import annotations
 
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from backend.domain.preparation_operations import (
@@ -10,14 +9,7 @@ from backend.domain.preparation_operations import (
     PreparationScheduleEventType,
     ScheduleStateTransitionRequest,
 )
-from backend.preparation_operations_models import DBPersistedPreparationSchedule
-from backend.services.preparation_operations_service import (
-    _lock_household,
-    transition_schedule,
-)
-from backend.services.preparation_task_execution_service import (
-    assert_schedule_tasks_terminal,
-)
+from backend.services.preparation_operations_service import transition_schedule
 
 
 def complete_schedule_with_execution_guard(
@@ -28,27 +20,14 @@ def complete_schedule_with_execution_guard(
     actor_user_id: str,
     payload: ScheduleStateTransitionRequest,
 ) -> PersistedPreparationScheduleView:
-    """Complete only after every deterministic task is user-terminal.
+    """Delegate completion to the lowest authoritative transition layer.
 
-    The household row/advisory lock remains held while the task terminality
-    proof and the existing optimistic schedule transition execute. The
-    authoritative transition service remains the only version/idempotency
-    arbiter, so exact retries still resolve to the original completion event.
+    ``transition_schedule`` now owns task terminality, lifecycle validity,
+    optimistic versions, idempotency, locking, event append, and commit
+    semantics. Keeping this named entry point preserves the API/service surface
+    without maintaining a second completion proof.
     """
 
-    _lock_household(db, household_id)
-    schedule = (
-        db.query(DBPersistedPreparationSchedule)
-        .filter(
-            DBPersistedPreparationSchedule.id == schedule_id,
-            DBPersistedPreparationSchedule.household_id == household_id,
-        )
-        .with_for_update()
-        .first()
-    )
-    if schedule is None:
-        raise HTTPException(status_code=404, detail="Resource not found")
-    assert_schedule_tasks_terminal(db, schedule=schedule)
     return transition_schedule(
         db,
         household_id=household_id,
