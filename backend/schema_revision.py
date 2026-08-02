@@ -1,3 +1,3 @@
 """Current reviewed Alembic revision shared by runtime and validators."""
 
-CURRENT_ALEMBIC_REVISION = "20260801_0012"
+CURRENT_ALEMBIC_REVISION = "20260802_0013"
