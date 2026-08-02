@@ -88,6 +88,7 @@ def validate_identity() -> dict:
             "Task-execution eligibility",
             "Schedule derivation evidence",
             "Owner-only proposal invalidation",
+            "Lowest-layer task terminality",
         },
         "docs/IMPLEMENTATION_STATUS.md": {
             f"**Database migration head:** `{EXPECTED_MIGRATION}`",
@@ -98,6 +99,7 @@ def validate_identity() -> dict:
             "Task-execution eligibility",
             "Schedule derivation evidence",
             "Owner-only proposal invalidation",
+            "Lowest-layer task terminality",
         },
         "docs/ROADMAP.md": {
             f"**Current migration head:** `{EXPECTED_MIGRATION}`",
@@ -107,6 +109,13 @@ def validate_identity() -> dict:
             "task-execution eligibility is implemented",
             "schedule derivation evidence is implemented",
             "Owner-only proposal invalidation is implemented",
+            "Lowest-layer task terminality",
+        },
+        "docs/PREPARATION_REPAIR_EXECUTION_BOUNDARY.md": {
+            "Lowest-layer schedule completion authority",
+            "schedule_tasks_not_terminal",
+            "Final-task concurrency boundary",
+            "schedule_version_conflict",
         },
     }
     for relative, fragments in required_fragments.items():
@@ -139,6 +148,31 @@ def validate_identity() -> dict:
         if fragment not in proposal_routes:
             errors.append(f"proposal routes lack release fragment: {fragment}")
 
+    completion_authority = _read(
+        "backend/services/preparation_operations_service.py",
+        errors,
+    )
+    for fragment in {
+        "preparation_operations_service_impl as _impl",
+        "def _assert_completion_authority",
+        "assert_schedule_tasks_terminal(db, schedule=schedule)",
+        "def transition_schedule",
+    }:
+        if fragment not in completion_authority:
+            errors.append(f"completion authority lacks release fragment: {fragment}")
+
+    completion_race = _read(
+        "backend/tests/test_preparation_schedule_completion_postgres.py",
+        errors,
+    )
+    for fragment in {
+        "test_postgres_schedule_cannot_complete_ahead_of_final_task_event",
+        '"schedule_tasks_not_terminal"',
+        '"schedule_version_conflict"',
+    }:
+        if fragment not in completion_race:
+            errors.append(f"completion race lacks release fragment: {fragment}")
+
     return {
         "valid": not errors,
         "api_version": app.version,
@@ -146,6 +180,7 @@ def validate_identity() -> dict:
         "migration_head": CURRENT_ALEMBIC_REVISION,
         "required_paths": sorted(required_paths),
         "required_schemas": sorted(required_schemas),
+        "completion_authority": "transition_schedule",
         "errors": errors,
     }
 
