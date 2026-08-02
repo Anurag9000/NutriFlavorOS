@@ -124,12 +124,15 @@ A class, endpoint, committed test, configured workflow, synthetic fixture, or ca
 - Authenticated `POST /api/v1/preparation/schedule/repair` with structured `409` conflicts.
 - Strict offline repair CLI and retained benchmark report.
 - Machine-enforced advisory boundary: `requires_human_acceptance=true`, `accepted=false`, and `persistence_performed=false`.
-- Unit, input-order, metamorphic, exact-comparator, immutable-anchor, dependency, partial-output, API, CLI, benchmark, and contract tests.
+- Protected `/preparation/operations/repair` review workspace for replayable complete draft/approved schedules.
+- Strict revised-request JSON, immutable-task selection, strategy and partial-mode controls, objective/provenance summaries, accessible side-by-side change ledger, warnings, explicit local review acknowledgements, and local candidate export.
+- The review workspace exposes no schedule persistence, approval, completion, cancellation, invalidation, or task-execution mutation.
+- Unit, input-order, metamorphic, exact-comparator, immutable-anchor, dependency, partial-output, API, CLI, benchmark, contract, TypeScript, and focused frontend tests are configured.
 
 ### Remaining
 
-- Protected structured repair-review UI comparing old and proposed schedules.
-- Explicit human acceptance and a separate idempotent persistence action that creates a new draft while preserving both source hashes.
+- Explicit server-authoritative human acceptance and a separate idempotent persistence action that creates a new draft while preserving both source hashes.
+- Execution-aware repair that preserves already completed/skipped work and its append-only history.
 - Joint optimization, passive waiting and supervision handoffs, setup/cleanup models, large-neighborhood repair, infeasibility cores, and product-scale exact/relaxation methods.
 - Representative-scale latency, optimality-gap, and failure-rate evidence.
 
@@ -210,14 +213,15 @@ Coverage describes stored structure and user-entered claims. It does not certify
 ### Implemented
 
 - Protected lazy routes and profile-completion routing.
-- Dashboard, planner, household/pantry, plan review, occurrence confirmation, analytics, settings, preparation editor, reviewed pipeline, structured operations review, task execution, calendar builder, combined provenance/execution coverage, and research views.
+- Dashboard, planner, household/pantry, plan review, occurrence confirmation, analytics, settings, preparation editor, reviewed pipeline, structured operations review, advisory schedule-repair review, task execution, calendar builder, combined provenance/execution coverage, and research views.
 - Role-aware controls and exact provenance surfaces.
-- Mechanical TypeScript binding gates for food evidence, preparation operations, and household plans.
-- Vitest coverage for operations, execution, coverage, calendars, plans, household switching, authorization, and failure states.
+- Mechanical TypeScript binding gates for food evidence, preparation operations, household plans, and the advisory repair surface.
+- Vitest coverage for operations, repair review, execution, coverage, calendars, plans, household switching, authorization, and failure states.
+- Repair review includes labeled inputs, semantic fieldsets, an accessible comparison table and caption, explicit alert boundaries, and acknowledgement-gated local export.
 
 ### Remaining
 
-- Structured repair-review and explicit acceptance UI.
+- Server-backed explicit repair acceptance and accepted-draft persistence UI.
 - Authenticated Playwright/PostgreSQL journeys, automated axe, keyboard-only/screen-reader suites, visual regression, offline/PWA policy, and internationalization.
 
 ## Governed offline research
@@ -240,7 +244,7 @@ Coverage describes stored structure and user-entered claims. It does not certify
 
 - Compile, dependency, backend, repository, Alembic, catalog, OpenAPI, and frontend-binding gates.
 - Planner, preparation, preparation-repair, ranking, forecasting, inventory, and closed-loop benchmarks.
-- Repair contract, advisory API, CLI, immutable-anchor, metamorphic, and exact-comparator gates.
+- Repair contract, advisory API, CLI, immutable-anchor, metamorphic, exact-comparator, frontend route/client/review, TypeScript, and focused Vitest gates.
 - Fresh SQLite/PostgreSQL migrations.
 - Evidence import/lifecycle manifests.
 - PostgreSQL inventory, idempotency, evidence, plan, preparation-operations, and task-execution probes.
@@ -255,10 +259,10 @@ The exact latest `main` push workflows have not been observed complete and green
 1. Inspect and close the exact latest hosted workflows and retained artifacts.
 2. Migrate remaining low-level completion callers to the task terminality guard.
 3. Add authenticated Playwright/PostgreSQL and automated accessibility coverage.
-4. Build protected structured repair review, explicit acceptance, and separate idempotent draft persistence.
-5. Expand reviewed evidence and cross-domain coverage.
-6. Add joint meal/preparation repair, larger-instance methods, infeasibility explanations, and representative-scale benchmarks.
-7. Expand forecasting uncertainty, stochastic inventory costs, ranking robustness, identity lifecycle, backups, observability, SLOs, and incident evidence.
+4. Add server-authoritative repair acceptance and separate idempotent accepted-draft persistence.
+5. Add execution-aware and joint meal/preparation repair.
+6. Expand reviewed evidence and cross-domain coverage.
+7. Add larger-instance methods, infeasibility explanations, representative-scale benchmarks, forecasting uncertainty, stochastic inventory costs, ranking robustness, identity lifecycle, backups, observability, SLOs, and incident evidence.
 
 Detailed specifications:
 
