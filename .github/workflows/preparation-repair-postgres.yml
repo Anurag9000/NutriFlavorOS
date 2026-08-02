@@ -15,14 +15,14 @@ concurrency:
 jobs:
   repair-acceptance-races:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     services:
       postgres:
         image: postgres:16
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: nutriflav test
+          POSTGRES_DB: nutriflavor_test
         ports:
           - 5432:5432
         options: >-
@@ -44,7 +44,8 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r backend/requirements.txt
       - run: pip check
-      - name: Upgrade PostgreSQL to exact reviewed head
+
+      - name: Upgrade PostgreSQL to exact reviewed head 0018
         run: |
           alembic upgrade head
           python - <<'PY'
@@ -52,14 +53,24 @@ jobs:
           from backend.schema_revision import CURRENT_ALEMBIC_REVISION
           from backend.schema_verification import verify_runtime_schema
           assert engine.dialect.name == "postgresql", engine.dialect.name
-          assert CURRENT_ALEMBIC_REVISION == "20260802_0017"
+          assert CURRENT_ALEMBIC_REVISION == "20260802_0018"
           verify_runtime_schema()
           PY
-      - name: Run PostgreSQL repair acceptance races
+
+      - name: Validate source acceptance and release contracts
+        run: |
+          python scripts/validate_preparation_repair_source_acceptance_contract.py
+          python scripts/validate_preparation_task_execution_replacement_guard.py
+          python scripts/validate_preparation_task_execution_eligibility_contract.py
+          python scripts/validate_repair_release_identity.py
+
+      - name: Run PostgreSQL repair acceptance and source-execution races
         run: >-
           pytest -q
           backend/tests/test_preparation_repair_acceptance_postgres.py
+          backend/tests/test_preparation_repair_source_acceptance_postgres.py
           --junitxml=reports/preparation-repair-postgres.xml
+
       - uses: actions/upload-artifact@v7
         with:
           name: preparation-repair-postgres-races
