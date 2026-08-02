@@ -1,6 +1,6 @@
 {
-  "contract_version": "2026-08-02.2",
-  "api_version": "0.8.0",
+  "contract_version": "2026-08-02.3",
+  "api_version": "0.9.0",
   "paths": {
     "/api/v1/food-evidence/history/conversions": {
       "methods": ["get"],
@@ -28,6 +28,26 @@
     },
     "/api/v1/preparation/compile-and-schedule": {
       "methods": ["post"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/plans": {
+      "methods": ["get", "post"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/plans/{plan_id}": {
+      "methods": ["get"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/plans/{plan_id}/approve": {
+      "methods": ["post"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/plans/{plan_id}/cancel": {
+      "methods": ["post"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/plans/{plan_id}/events": {
+      "methods": ["get"],
       "authenticated": true
     },
     "/api/v1/households/{household_id}/preparation-operations/coverage": {
@@ -152,6 +172,46 @@
     },
     "CompileAndScheduleResponse": {
       "required": ["compilation", "partial", "execution_status"]
+    },
+    "PersistedHouseholdPlanView": {
+      "required": [
+        "id",
+        "household_id",
+        "user_id",
+        "schema_version",
+        "plan",
+        "status",
+        "version",
+        "approved_by_user_id",
+        "approved_at",
+        "cancelled_at",
+        "cancellation_reason",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "HouseholdPlanTransitionRequest": {
+      "required": [
+        "expected_version",
+        "reason",
+        "idempotency_key"
+      ]
+    },
+    "HouseholdPlanEventView": {
+      "required": [
+        "id",
+        "plan_id",
+        "household_id",
+        "event_type",
+        "actor_user_id",
+        "from_status",
+        "to_status",
+        "reason",
+        "metadata",
+        "idempotency_key",
+        "request_fingerprint",
+        "created_at"
+      ]
     },
     "PreparationOccurrenceSetDocument": {
       "required": [
