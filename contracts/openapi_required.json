@@ -1,6 +1,6 @@
 {
-  "contract_version": "2026-08-02.7",
-  "api_version": "0.13.0",
+  "contract_version": "2026-08-02.8",
+  "api_version": "0.14.0",
   "paths": {
     "/api/v1/food-evidence/history/conversions": {
       "methods": ["get"],
@@ -126,8 +126,16 @@
       "methods": ["get"],
       "authenticated": true
     },
+    "/api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/acceptance": {
+      "methods": ["get"],
+      "authenticated": true
+    },
     "/api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/events": {
       "methods": ["get"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/accept": {
+      "methods": ["post"],
       "authenticated": true
     },
     "/api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/reject": {
@@ -221,11 +229,20 @@
     "PreparationRepairProposalRejectRequest": {
       "required": ["expected_version", "reason", "idempotency_key"]
     },
+    "PreparationRepairProposalAcceptRequest": {
+      "required": ["expected_proposal_version", "expected_source_schedule_version", "expected_source_schedule_hash", "expected_source_schedule_request_hash", "expected_target_calendar_content_hash", "expected_repair_request_hash", "expected_repair_result_hash", "expected_revised_request_hash", "expected_repaired_response_hash", "acknowledged_task_ids", "reason", "acknowledge_creates_new_draft_only", "idempotency_key"]
+    },
     "PreparationRepairProposalView": {
-      "required": ["id", "household_id", "source_schedule_id", "source_schedule_version", "source_schedule_hash", "source_schedule_request_hash", "target_calendar_version_id", "target_calendar_content_hash", "repair_request_hash", "repair_result_hash", "revised_request_hash", "repaired_response_hash", "required_acknowledgement_task_ids", "repair_result", "status", "version", "notes", "created_by_user_id", "rejected_by_user_id", "rejected_at", "rejection_reason", "current", "stale_reasons", "accepted", "schedule_persistence_performed", "created_at", "updated_at"]
+      "required": ["id", "household_id", "source_schedule_id", "source_schedule_version", "source_schedule_hash", "source_schedule_request_hash", "target_calendar_version_id", "target_calendar_content_hash", "repair_request_hash", "repair_result_hash", "revised_request_hash", "repaired_response_hash", "required_acknowledgement_task_ids", "repair_result", "status", "version", "notes", "created_by_user_id", "rejected_by_user_id", "rejected_at", "rejection_reason", "current", "stale_reasons", "accepted", "schedule_persistence_performed", "accepted_schedule_id", "accepted_schedule_hash", "accepted_by_user_id", "accepted_at", "acceptance_reason", "created_at", "updated_at"]
     },
     "PreparationRepairProposalEventView": {
       "required": ["id", "proposal_id", "household_id", "event_type", "actor_user_id", "from_status", "to_status", "reason", "metadata", "proposal_version_before", "proposal_version_after", "idempotency_key", "request_fingerprint", "created_at"]
+    },
+    "PreparationRepairProposalAcceptanceView": {
+      "required": ["id", "household_id", "proposal_id", "proposal_version_before", "proposal_version_after", "source_schedule_id", "source_schedule_version", "created_schedule_id", "created_schedule_version", "created_schedule_status", "created_schedule_hash", "derivation_method", "source_schedule_hash", "source_schedule_request_hash", "target_calendar_content_hash", "repair_request_hash", "repair_result_hash", "revised_request_hash", "repaired_response_hash", "acknowledged_task_ids", "reason", "actor_user_id", "metadata", "idempotency_key", "request_fingerprint", "created_at"]
+    },
+    "PreparationRepairProposalAcceptedDraftView": {
+      "required": ["proposal", "acceptance", "accepted", "schedule_persistence_performed", "approval_performed", "execution_performed"]
     }
   },
   "forbidden_mutation_prefixes": [
