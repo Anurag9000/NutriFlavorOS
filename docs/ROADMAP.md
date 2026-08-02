@@ -44,9 +44,9 @@ Schedule derivation evidence is implemented through per-schedule and household-c
 
 Task-execution eligibility is implemented through a viewer-authorized endpoint and proactive frontend gate. Replaced sources remain readable but cannot receive new task events or completion.
 
-### C8 — Proposal invalidation authority
+### C8 — Proposal invalidation authority and administration
 
-Owner-only proposal invalidation is implemented through an authenticated API, strict request contract, append-only invalidation event, server-observed stale reasons, exact idempotency, optimistic versioning, typed frontend client, and authorization/service/API tests.
+Owner-only proposal invalidation is implemented through an authenticated API, strict request contract, append-only event, server-observed stale reasons, exact idempotency, optimistic versioning, typed frontend client, protected owner administration workspace, editor/viewer read-only behavior, static contracts, Vitest coverage, and a real PostgreSQL acceptance-versus-invalidation race.
 
 Invalidation cannot accept, persist, approve, execute, complete, or mutate a source schedule. It permanently closes only a `proposed` review record.
 
@@ -58,20 +58,6 @@ Invalidation cannot accept, persist, approve, execute, complete, or mutate a sou
 4. Repair every failure without deleting, skipping, xfail-ing, weakening, or narrowing requirements.
 5. Re-run failed jobs and verify the exact replacement run.
 6. Do not report green until the exact current commit and artifacts are observed.
-
-## P0 — Add owner invalidation administration UI
-
-The API and typed client are complete. The primary Repair Proposals workspace still needs owner controls:
-
-- owner-only invalidation form visible only for `proposed` records;
-- exact expected version, reason, historical-only acknowledgement, and fresh idempotency key;
-- display server-observed stale reasons before and after invalidation;
-- confirmation that no schedule is created and future acceptance is prohibited;
-- editor/viewer read-only behavior;
-- append-only invalidation event display;
-- focus restoration, live-region result, keyboard operation, and destructive-action confirmation;
-- Vitest and PostgreSQL-backed Playwright coverage;
-- acceptance-versus-invalidation and rejection-versus-invalidation race evidence.
 
 ## P0 — Finish lowest-layer task terminality authority
 
@@ -98,7 +84,7 @@ Backend and frontend eligibility are implemented. Remaining:
 
 Extend real-database probes for:
 
-- owner invalidation versus acceptance/rejection;
+- rejection versus invalidation;
 - source plan cancellation racing acceptance;
 - target calendar supersession racing acceptance/approval;
 - unknown commit outcome and exact retry recovery;
