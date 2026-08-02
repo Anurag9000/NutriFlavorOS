@@ -1,7 +1,9 @@
 import {
   BarChart3,
   Beaker,
+  CalendarPlus,
   CalendarRange,
+  ClipboardCheck,
   Clock3,
   FileCheck2,
   Home,
@@ -30,6 +32,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Meal Planner", url: "/meals", icon: UtensilsCrossed },
+  { title: "Plan Review", url: "/household/plans", icon: ClipboardCheck },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
   { title: "Household & Pantry", url: "/household", icon: Home },
   { title: "Preparation Editor", url: "/preparation", icon: Clock3 },
@@ -42,6 +45,11 @@ const navItems = [
     title: "Preparation Operations",
     url: "/preparation/operations",
     icon: CalendarRange,
+  },
+  {
+    title: "Calendar Builder",
+    url: "/preparation/operations/calendars/new",
+    icon: CalendarPlus,
   },
   {
     title: "Prep Provenance Coverage",
@@ -93,6 +101,7 @@ export function AppSidebar() {
                       to={item.url}
                       end={
                         item.url === "/dashboard"
+                        || item.url === "/household"
                         || item.url === "/preparation"
                         || item.url === "/preparation/operations"
                       }
