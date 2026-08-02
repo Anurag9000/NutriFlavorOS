@@ -15,7 +15,7 @@ concurrency:
 jobs:
   repair-contract:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     env:
       DATABASE_URL: sqlite:////tmp/nutriflavor-preparation-repair.db
       JWT_SECRET: preparation-repair-ci-secret-at-least-32-bytes
@@ -30,27 +30,41 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r backend/requirements.txt
       - run: pip check
-      - name: Compile complete repair lifecycle
+
+      - name: Compile complete repair, derivation, and execution authority
         run: >-
           python -m compileall -q
+          backend/main.py
           backend/api/preparation_routes.py
           backend/api/preparation_repair_proposal_routes.py
           backend/api/preparation_operations_routes.py
+          backend/api/preparation_schedule_derivation_routes.py
+          backend/api/preparation_task_execution_eligibility_routes.py
           backend/domain/preparation_repair.py
           backend/domain/preparation_repair_proposals.py
           backend/domain/preparation_schedule_replay.py
+          backend/domain/preparation_schedule_derivation.py
+          backend/domain/preparation_schedule_derivation_coverage.py
+          backend/domain/preparation_task_execution_eligibility.py
           backend/engines/prep_schedule_repair.py
           backend/preparation_repair_proposal_models.py
           backend/preparation_operations_models.py
           backend/services/preparation_repair_proposal_creation_service.py
           backend/services/preparation_repair_proposal_read_service.py
           backend/services/preparation_repair_proposal_acceptance_service.py
+          backend/services/preparation_repair_source_acceptance_guard_service.py
           backend/services/preparation_repair_approval_guard_service.py
           backend/services/preparation_schedule_replay_service.py
           backend/services/preparation_schedule_approval_service.py
+          backend/services/preparation_schedule_derivation_service.py
+          backend/services/preparation_schedule_derivation_coverage_service.py
+          backend/services/preparation_task_execution_eligibility_service.py
+          backend/services/preparation_task_execution_replacement_guard_service.py
+          backend/services/preparation_task_completion_service.py
           backend/migrations/versions/20260802_0015_preparation_repair_proposals.py
           backend/migrations/versions/20260802_0016_repair_proposal_calendar_identity.py
           backend/migrations/versions/20260802_0017_repair_proposal_acceptance.py
+          backend/migrations/versions/20260802_0018_unique_repair_source_acceptance.py
           scripts/benchmark_preparation_repair.py
           scripts/repair_preparation_schedule.py
           scripts/validate_preparation_repair_contract.py
@@ -59,11 +73,31 @@ jobs:
           scripts/validate_preparation_repair_acceptance_contract.py
           scripts/validate_preparation_repair_acceptance_frontend.py
           scripts/validate_preparation_repair_proposal_workspace.py
-      - name: Upgrade an empty SQLite database to the exact reviewed head
+          scripts/validate_preparation_repair_source_acceptance_contract.py
+          scripts/validate_preparation_task_execution_replacement_guard.py
+          scripts/validate_preparation_schedule_completion_authority.py
+          scripts/validate_preparation_schedule_derivation_contract.py
+          scripts/validate_preparation_schedule_derivation_coverage_contract.py
+          scripts/validate_preparation_schedule_derivation_frontend.py
+          scripts/validate_preparation_task_execution_eligibility_contract.py
+          scripts/validate_preparation_task_execution_eligibility_frontend.py
+          scripts/validate_repair_release_identity.py
+
+      - name: Upgrade an empty SQLite database to reviewed head 0018
         run: |
           rm -f /tmp/nutriflavor-preparation-repair.db
           alembic upgrade head
-          python -c "from backend.schema_revision import CURRENT_ALEMBIC_REVISION; from backend.schema_verification import verify_runtime_schema; assert CURRENT_ALEMBIC_REVISION == '20260802_0017'; verify_runtime_schema()"
+          python - <<'PY'
+          from backend.schema_revision import CURRENT_ALEMBIC_REVISION
+          from backend.schema_verification import verify_runtime_schema
+          assert CURRENT_ALEMBIC_REVISION == "20260802_0018"
+          verify_runtime_schema()
+          PY
+
+      - name: Validate synchronized repair release identity
+        run: python scripts/validate_repair_release_identity.py
+      - name: Validate generated OpenAPI release contract
+        run: python scripts/validate_openapi_contracts.py
       - name: Validate advisory repair contract
         run: python scripts/validate_preparation_repair_contract.py
       - name: Validate proposal lifecycle contract
@@ -76,9 +110,24 @@ jobs:
         run: python scripts/validate_preparation_repair_acceptance_frontend.py
       - name: Validate protected proposal workspace
         run: python scripts/validate_preparation_repair_proposal_workspace.py
-      - name: Validate generated OpenAPI release contract
-        run: python scripts/validate_openapi_contracts.py
-      - name: Run complete repair backend tests
+      - name: Validate one accepted replacement per source
+        run: python scripts/validate_preparation_repair_source_acceptance_contract.py
+      - name: Validate accepted replacement execution guard
+        run: python scripts/validate_preparation_task_execution_replacement_guard.py
+      - name: Audit schedule completion authority
+        run: python scripts/validate_preparation_schedule_completion_authority.py
+      - name: Validate schedule derivation evidence
+        run: python scripts/validate_preparation_schedule_derivation_contract.py
+      - name: Validate schedule derivation coverage
+        run: python scripts/validate_preparation_schedule_derivation_coverage_contract.py
+      - name: Validate schedule derivation frontend
+        run: python scripts/validate_preparation_schedule_derivation_frontend.py
+      - name: Validate task execution eligibility
+        run: python scripts/validate_preparation_task_execution_eligibility_contract.py
+      - name: Validate task execution eligibility frontend
+        run: python scripts/validate_preparation_task_execution_eligibility_frontend.py
+
+      - name: Run complete repair and execution authority backend tests
         run: >-
           pytest -q
           backend/tests/test_preparation_schedule_repair.py
@@ -92,9 +141,17 @@ jobs:
           backend/tests/test_preparation_repair_proposal_execution_boundary.py
           backend/tests/test_preparation_repair_proposal_acceptance.py
           backend/tests/test_preparation_repair_approval_guard.py
+          backend/tests/test_preparation_repair_source_acceptance_guard.py
+          backend/tests/test_preparation_repair_source_acceptance_migration.py
+          backend/tests/test_preparation_task_execution_replacement_guard.py
+          backend/tests/test_preparation_task_execution_eligibility.py
+          backend/tests/test_preparation_schedule_derivation.py
+          backend/tests/test_preparation_schedule_derivation_coverage.py
           backend/tests/test_openapi_contract_validator.py
+
       - name: Run benchmark and retain report
         run: python scripts/benchmark_preparation_repair.py --output reports/preparation-repair.json
+
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
@@ -103,16 +160,21 @@ jobs:
       - name: Install locked frontend dependencies
         working-directory: frontend
         run: npm ci
-      - name: Type-check accepted repair frontend
+      - name: Type-check repair and execution frontend
         working-directory: frontend
         run: npm run typecheck
-      - name: Run complete repair frontend tests
+      - name: Run repair, derivation, and eligibility frontend tests
         working-directory: frontend
         run: >-
           npm test --
           src/pages/PreparationRepairReview.test.tsx
           src/lib/preparationRepairProposalApi.test.ts
           src/pages/PreparationRepairProposals.test.tsx
+          src/lib/preparationScheduleDerivationApi.test.ts
+          src/pages/PreparationScheduleDerivation.test.tsx
+          src/lib/preparationTaskExecutionEligibilityApi.test.ts
+          src/pages/PreparationTaskExecution.test.tsx
+
       - uses: actions/upload-artifact@v7
         with:
           name: preparation-repair-report
