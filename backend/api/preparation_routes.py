@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import List
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from backend.database import DBUser, get_db
@@ -21,7 +21,15 @@ from backend.domain.preparation_pipeline import (
     CompileAndScheduleRequest,
     CompileAndScheduleResponse,
 )
+from backend.domain.preparation_repair import (
+    PreparationScheduleRepairRequest,
+    PreparationScheduleRepairResult,
+)
 from backend.engines.prep_resource_scheduler import build_preparation_schedule
+from backend.engines.prep_schedule_repair import (
+    PreparationRepairError,
+    repair_preparation_schedule,
+)
 from backend.services.preparation_evidence_service import (
     build_tasks_from_profiles,
     get_profile,
@@ -42,6 +50,22 @@ def schedule_preparation(
     """Schedule only explicitly declared preparation work and capacities."""
 
     return build_preparation_schedule(payload)
+
+
+@router.post(
+    "/schedule/repair",
+    response_model=PreparationScheduleRepairResult,
+)
+def repair_preparation(
+    payload: PreparationScheduleRepairRequest,
+    _: DBUser = Depends(get_current_user),
+) -> PreparationScheduleRepairResult:
+    """Return a deterministic advisory repair without accepting or persisting it."""
+
+    try:
+        return repair_preparation_schedule(payload)
+    except PreparationRepairError as exc:
+        raise HTTPException(status_code=409, detail=exc.as_dict()) from exc
 
 
 @router.get("/profiles", response_model=List[RecipePreparationProfileView])
