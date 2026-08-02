@@ -1,6 +1,6 @@
 {
-  "contract_version": "2026-08-02.3",
-  "api_version": "0.9.0",
+  "contract_version": "2026-08-02.4",
+  "api_version": "0.10.0",
   "paths": {
     "/api/v1/food-evidence/history/conversions": {
       "methods": ["get"],
@@ -48,6 +48,14 @@
     },
     "/api/v1/households/{household_id}/plans/{plan_id}/events": {
       "methods": ["get"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/plans/{plan_id}/preparation-occurrences/candidates": {
+      "methods": ["get"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/plans/{plan_id}/preparation-occurrences/confirm": {
+      "methods": ["post"],
       "authenticated": true
     },
     "/api/v1/households/{household_id}/preparation-operations/coverage": {
@@ -211,6 +219,51 @@
         "idempotency_key",
         "request_fingerprint",
         "created_at"
+      ]
+    },
+    "ApprovedPlanOccurrenceCandidate": {
+      "required": [
+        "occurrence_id",
+        "day",
+        "meal_slot",
+        "recipe_id",
+        "recipe_name",
+        "source_recipe_servings",
+        "planned_portion_multiplier",
+        "planned_servings",
+        "preparation_profile_status"
+      ]
+    },
+    "ApprovedPlanOccurrenceCandidatesView": {
+      "required": [
+        "household_id",
+        "source_plan_id",
+        "source_plan_version",
+        "generated_at",
+        "candidates",
+        "reviewed_compatible_count",
+        "unresolved_profile_count"
+      ]
+    },
+    "PlanOccurrenceConfirmation": {
+      "required": ["occurrence_id"]
+    },
+    "ConfirmPlanOccurrenceSetRequest": {
+      "required": [
+        "expected_plan_version",
+        "occurrence_set_version",
+        "confirmations"
+      ]
+    },
+    "ConfirmedPlanOccurrenceSetView": {
+      "required": [
+        "household_id",
+        "source_plan_id",
+        "source_plan_version",
+        "occurrence_set",
+        "profile_versions",
+        "confirmed_count",
+        "excluded_count"
       ]
     },
     "PreparationOccurrenceSetDocument": {
