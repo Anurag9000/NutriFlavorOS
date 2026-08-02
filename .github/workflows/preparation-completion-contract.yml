@@ -1,0 +1,35 @@
+name: validate-preparation-completion-contract
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-preparation-completion-main
+  cancel-in-progress: true
+
+jobs:
+  completion-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r backend/requirements.txt
+      - run: pip check
+      - name: Reject unguarded product completion calls
+        run: python scripts/validate_preparation_completion_calls.py
+      - name: Validate task execution and completion guards
+        run: >-
+          pytest -q
+          backend/tests/test_preparation_task_execution_service.py
+          backend/tests/test_preparation_task_execution_authoritative_service.py
+          backend/tests/test_preparation_operations_execution_coverage.py
