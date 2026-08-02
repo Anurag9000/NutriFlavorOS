@@ -44,7 +44,7 @@ A class, endpoint, committed test, configured workflow, synthetic fixture, or ca
 - Fresh SQLite and PostgreSQL migration jobs.
 - Database constraints for inventory, roles, evidence, plans, calendars, schedules, replay provenance, lifecycle transitions, task execution, idempotency, and optimistic versions.
 - Additive ORM mappings load during package initialization and match Alembic indexes/constraints.
-- Repository, Alembic, catalog, OpenAPI, and four frontend-release contracts are mechanically validated.
+- Repository, Alembic, catalog, OpenAPI, frontend-release, preparation-repair, and execution contracts are mechanically validated.
 
 ### Remaining
 
@@ -96,11 +96,12 @@ A class, endpoint, committed test, configured workflow, synthetic fixture, or ca
 ### Remaining
 
 - Standalone immutable confirmed-occurrence records.
-- Joint meal/preparation optimization, minimal-change repair, exact lot allocation, Pareto UX, robust/chance-constrained planning, and representative-scale benchmarks.
+- Joint meal/preparation optimization and joint plan/schedule repair.
+- Exact lot allocation, Pareto UX, robust/chance-constrained planning, and representative-scale benchmarks.
 
-## Deterministic preparation scheduling
+## Deterministic preparation scheduling and repair
 
-### Implemented
+### Implemented scheduling
 
 - Strict tasks, resources, capacities, dependencies, deadlines, and provenance.
 - Multi-window availability with overlap/horizon checks and gap containment.
@@ -108,9 +109,29 @@ A class, endpoint, committed test, configured workflow, synthetic fixture, or ca
 - Reviewed-profile compile-and-schedule path.
 - Bounded exact comparator and metamorphic tests.
 
+### Implemented repair
+
+- Strict previous-request, previous-response, and revised-request contracts.
+- Validation that the previous deterministic response is complete and matches its request task set and operational snapshots.
+- Deterministic `greedy_min_change` repair that tries prior placements first and uses stable displacement/task-ID tie breaking.
+- `bounded_exact_min_change` comparator for small instances with explicit truncation and deterministic fallback.
+- Lexicographic minimization of unscheduled tasks, changed tasks, total displacement, makespan, and stable starts.
+- Exact immutable-task pinning, operational-signature checks, predecessor closure, and fail-closed conflict codes.
+- Revalidation of revised dependencies, windows, horizons, deadlines, capacities, and cumulative resource use.
+- Explicit partial mode with structured unresolved-task diagnostics; complete mode rejects infeasible repair.
+- Separate preserved, moved, added, removed, and unscheduled task outcomes.
+- Canonical hashes for the previous schedule, revised request, and repaired response.
+- Authenticated `POST /api/v1/preparation/schedule/repair` with structured `409` conflicts.
+- Strict offline repair CLI and retained benchmark report.
+- Machine-enforced advisory boundary: `requires_human_acceptance=true`, `accepted=false`, and `persistence_performed=false`.
+- Unit, input-order, metamorphic, exact-comparator, immutable-anchor, dependency, partial-output, API, CLI, benchmark, and contract tests.
+
 ### Remaining
 
+- Protected structured repair-review UI comparing old and proposed schedules.
+- Explicit human acceptance and a separate idempotent persistence action that creates a new draft while preserving both source hashes.
 - Joint optimization, passive waiting and supervision handoffs, setup/cleanup models, large-neighborhood repair, infeasibility cores, and product-scale exact/relaxation methods.
+- Representative-scale latency, optimality-gap, and failure-rate evidence.
 
 ## Persisted preparation operations
 
@@ -129,9 +150,9 @@ A class, endpoint, committed test, configured workflow, synthetic fixture, or ca
 
 ### Remaining
 
-- Structured final persistence review replacing raw expert JSON editing.
-- Joint minimal-change repair.
-- Authenticated browser E2E for the complete plan-to-execution chain.
+- Persistence and lifecycle integration for an explicitly accepted repair candidate.
+- Joint meal/preparation repair.
+- Authenticated browser E2E for the complete plan-to-execution and repair-review chains.
 
 ## User-confirmed task execution
 
@@ -196,6 +217,7 @@ Coverage describes stored structure and user-entered claims. It does not certify
 
 ### Remaining
 
+- Structured repair-review and explicit acceptance UI.
 - Authenticated Playwright/PostgreSQL journeys, automated axe, keyboard-only/screen-reader suites, visual regression, offline/PWA policy, and internationalization.
 
 ## Governed offline research
@@ -217,7 +239,8 @@ Coverage describes stored structure and user-entered claims. It does not certify
 ### Configured
 
 - Compile, dependency, backend, repository, Alembic, catalog, OpenAPI, and frontend-binding gates.
-- Planner, preparation, ranking, forecasting, inventory, and closed-loop benchmarks.
+- Planner, preparation, preparation-repair, ranking, forecasting, inventory, and closed-loop benchmarks.
+- Repair contract, advisory API, CLI, immutable-anchor, metamorphic, and exact-comparator gates.
 - Fresh SQLite/PostgreSQL migrations.
 - Evidence import/lifecycle manifests.
 - PostgreSQL inventory, idempotency, evidence, plan, preparation-operations, and task-execution probes.
@@ -229,16 +252,18 @@ The exact latest `main` push workflows have not been observed complete and green
 
 ## Immediate priorities
 
-1. Inspect and close the exact latest hosted workflows.
+1. Inspect and close the exact latest hosted workflows and retained artifacts.
 2. Migrate remaining low-level completion callers to the task terminality guard.
 3. Add authenticated Playwright/PostgreSQL and automated accessibility coverage.
-4. Add deterministic minimal-change plan/schedule repair with explicit human acceptance.
+4. Build protected structured repair review, explicit acceptance, and separate idempotent draft persistence.
 5. Expand reviewed evidence and cross-domain coverage.
-6. Expand forecasting uncertainty, stochastic inventory costs, ranking robustness, identity lifecycle, backups, observability, SLOs, and incident evidence.
+6. Add joint meal/preparation repair, larger-instance methods, infeasibility explanations, and representative-scale benchmarks.
+7. Expand forecasting uncertainty, stochastic inventory costs, ranking robustness, identity lifecycle, backups, observability, SLOs, and incident evidence.
 
 Detailed specifications:
 
 - `docs/HOUSEHOLD_PLAN_LIFECYCLE.md`;
 - `docs/PREPARATION_OPERATIONS.md`;
+- `docs/PREPARATION_REPAIR.md`;
 - `docs/ROADMAP.md`;
 - exhaustive audit continuation documents under `docs/`.
