@@ -15,7 +15,7 @@ concurrency:
 jobs:
   execution-boundary:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       DATABASE_URL: sqlite:////tmp/nutriflavor-repair-execution-boundary.db
       JWT_SECRET: repair-execution-boundary-ci-secret-at-least-32-bytes
@@ -30,19 +30,71 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r backend/requirements.txt
       - run: pip check
-      - name: Compile execution-aware repair proposal services
+
+      - name: Compile bidirectional execution boundary
         run: >-
           python -m compileall -q
+          backend/main.py
+          backend/api/preparation_operations_routes.py
+          backend/api/preparation_task_execution_eligibility_routes.py
+          backend/domain/preparation_task_execution_eligibility.py
           backend/services/preparation_repair_proposal_creation_service.py
           backend/services/preparation_repair_proposal_read_service.py
+          backend/services/preparation_task_execution_replacement_guard_service.py
+          backend/services/preparation_task_execution_eligibility_service.py
+          backend/services/preparation_task_completion_service.py
           backend/tests/test_preparation_repair_proposal_execution_boundary.py
+          backend/tests/test_preparation_task_execution_replacement_guard.py
+          backend/tests/test_preparation_task_execution_eligibility.py
           scripts/validate_repair_proposal_execution_boundary.py
-      - name: Upgrade empty database to the exact reviewed head
+          scripts/validate_preparation_task_execution_replacement_guard.py
+          scripts/validate_preparation_task_execution_eligibility_contract.py
+          scripts/validate_preparation_task_execution_eligibility_frontend.py
+          scripts/validate_preparation_schedule_completion_authority.py
+
+      - name: Upgrade empty database to reviewed head 0018
         run: |
           rm -f /tmp/nutriflavor-repair-execution-boundary.db
           alembic upgrade head
-          python -c "from backend.schema_verification import verify_runtime_schema; verify_runtime_schema()"
-      - name: Validate no-repair-after-execution contract
+          python - <<'PY'
+          from backend.schema_revision import CURRENT_ALEMBIC_REVISION
+          from backend.schema_verification import verify_runtime_schema
+          assert CURRENT_ALEMBIC_REVISION == "20260802_0018"
+          verify_runtime_schema()
+          PY
+
+      - name: Validate execution blocks ordinary repair
         run: python scripts/validate_repair_proposal_execution_boundary.py
-      - name: Run execution-boundary regressions
-        run: pytest -q backend/tests/test_preparation_repair_proposal_execution_boundary.py
+      - name: Validate accepted replacement blocks source execution
+        run: python scripts/validate_preparation_task_execution_replacement_guard.py
+      - name: Validate proactive task execution eligibility
+        run: python scripts/validate_preparation_task_execution_eligibility_contract.py
+      - name: Validate eligibility frontend gate
+        run: python scripts/validate_preparation_task_execution_eligibility_frontend.py
+      - name: Audit schedule completion authority
+        run: python scripts/validate_preparation_schedule_completion_authority.py
+
+      - name: Run bidirectional execution-boundary regressions
+        run: >-
+          pytest -q
+          backend/tests/test_preparation_repair_proposal_execution_boundary.py
+          backend/tests/test_preparation_task_execution_replacement_guard.py
+          backend/tests/test_preparation_task_execution_eligibility.py
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Type-check execution eligibility frontend
+        working-directory: frontend
+        run: npm run typecheck
+      - name: Run execution eligibility frontend tests
+        working-directory: frontend
+        run: >-
+          npm test --
+          src/lib/preparationTaskExecutionEligibilityApi.test.ts
+          src/pages/PreparationTaskExecution.test.tsx
