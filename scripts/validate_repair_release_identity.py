@@ -106,7 +106,7 @@ def validate_identity() -> dict:
             "one-replacement-per-source invariant is implemented",
             "task-execution eligibility is implemented",
             "schedule derivation evidence is implemented",
-            "owner-only proposal invalidation is implemented",
+            "Owner-only proposal invalidation is implemented",
         },
     }
     for relative, fragments in required_fragments.items():
