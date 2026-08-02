@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from backend.api import preparation_repair_proposal_routes
-from backend.database import DBUser, get_db
+from backend.database import DBHouseholdMember, DBUser, get_db
 from backend.services.preparation_repair_proposal_read_service import (
     list_repair_proposals,
 )
@@ -19,16 +19,50 @@ from backend.tests.test_preparation_repair_proposals import proposal_payload
 from backend.utils.security import get_current_user
 
 
-def _client(db, *, authenticated: bool) -> TestClient:
+EDITOR_ID = "repair-editor@example.test"
+
+
+def _client(
+    db,
+    *,
+    authenticated: bool,
+    user_id: str = OWNER_ID,
+) -> TestClient:
     app = FastAPI()
     app.include_router(preparation_repair_proposal_routes.router)
     app.dependency_overrides[get_db] = lambda: db
     if authenticated:
         app.dependency_overrides[get_current_user] = lambda: db.get(
             DBUser,
-            OWNER_ID,
+            user_id,
         )
     return TestClient(app)
+
+
+def _add_editor(db) -> None:
+    editor = DBUser(
+        id=EDITOR_ID,
+        name="Repair Editor",
+        liked_ingredients=[],
+        disliked_ingredients=[],
+        allergies=[],
+        dietary_restrictions=[],
+        health_conditions=[],
+        medications=[],
+    )
+    membership = DBHouseholdMember(
+        household_id=HOUSEHOLD_ID,
+        display_name="Repair Editor",
+        linked_user_id=EDITOR_ID,
+        role="editor",
+        servings_multiplier=1.0,
+        allergies=[],
+        dietary_restrictions=[],
+        disliked_ingredients=[],
+        active=True,
+    )
+    db.add_all([editor, membership])
+    db.commit()
 
 
 def _acceptance_payload(created: dict, *, key: str = "repair-api-accept-0001") -> dict:
@@ -194,6 +228,52 @@ def test_editor_can_accept_into_draft_and_view_immutable_acceptance(db):
     ]
 
 
+def test_acceptance_route_uses_source_version_uniqueness_guard(db):
+    calendar = create_calendar(db)
+    schedule = create_schedule(db, calendar)
+    client = _client(db, authenticated=True)
+    collection = (
+        f"/api/v1/households/{HOUSEHOLD_ID}"
+        "/preparation-operations/repair-proposals"
+    )
+    first_payload = proposal_payload(
+        schedule=schedule,
+        calendar=calendar,
+        key="repair-api-source-guard-first",
+    )
+    second_payload = proposal_payload(
+        schedule=schedule,
+        calendar=calendar,
+        key="repair-api-source-guard-second",
+    )
+    first = client.post(
+        collection,
+        json=first_payload.model_dump(mode="json"),
+    ).json()
+    second = client.post(
+        collection,
+        json=second_payload.model_dump(mode="json"),
+    ).json()
+
+    accepted = client.post(
+        f"{collection}/{first['id']}/accept",
+        json=_acceptance_payload(first, key="repair-api-source-guard-accept-first"),
+    )
+    assert accepted.status_code == 200
+
+    conflict = client.post(
+        f"{collection}/{second['id']}/accept",
+        json=_acceptance_payload(second, key="repair-api-source-guard-accept-second"),
+    )
+    assert conflict.status_code == 409
+    detail = conflict.json()["detail"]
+    assert detail["code"] == "repair_source_already_has_accepted_replacement"
+    assert detail["accepted_proposal_id"] == first["id"]
+    assert detail["accepted_schedule_id"] == (
+        accepted.json()["acceptance"]["created_schedule_id"]
+    )
+
+
 def test_acceptance_rejects_incomplete_acknowledgement(db):
     calendar = create_calendar(db)
     schedule = create_schedule(db, calendar)
@@ -221,6 +301,67 @@ def test_acceptance_rejects_incomplete_acknowledgement(db):
     assert response.json()["detail"]["code"] == (
         "repair_acceptance_acknowledgement_mismatch"
     )
+
+
+def test_owner_can_invalidate_but_editor_cannot(db):
+    calendar = create_calendar(db)
+    schedule = create_schedule(db, calendar)
+    owner_client = _client(db, authenticated=True)
+    collection = (
+        f"/api/v1/households/{HOUSEHOLD_ID}"
+        "/preparation-operations/repair-proposals"
+    )
+    created = owner_client.post(
+        collection,
+        json=proposal_payload(
+            schedule=schedule,
+            calendar=calendar,
+            key="repair-api-invalidation-proposal",
+        ).model_dump(mode="json"),
+    ).json()
+    payload = {
+        "expected_version": created["version"],
+        "reason": "Withdraw superseded review evidence",
+        "acknowledge_historical_only": True,
+        "idempotency_key": "repair-api-invalidation-owner",
+        "metadata": {"admin_review": True},
+    }
+
+    _add_editor(db)
+    editor_response = _client(
+        db,
+        authenticated=True,
+        user_id=EDITOR_ID,
+    ).post(
+        f"{collection}/{created['id']}/invalidate",
+        json=payload,
+    )
+    assert editor_response.status_code == 403
+
+    invalidated_response = owner_client.post(
+        f"{collection}/{created['id']}/invalidate",
+        json=payload,
+    )
+    assert invalidated_response.status_code == 200
+    invalidated = invalidated_response.json()
+    assert invalidated["status"] == "invalidated"
+    assert invalidated["version"] == 2
+    assert invalidated["accepted"] is False
+    assert invalidated["schedule_persistence_performed"] is False
+
+    retry = owner_client.post(
+        f"{collection}/{created['id']}/invalidate",
+        json=payload,
+    )
+    assert retry.status_code == 200
+    assert retry.json()["version"] == 2
+
+    events = owner_client.get(f"{collection}/{created['id']}/events").json()
+    assert [value["event_type"] for value in events] == [
+        "created",
+        "invalidated",
+    ]
+    assert events[-1]["metadata"]["historical_only"] is True
 
 
 def test_create_rejects_contradictory_idempotency_reuse(db):
