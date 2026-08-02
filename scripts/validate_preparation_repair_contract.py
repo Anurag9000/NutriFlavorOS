@@ -22,6 +22,22 @@ from backend.main import app
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _require_fragments(
+    errors: list[str],
+    *,
+    path: Path,
+    fragments: set[str],
+    label: str,
+) -> str:
+    if not path.is_file():
+        return ""
+    source = path.read_text(encoding="utf-8")
+    for fragment in sorted(fragments):
+        if fragment not in source:
+            errors.append(f"{label} lacks required contract fragment: {fragment}")
+    return source
+
+
 def validate_contract() -> dict:
     errors: list[str] = []
     required_files = [
@@ -33,8 +49,14 @@ def validate_contract() -> dict:
         "backend/tests/test_preparation_repair_api.py",
         "backend/tests/test_preparation_repair_benchmark.py",
         "backend/tests/test_preparation_repair_cli.py",
+        "frontend/src/App.tsx",
+        "frontend/src/components/AppSidebar.tsx",
+        "frontend/src/lib/preparationRepairApi.ts",
+        "frontend/src/pages/PreparationRepairReview.tsx",
+        "frontend/src/pages/PreparationRepairReview.test.tsx",
         "scripts/benchmark_preparation_repair.py",
         "scripts/repair_preparation_schedule.py",
+        "docs/PREPARATION_REPAIR.md",
         ".github/workflows/preparation-repair.yml",
     ]
     for relative in required_files:
@@ -102,9 +124,11 @@ def validate_contract() -> dict:
             errors.append("repair POST response schema drifted")
 
     engine_path = ROOT / "backend/engines/prep_schedule_repair.py"
-    if engine_path.is_file():
-        source = engine_path.read_text(encoding="utf-8")
-        required_fragments = {
+    engine_source = _require_fragments(
+        errors,
+        path=engine_path,
+        label="repair engine",
+        fragments={
             "immutable_task_infeasible",
             "immutable_dependency_not_pinned",
             "repair_infeasible",
@@ -112,11 +136,10 @@ def validate_contract() -> dict:
             "Human review and explicit acceptance are required",
             "No execution event is inferred",
             "lexicographic unscheduled count",
-        }
-        for fragment in sorted(required_fragments):
-            if fragment not in source:
-                errors.append(f"repair engine lacks required contract fragment: {fragment}")
-        tree = ast.parse(source, filename=str(engine_path))
+        },
+    )
+    if engine_source:
+        tree = ast.parse(engine_source, filename=str(engine_path))
         forbidden_calls = {
             "commit",
             "flush",
@@ -133,17 +156,19 @@ def validate_contract() -> dict:
                     )
 
     api_path = ROOT / "backend/api/preparation_routes.py"
-    if api_path.is_file():
-        source = api_path.read_text(encoding="utf-8")
-        for fragment in [
+    api_source = _require_fragments(
+        errors,
+        path=api_path,
+        label="repair API",
+        fragments={
             '"/schedule/repair"',
             "response_model=PreparationScheduleRepairResult",
             "repair_preparation_schedule(payload)",
             "status_code=409",
-        ]:
-            if fragment not in source:
-                errors.append(f"repair API lacks required fragment: {fragment}")
-        tree = ast.parse(source, filename=str(api_path))
+        },
+    )
+    if api_source:
+        tree = ast.parse(api_source, filename=str(api_path))
         repair_functions = [
             node
             for node in tree.body
@@ -169,21 +194,118 @@ def validate_contract() -> dict:
                         )
 
     cli_path = ROOT / "scripts/repair_preparation_schedule.py"
-    if cli_path.is_file():
-        source = cli_path.read_text(encoding="utf-8")
-        for fragment in [
+    _require_fragments(
+        errors,
+        path=cli_path,
+        label="repair CLI",
+        fragments={
             '"persistence": "not_persisted"',
             '"human_acceptance_required": True',
             "repair_rejected",
-        ]:
-            if fragment not in source:
-                errors.append(f"repair CLI lacks required fragment: {fragment}")
+        },
+    )
+
+    client_path = ROOT / "frontend/src/lib/preparationRepairApi.ts"
+    client_source = _require_fragments(
+        errors,
+        path=client_path,
+        label="repair frontend client",
+        fragments={
+            '"/preparation/schedule/repair"',
+            "requires_human_acceptance: true",
+            "accepted: false",
+            "persistence_performed: false",
+            "PreparationScheduleRepairRequest",
+            "PreparationScheduleRepairResult",
+        },
+    )
+    for forbidden in [
+        "createSchedule(",
+        ".approve(",
+        ".complete(",
+        ".cancel(",
+        "localStorage",
+        "sessionStorage",
+    ]:
+        if forbidden in client_source:
+            errors.append(
+                "repair frontend client contains forbidden mutation/storage "
+                f"fragment: {forbidden}"
+            )
+
+    page_path = ROOT / "frontend/src/pages/PreparationRepairReview.tsx"
+    page_source = _require_fragments(
+        errors,
+        path=page_path,
+        label="repair review page",
+        fragments={
+            "Advisory schedule repair",
+            "Human review boundary",
+            "Compute advisory repair",
+            "Task-by-task change ledger",
+            "requires_human_acceptance",
+            "result.accepted",
+            "result.persistence_performed",
+            "unaccepted, unpersisted, unapproved, and unexecuted",
+            "Previous and repaired preparation task placements",
+            "Export is a local file action only",
+        },
+    )
+    for forbidden in [
+        "preparationOperationsApi.createSchedule",
+        "preparationOperationsApi.approve",
+        "preparationOperationsApi.complete",
+        "preparationOperationsApi.cancel",
+        "preparationOperationsApi.invalidate",
+    ]:
+        if forbidden in page_source:
+            errors.append(
+                f"repair review page contains forbidden lifecycle action: {forbidden}"
+            )
+
+    app_path = ROOT / "frontend/src/App.tsx"
+    _require_fragments(
+        errors,
+        path=app_path,
+        label="frontend route",
+        fragments={
+            'import("./pages/PreparationRepairReview")',
+            'path="/preparation/operations/repair"',
+            "<ProtectedRoute>",
+        },
+    )
+
+    sidebar_path = ROOT / "frontend/src/components/AppSidebar.tsx"
+    _require_fragments(
+        errors,
+        path=sidebar_path,
+        label="frontend navigation",
+        fragments={
+            'title: "Schedule Repair Review"',
+            'url: "/preparation/operations/repair"',
+        },
+    )
+
+    test_path = ROOT / "frontend/src/pages/PreparationRepairReview.test.tsx"
+    _require_fragments(
+        errors,
+        path=test_path,
+        label="repair frontend test",
+        fragments={
+            "loads a replayable source without accepting or persisting anything",
+            "submits exact previous evidence, revised problem, strategy, and immutable tasks",
+            "renders an accessible change ledger and explicit advisory flags",
+            "keeps export disabled until the user reviews changes and the boundary",
+            "does not offer completed schedules as repairable inputs",
+        },
+    )
 
     return {
         "valid": not errors,
         "strategies": [value.value for value in PreparationRepairStrategy],
         "required_files": required_files,
         "repair_api_path": "/api/v1/preparation/schedule/repair",
+        "repair_frontend_path": "/preparation/operations/repair",
         "advisory_fields": sorted(required_result_fields),
         "errors": errors,
     }
