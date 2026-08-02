@@ -1,8 +1,8 @@
-"""Calendar-exact authoritative creation for preparation repair proposals.
+"""Authoritative creation for immutable preparation repair proposals.
 
-The general proposal service owns read, staleness, event, and rejection logic.
-Creation is isolated here so semantic identity and concurrent deduplication always
-include the exact immutable target calendar version.
+Proposal creation is isolated here so exact request-key idempotency remains the
+only uniqueness rule. Semantic hashes remain indexed evidence; distinct review
+requests are not silently collapsed across different idempotency keys.
 """
 
 from __future__ import annotations
@@ -13,7 +13,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import utcnow
-from backend.domain.preparation_operations import PreparationScheduleStatus
 from backend.domain.preparation_operations_runtime import PersistedScheduleCreateRequest
 from backend.domain.preparation_repair import PreparationScheduleRepairRequest
 from backend.domain.preparation_repair_proposals import (
@@ -177,23 +176,6 @@ def create_repair_proposal(
             },
         ) from exc
 
-    semantic = (
-        db.query(DBPreparationRepairProposal)
-        .filter(
-            DBPreparationRepairProposal.source_schedule_id == source.id,
-            DBPreparationRepairProposal.source_schedule_version == source.version,
-            DBPreparationRepairProposal.target_calendar_version_id == calendar.id,
-            DBPreparationRepairProposal.revised_request_hash
-            == result.revised_request_hash,
-            DBPreparationRepairProposal.repaired_response_hash
-            == result.repaired_response_hash,
-        )
-        .with_for_update()
-        .first()
-    )
-    if semantic is not None:
-        return _proposal_view(db, semantic)
-
     repair_request_payload = repair_request.model_dump(mode="json")
     repair_result_payload = result.model_dump(mode="json")
     repair_request_hash = _canonical_hash(repair_request_payload)
@@ -263,19 +245,23 @@ def create_repair_proposal(
         concurrent = (
             db.query(DBPreparationRepairProposal)
             .filter(
-                DBPreparationRepairProposal.source_schedule_id == source.id,
-                DBPreparationRepairProposal.source_schedule_version
-                == source.version,
-                DBPreparationRepairProposal.target_calendar_version_id
-                == calendar.id,
-                DBPreparationRepairProposal.revised_request_hash
-                == result.revised_request_hash,
-                DBPreparationRepairProposal.repaired_response_hash
-                == result.repaired_response_hash,
+                DBPreparationRepairProposal.household_id == household_id,
+                DBPreparationRepairProposal.creation_idempotency_key
+                == payload.idempotency_key,
             )
             .first()
         )
         if concurrent is not None:
+            if concurrent.creation_request_fingerprint != fingerprint:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "code": "repair_proposal_idempotency_conflict",
+                        "message": (
+                            "Repair proposal idempotency key was reused with different content"
+                        ),
+                    },
+                ) from exc
             return _proposal_view(db, concurrent)
         raise HTTPException(
             status_code=409,
