@@ -168,7 +168,8 @@ describe("Household plan review workspace", () => {
     });
     expect(approve).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText("Human decision reason"), {
+    const reasonInputs = screen.getAllByLabelText("Human decision reason");
+    fireEvent.change(reasonInputs[0], {
       target: { value: "Reviewed meals, portions, and household constraints" },
     });
     expect(approve).toBeEnabled();
