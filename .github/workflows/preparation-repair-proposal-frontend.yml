@@ -26,6 +26,8 @@ jobs:
         run: python scripts/validate_preparation_repair_proposal_frontend_contract.py
       - name: Validate proposal acceptance frontend
         run: python scripts/validate_preparation_repair_acceptance_frontend.py
+      - name: Validate proposal invalidation client
+        run: python scripts/validate_preparation_repair_proposal_invalidation_frontend.py
       - name: Validate protected proposal workspace and route
         run: python scripts/validate_preparation_repair_proposal_workspace.py
 
