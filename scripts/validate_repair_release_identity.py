@@ -11,8 +11,8 @@ from backend.schema_revision import CURRENT_ALEMBIC_REVISION
 
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_API = "0.15.1"
-EXPECTED_OPENAPI_CONTRACT = "2026-08-02.11"
+EXPECTED_API = "0.15.2"
+EXPECTED_OPENAPI_CONTRACT = "2026-08-02.12"
 EXPECTED_MIGRATION = "20260802_0018"
 ELIGIBILITY_PATH = (
     "/api/v1/households/{household_id}/preparation-operations/"
@@ -25,6 +25,10 @@ DERIVATION_PATH = (
 DERIVATION_COVERAGE_PATH = (
     "/api/v1/households/{household_id}/preparation-operations/"
     "schedule-derivation-coverage"
+)
+PROPOSAL_INVALIDATION_PATH = (
+    "/api/v1/households/{household_id}/preparation-operations/"
+    "repair-proposals/{proposal_id}/invalidate"
 )
 
 
@@ -58,6 +62,7 @@ def validate_identity() -> dict:
         ELIGIBILITY_PATH,
         DERIVATION_PATH,
         DERIVATION_COVERAGE_PATH,
+        PROPOSAL_INVALIDATION_PATH,
     }
     contract_paths = set(contract.get("paths", {}))
     for path in sorted(required_paths - contract_paths):
@@ -67,6 +72,7 @@ def validate_identity() -> dict:
         "PreparationTaskExecutionEligibilityView",
         "PreparationScheduleDerivationEvidenceView",
         "PreparationScheduleDerivationCoverageView",
+        "PreparationRepairProposalInvalidateRequest",
     }
     contract_schemas = set(contract.get("schemas", {}))
     for schema in sorted(required_schemas - contract_schemas):
@@ -81,6 +87,7 @@ def validate_identity() -> dict:
             "source_schedule_has_accepted_replacement",
             "Task-execution eligibility",
             "Schedule derivation evidence",
+            "Owner-only proposal invalidation",
         },
         "docs/IMPLEMENTATION_STATUS.md": {
             f"**Database migration head:** `{EXPECTED_MIGRATION}`",
@@ -90,6 +97,7 @@ def validate_identity() -> dict:
             "source_schedule_has_accepted_replacement",
             "Task-execution eligibility",
             "Schedule derivation evidence",
+            "Owner-only proposal invalidation",
         },
         "docs/ROADMAP.md": {
             f"**Current migration head:** `{EXPECTED_MIGRATION}`",
@@ -98,6 +106,7 @@ def validate_identity() -> dict:
             "one-replacement-per-source invariant is implemented",
             "task-execution eligibility is implemented",
             "schedule derivation evidence is implemented",
+            "owner-only proposal invalidation is implemented",
         },
     }
     for relative, fragments in required_fragments.items():
@@ -112,9 +121,23 @@ def validate_identity() -> dict:
         "preparation_task_execution_eligibility_routes",
         "app.include_router(preparation_schedule_derivation_routes.router)",
         "app.include_router(preparation_task_execution_eligibility_routes.router)",
+        "preparation_repair_proposal_routes",
     }:
         if fragment not in main_source:
             errors.append(f"backend/main.py lacks mounted release fragment: {fragment}")
+
+    proposal_routes = _read(
+        "backend/api/preparation_repair_proposal_routes.py",
+        errors,
+    )
+    for fragment in {
+        '"/{proposal_id}/invalidate"',
+        "HouseholdRole.OWNER",
+        "invalidate_repair_proposal(",
+        "accept_repair_proposal_with_source_guard(",
+    }:
+        if fragment not in proposal_routes:
+            errors.append(f"proposal routes lack release fragment: {fragment}")
 
     return {
         "valid": not errors,
