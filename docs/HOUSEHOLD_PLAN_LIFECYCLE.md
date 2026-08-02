@@ -1,176 +1,134 @@
 # Household Meal-Plan Review Lifecycle
 
-NutriFlavorOS separates deterministic household-plan generation from human approval. A generated plan is persisted as a **draft**. It cannot be used as the source of preparation occurrences until the household owner explicitly approves its exact optimistic version.
+NutriFlavorOS separates deterministic household-plan generation from human approval. A generated plan is persisted as a **draft** and cannot drive approved-plan preparation until the household owner explicitly approves its exact optimistic version.
 
 This lifecycle is a planning and provenance control. It is not clinical validation, allergy verification, observed consumption, inventory certainty, or food-safety certification.
 
-## Migration and API boundary
+## Current release boundary
 
-- Migration head: `20260802_0013`.
-- API version: `0.9.0`.
-- OpenAPI release contract: `2026-08-02.3`.
-- Household-plan TypeScript binding contract: `2026-08-02.3`.
+- Database migration head: `20260802_0014`.
+- Plan-lifecycle migration: `20260802_0013`.
+- API version: `0.12.1`.
+- OpenAPI release contract: `2026-08-02.6`.
+- Household-plan TypeScript binding contract: `2026-08-02.4`.
 
-Migration `20260802_0013` adds optimistic lifecycle fields to `meal_plans` and creates append-only `household_plan_events`.
+Migration `20260802_0013` adds optimistic lifecycle fields to `meal_plans` and creates append-only `household_plan_events`. Migration `20260802_0014` adds task execution evidence downstream without rewriting plan history.
 
 ## Persisted plan state
 
 Each household plan retains:
 
-- integer primary key;
-- household and creator identity;
-- immutable stored plan document and plan-schema version;
-- lifecycle status;
-- optimistic version;
-- approver and approval time;
-- cancellation time and reason;
+- integer plan ID and household/user identity;
+- immutable plan schema/document;
+- `draft`, `approved`, or `cancelled` status;
+- optimistic integer version;
+- approver and UTC approval time;
+- UTC cancellation time and reason;
 - creation and update times.
 
-Statuses:
+Generated plans begin at `draft`, version `1`. Generation, persistence, shopping reconciliation, or reservation creation is not approval.
 
-- `draft` — generated and persisted, but not accepted as a preparation source;
-- `approved` — exact plan version explicitly accepted by the owner;
-- `cancelled` — terminal household decision that invalidates dependent operational work.
+## Allowed transitions and roles
 
-Allowed transitions:
+- `draft → approved`: owner only.
+- `draft → cancelled`: editor or owner.
+- `approved → cancelled`: editor or owner.
+- `cancelled`: terminal.
 
-- `draft → approved`;
-- `draft → cancelled`;
-- `approved → cancelled`.
+Viewer/editor/owner may read plans and events. Unauthorized and cross-household access returns `404`.
 
-Cancelled plans are terminal. Regeneration creates another plan record rather than rewriting historical content.
+Every transition requires:
 
-## Human approval
-
-Approval requires:
-
-- owner authorization;
-- exact expected optimistic version;
+- exact expected version;
 - nonblank human reason;
 - idempotency key;
-- optional structured metadata.
+- optional metadata.
 
-The transition:
+An exact retry returns the existing result. Reusing a key with different content fails. A stale expected version fails with an explicit conflict.
 
-1. locks the household operation scope;
-2. checks an existing event for exact idempotent retry;
-3. locks the plan row;
-4. validates the expected version and current state;
-5. records approver and UTC approval time;
-6. increments the optimistic version;
-7. appends one immutable `approved` event in the same transaction.
+## Append-only plan events
 
-The approved version after a new draft version `1` is normally version `2`. Preparation schedules must retain that exact ID/version pair.
-
-Approval does **not** mean:
-
-- all nutrition targets are medically appropriate;
-- allergy or medication interactions are clinically verified;
-- every ingredient is in stock;
-- the household will consume the selected meals;
-- a preparation profile or resource calendar exists;
-- preparation is automatically scheduled or approved.
-
-## Cancellation and dependent work
-
-Cancelling a draft or approved plan is atomic with its operational consequences:
-
-1. the plan becomes `cancelled` and its version increments;
-2. all active stock reservations for that plan become `released` and increment their versions;
-3. every dependent preparation schedule still in `draft` or `approved` becomes `invalidated`;
-4. each invalidated schedule receives an append-only `invalidated` event containing the source-plan ID/version and cancellation provenance;
-5. one append-only plan `cancelled` event records counts of released reservations and invalidated preparation schedules.
-
-Completed, cancelled, or already invalidated schedules are not rewritten.
-
-## Exact source-plan eligibility
-
-The preparation-operations schedule creation API accepts a source plan only when:
-
-- plan ID and version are both supplied;
-- the plan belongs to the route household;
-- the optimistic version matches exactly;
-- the current status is `approved`.
-
-Failure codes include:
-
-- `source_plan_version_mismatch`;
-- `source_plan_not_approved`;
-- `stale_plan_version`;
-- `invalid_plan_transition`;
-- `plan_transition_idempotency_conflict`.
-
-The preparation service also rechecks plan identity/version while persisting. If cancellation races creation, the shared household row lock and version change ensure that either the schedule is rejected as stale or it is committed first and then invalidated by cancellation.
-
-## Append-only events
-
-`household_plan_events` retains:
+Approval and cancellation append events containing:
 
 - plan and household IDs;
 - event type;
 - actor;
-- previous and new state;
-- normalized reason;
-- metadata;
-- idempotency key;
-- SHA-256 request fingerprint;
-- creation time.
+- prior and resulting status;
+- reason and metadata;
+- idempotency key and canonical request fingerprint;
+- timestamp.
 
-Event constraints permit only:
+The immutable plan document is not rewritten to embed transition history.
 
-- `approved: draft → approved`;
-- `cancelled: draft|approved → cancelled`.
+## Cancellation side effects
 
-Identical retries return the current plan without adding another event. Reusing the same idempotency key with different content fails closed.
+Cancelling a plan atomically:
 
-## Authorization
+1. increments the plan version and makes it terminal;
+2. releases active inventory reservations linked to the plan;
+3. invalidates every linked preparation schedule still in `draft` or `approved`;
+4. appends plan and schedule transition evidence;
+5. preserves historical plans, reservations, schedules, occurrences, requests, responses, task events, and lifecycle events.
 
-Authenticated APIs are under:
+Completed, already cancelled, and already invalidated schedules are not rewritten.
 
-`/api/v1/households/{household_id}/plans`
+## Planned serving semantics
 
-- list/get/events: viewer, editor, or owner;
-- approve: owner only;
-- cancel: editor or owner.
+For a stored plan day and meal slot, `day.portions[meal_slot]` is the planned **serving count**, not a multiplier.
 
-Unauthorized and cross-household access returns `404` to avoid record disclosure.
+Approved-plan occurrence candidates expose:
 
-## Frontend
+- source recipe yield;
+- planned serving count;
+- descriptive batch scale = planned servings ÷ source recipe yield.
 
-The protected `/household/plans` workspace provides:
+Missing or unsupported serving counts fail closed.
 
-- household selection and role display;
-- draft, approved, and cancelled counts;
-- exact plan ID, optimistic version, schema version, meals, portions, warnings, and timestamps;
-- explicit reason entry;
-- owner approval;
-- editor/owner cancellation;
-- exact approved source-plan ID/version guidance;
-- append-only transition history;
-- warnings that cancellation releases reservations and invalidates dependent schedules.
+## Approved-plan occurrence workflow
 
-The page never approves automatically after generation.
+Candidate read:
 
-## Verification
+`GET /api/v1/households/{household_id}/plans/{plan_id}/preparation-occurrences/candidates`
 
-Committed verification includes:
+Explicit confirmation:
 
-- service tests for optimistic versions, exact retry, contradictory key reuse, stale versions, source-plan eligibility, reservation release, and schedule invalidation;
-- API tests for owner approval, viewer reads, event history, mutation non-disclosure, and outsider non-disclosure;
-- frontend tests for reason gating, exact optimistic version payloads, cancellation, event history, and viewer controls;
-- PostgreSQL probes for identical concurrent approval retries and competing approval/cancellation;
-- generated OpenAPI and TypeScript binding gates;
-- fresh SQLite and PostgreSQL migration jobs.
+`POST /api/v1/households/{household_id}/plans/{plan_id}/preparation-occurrences/confirm`
 
-Configured or committed validation is not represented as executed green evidence until the exact hosted workflow run is observed.
+The server requires an exact approved plan version, derives deterministic occurrence IDs from day and exact meal-slot text, never infers deadlines from slot names, and requires an include/exclude decision for every candidate.
 
-## Remaining work
+Included occurrences require confirmed servings, explicit horizon-relative finish minute, priority, occurrence-set version, and duration policy. Active reviewed preparation-profile identity and serving-range compatibility are rechecked while the plan row is locked.
 
-- derive candidate occurrences from an exact approved plan version;
-- require household confirmation of servings and finish deadlines;
-- expose reviewed preparation-profile availability per planned recipe;
-- build and review the immutable occurrence document;
-- replace raw schedule-bundle JSON with a structured schedule review surface;
-- add authenticated Playwright/PostgreSQL and accessibility coverage;
-- add explicit ownership transfer and plan archive/export policy;
-- add minimal-change repair after plan, pantry, evidence, or calendar changes.
+The response is a canonical non-persisted occurrence document plus exact profile-version map. It does not create or approve a schedule.
+
+## Source-plan membership proof
+
+Compilation and source-plan-linked persistence derive the exact candidate map from the approved plan. Every submitted occurrence must match:
+
+- an occurrence ID produced from that plan's day and exact meal slot;
+- the exact recipe stored for that meal.
+
+Injected occurrence IDs and recipe substitutions fail closed. Confirmed servings may differ from the planned serving count only through explicit human confirmation and must remain within reviewed profile bounds.
+
+## Downstream preparation and execution
+
+The approved-plan preparation path remains staged and non-automatic:
+
+1. approve plan;
+2. confirm occurrences;
+3. explicitly create one-time occurrence handoff;
+4. select active reviewed calendar;
+5. compile deterministic schedule;
+6. explicitly stage operations handoff;
+7. explicitly persist draft schedule;
+8. owner approves after replay;
+9. editor/owner records explicit task execution events;
+10. schedule completion is allowed only after every deterministic task is completed or skipped.
+
+Plan approval does not certify task execution, nutrition quality, equipment condition, temperature, contamination, or food safety.
+
+## Deliberate limitations
+
+- Confirmed occurrence documents become durable when incorporated into a persisted schedule; there is not yet a separate standalone occurrence-record table.
+- Low-level legacy schedule completion callers still need migration to the task-terminal guard.
+- Structured final persistence review, authenticated browser E2E, minimal-change repair, and joint optimization remain incomplete.
+- Hosted workflows must be inspected before the current commit is described as green.
