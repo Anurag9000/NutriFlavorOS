@@ -300,8 +300,23 @@ export interface PreparationOperationsCoverageView {
   occurrence_document_coverage: number;
   scheduler_request_coverage: number;
   replayable_schedule_coverage: number;
+  execution_scope_schedule_count: number;
+  execution_active_schedule_count: number;
+  execution_history_schedule_count: number;
+  execution_invalid_schedule_count: number;
+  deterministic_task_count: number;
+  task_state_counts: Record<PreparationTaskExecutionState, number>;
+  terminal_task_count: number;
+  fully_terminal_schedule_count: number;
+  task_event_total: number;
+  nonzero_deviation_event_count: number;
+  skipped_task_event_count: number;
+  skip_reason_count: number;
+  task_event_schedule_coverage: number;
+  terminal_task_coverage: number;
   latest_calendar_created_at: string | null;
   latest_schedule_created_at: string | null;
+  latest_task_event_at: string | null;
   warnings: string[];
 }
 
