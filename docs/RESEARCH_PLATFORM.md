@@ -3,10 +3,10 @@
 NutriFlavorOS separates product behavior, reviewed evidence operations, and offline research. A source file, callable, catalog entry, synthetic fixture, passing test, or benchmark report is **not** proof that a method was trained, promoted, clinically validated, safe, or enabled for users.
 
 - Database migration head: **`20260802_0014`**.
-- API version: **`0.12.0`**.
-- OpenAPI release contract: **`2026-08-02.5`**.
+- API version: **`0.12.1`**.
+- OpenAPI release contract: **`2026-08-02.6`**.
 - Food-evidence frontend binding contract: **`2026-08-01.2`**.
-- Preparation-operations frontend binding contract: **`2026-08-02.3`**.
+- Preparation-operations frontend binding contract: **`2026-08-02.4`**.
 - Household-plan frontend binding contract: **`2026-08-02.4`**.
 - Effective research catalog: **`2026-08-01.3`**.
 
@@ -45,9 +45,9 @@ The historical base declaration remains in `backend/research/catalog.py`. `backe
 - catalog counts and version in public documents;
 - exact migration head and one matching migration file;
 - complete linear Alembic history with no forks, orphans, dependencies, or filename mismatches;
-- required evidence and preparation-operation tables;
+- required evidence, preparation-operation, and task-execution tables;
 - canonical benchmark and typed evidence fixtures;
-- backend OpenAPI and frontend-binding release-contract versions;
+- backend OpenAPI and all frontend binding release contracts;
 - isolated catalog import-order invariance.
 
 `scripts/validate_openapi_contracts.py` generates the real FastAPI document and checks API version, required paths, exact methods, authentication, immutable-evidence mutation boundaries, required schemas, and authentication schemes.
@@ -69,7 +69,7 @@ Current executable or directly evaluable families include:
 - deterministic preparation scheduling and bounded exact comparison;
 - FEFO inventory replay and forecast-to-inventory evaluation.
 
-Executable means callable under the declared dependency and data contract. It does not mean the method is production selected, accurately calibrated, or safe for autonomous decisions.
+Executable means callable under the declared dependency and data contract. It does not mean the method is product selected, accurately calibrated, or safe for autonomous decisions.
 
 ## Dataset families and acquisition boundaries
 
@@ -88,16 +88,7 @@ The catalog covers nutrition and recipe sources, food recognition and segmentati
 
 ## Evaluation rules
 
-Every promoted offline result must retain:
-
-- exact dataset and split identity;
-- configuration and dependency lock;
-- random seeds where stochastic;
-- artifact and code commit identity;
-- primary, subgroup, robustness, calibration, and hard-violation metrics where applicable;
-- uncertainty or confidence intervals where meaningful;
-- explicit baseline comparison;
-- failure examples and limitations.
+Every promoted offline result must retain exact dataset/split identity, configuration and dependency lock, random seeds where stochastic, artifact and code commit identity, primary/subgroup/robustness/calibration/hard-violation metrics where applicable, uncertainty where meaningful, baseline comparison, failure examples, and limitations.
 
 Time-dependent tasks require chronological splits. Household and personalization tasks require household isolation. Recipe and ingredient tasks must avoid near-duplicate leakage. Geography, cuisine, device, and source shifts must be evaluated explicitly when relevant.
 
@@ -118,7 +109,7 @@ A research method cannot become product behavior solely because it appears in th
 
 Clinical, allergy-safety, medication, food-safety, autonomous appliance, and autonomous procurement behavior requires additional external governance and remains disabled.
 
-## Preparation execution boundary
+## Preparation execution and coverage boundary
 
 Migration `20260802_0014` adds a product-side append-only task execution ledger. It is not a research inference system:
 
@@ -126,6 +117,8 @@ Migration `20260802_0014` adds a product-side append-only task execution ledger.
 - events are explicitly entered by authorized household users;
 - no presence, appliance, sensor, cooking, temperature, or food-safety state is inferred;
 - timing deviations are descriptive operational evidence, not causal labels or quality outcomes;
+- coverage metrics report structural state and user-entered event presence, not observed execution quality;
+- malformed histories are excluded from task-state denominators and surfaced as warnings;
 - task-event data must not be reused for personalization research without a separate consent, privacy, retention, and protocol review.
 
 ## Research-only and blocked programs
