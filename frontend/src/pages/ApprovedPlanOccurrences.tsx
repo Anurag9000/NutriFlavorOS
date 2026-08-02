@@ -387,7 +387,7 @@ export default function ApprovedPlanOccurrencesPage() {
                             Recipe {candidate.recipe_id} · occurrence {candidate.occurrence_id}
                           </p>
                           <p className="mt-1 text-sm text-muted-foreground">
-                            Source servings {candidate.source_recipe_servings} × portion multiplier {candidate.planned_portion_multiplier} = planned {candidate.planned_servings}
+                            Source recipe yield {candidate.source_recipe_servings} servings · planned {candidate.planned_servings} servings · batch scale {candidate.recipe_batch_scale.toFixed(3)}×
                           </p>
                         </div>
                         <Badge
