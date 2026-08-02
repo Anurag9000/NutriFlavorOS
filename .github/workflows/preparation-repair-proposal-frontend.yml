@@ -13,16 +13,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  proposal-client:
+  proposal-workspace:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+
       - name: Validate proposal client boundary
         run: python scripts/validate_preparation_repair_proposal_frontend_contract.py
+      - name: Validate proposal acceptance frontend
+        run: python scripts/validate_preparation_repair_acceptance_frontend.py
+      - name: Validate protected proposal workspace and route
+        run: python scripts/validate_preparation_repair_proposal_workspace.py
+
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
@@ -31,9 +37,12 @@ jobs:
       - name: Install locked dependencies
         working-directory: frontend
         run: npm ci
-      - name: Type-check proposal client
+      - name: Type-check proposal workspace
         working-directory: frontend
         run: npm run typecheck
-      - name: Run proposal client tests
+      - name: Run proposal client and workspace tests
         working-directory: frontend
-        run: npm test -- src/lib/preparationRepairProposalApi.test.ts
+        run: >-
+          npm test --
+          src/lib/preparationRepairProposalApi.test.ts
+          src/pages/PreparationRepairProposals.test.tsx
