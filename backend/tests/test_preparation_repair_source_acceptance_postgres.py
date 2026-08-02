@@ -17,10 +17,10 @@ from backend.services.preparation_repair_proposal_creation_service import (
 from backend.services.preparation_repair_source_acceptance_guard_service import (
     accept_repair_proposal_with_source_guard,
 )
+from backend.tests.postgres_preparation_fixture import postgres_db as db
 from backend.tests.test_preparation_operations_service import (
     HOUSEHOLD_ID,
     OWNER_ID,
-    db,
 )
 from backend.tests.test_preparation_repair_proposal_acceptance import (
     acceptance_payload,
