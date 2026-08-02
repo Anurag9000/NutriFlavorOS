@@ -6,6 +6,8 @@ import {
   ClipboardCheck,
   Clock3,
   FileCheck2,
+  FileClock,
+  GitBranch,
   Home,
   LayoutDashboard,
   ListChecks,
@@ -59,9 +61,19 @@ const navItems = [
     icon: Wrench,
   },
   {
+    title: "Repair Proposals",
+    url: "/preparation/operations/repair-proposals",
+    icon: FileClock,
+  },
+  {
     title: "Task Execution",
     url: "/preparation/operations/execution",
     icon: PlayCircle,
+  },
+  {
+    title: "Schedule Derivation",
+    url: "/preparation/operations/derivation",
+    icon: GitBranch,
   },
   {
     title: "Calendar Builder",
