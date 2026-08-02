@@ -1,22 +1,23 @@
 # Persisted Preparation Operations
 
-NutriFlavorOS persists preparation calendars and schedules as an explicit, human-reviewed household workflow. It does not control appliances, infer presence, verify execution, or guarantee food safety or successful preparation.
+NutriFlavorOS persists preparation calendars, deterministic schedules, and explicit household execution events as a human-reviewed workflow. It does not control appliances, infer presence, verify cooking, measure temperature, or guarantee food safety or successful preparation.
 
 ## Migration and contract history
 
-- `20260801_0009` — immutable resource calendars, resources, schedules, and events.
+- `20260801_0009` — immutable resource calendars, resources, schedules, and lifecycle events.
 - `20260801_0010` — complete scheduler request and request hash.
-- `20260801_0011` — calendar/schedule/event state constraints.
+- `20260801_0011` — calendar, schedule, and event state constraints.
 - `20260801_0012` — complete canonical occurrence document persistence.
 - `20260802_0013` — optimistic household-plan lifecycle and append-only plan events.
+- `20260802_0014` — append-only user-confirmed task execution events.
 
 Current boundary:
 
-- migration head `20260802_0013`;
-- API `0.9.0`;
-- OpenAPI contract `2026-08-02.3`;
-- preparation bindings `2026-08-02.2`;
-- household-plan bindings `2026-08-02.3`.
+- migration head `20260802_0014`;
+- API `0.12.0`;
+- OpenAPI contract `2026-08-02.5`;
+- preparation bindings `2026-08-02.3`;
+- household-plan bindings `2026-08-02.4`.
 
 ## Reviewed resource calendars
 
@@ -65,14 +66,14 @@ A source-linked preparation schedule may be created only when:
 - the exact optimistic version still matches;
 - the plan status is `approved`.
 
-A new plan is initially `draft`. Owner approval increments its version and records actor/time and an append-only plan event. The schedule must retain the approved version, not the original draft version.
+A new plan is initially `draft`. Owner approval increments its version and records actor/time and an append-only plan event. The schedule retains the approved version, not the original draft version.
 
 Rejection codes include:
 
 - `source_plan_not_approved`;
 - `source_plan_version_mismatch`.
 
-If plan cancellation races schedule creation, the shared household row lock and internal version recheck guarantee one of two outcomes:
+If plan cancellation races schedule creation, household serialization and the internal version recheck guarantee one of two outcomes:
 
 1. cancellation commits first and schedule creation fails as stale; or
 2. schedule creation commits first and cancellation immediately invalidates it.
@@ -91,7 +92,7 @@ The server canonicalizes occurrence order and derives its SHA-256. A client cann
 
 Each compiled task must match occurrence and reviewed-profile provenance:
 
-- occurrence/recipe IDs;
+- occurrence and recipe IDs;
 - servings, priority, and deadline;
 - profile ID, version, and content hash;
 - duration minimum/maximum and selected policy;
@@ -117,8 +118,8 @@ The API and authoritative persistence path:
 2. require approved source-plan state when linked;
 3. lock household operation scope;
 4. verify route/occurrence household equality;
-5. verify active reviewed calendar identity/hash/resources;
-6. recheck source-plan household/version;
+5. verify active reviewed calendar identity, hash, and resources;
+6. recheck source-plan household and version;
 7. validate occurrence/profile/task/duration provenance;
 8. replay deterministic scheduling;
 9. require exact response equality and no unresolved tasks;
@@ -173,19 +174,113 @@ Transitions:
 
 Terminal states are invalidated, completed, and cancelled. Every transition uses expected version, reason, metadata, and idempotency key. Identical retries return current state; contradictory reuse fails.
 
+The normal HTTP `approved → completed` transition is guarded by the task execution ledger: every deterministic task must be explicitly `completed` or `skipped`. The established low-level transition service retains its historical completion behavior for compatibility with older internal callers; product code must use the guarded route or guarded completion service.
+
 Roles:
 
-- owner: calendar registration, schedule approval/invalidation, plan approval;
-- editor/owner: schedule persistence/completion/cancellation and plan cancellation;
-- viewer/editor/owner: calendars, schedules, plan records, coverage, and events.
+- owner: calendar registration, schedule approval/invalidation, and plan approval;
+- editor/owner: schedule persistence, task execution events, guarded completion/cancellation, and plan cancellation;
+- viewer/editor/owner: calendars, schedules, task execution state, plan records, coverage, and events.
 
 Cross-household or unauthorized access returns `404`.
 
-## Append-only evidence
+## Append-only task execution ledger
+
+Migration `20260802_0014` creates `preparation_task_execution_events`.
+
+### Task identity and planned timing
+
+Executable task IDs, planned starts, and planned finishes come only from the persisted deterministic schedule response. The server rejects unknown task IDs, duplicate persisted task IDs, incomplete schedules, or schedules with no deterministic tasks.
+
+### States and transitions
+
+Task states:
+
+- `planned`;
+- `in_progress`;
+- `completed`;
+- `skipped`.
+
+Allowed events:
+
+- `started`: planned to in progress;
+- `completed`: in progress to completed;
+- `skipped`: planned or in progress to skipped.
+
+Completed and skipped are terminal. Completion requires a prior explicit start event. The completion minute cannot precede the confirmed start minute.
+
+### Dependency chronology
+
+A task cannot start until every deterministic dependency is explicitly completed or skipped. The server derives dependency IDs from the persisted schedule and returns `task_dependencies_not_terminal` with the blocking IDs when chronology is violated.
+
+A skipped prerequisite is treated as terminal evidence, not as proof that its dependent work remains semantically valid. The household remains responsible for deciding whether proceeding is appropriate; future minimal-change repair must model this explicitly.
+
+### Actual minutes and deviation evidence
+
+Every event carries a horizon-relative `actual_minute`.
+
+- Start deviation = actual start minute − planned start minute.
+- Completion deviation = actual completion minute − planned finish minute.
+- Skip deviation is stored as zero because a skip is a categorical terminal decision rather than a timing observation.
+
+A nonblank reason is mandatory for:
+
+- every skip;
+- any nonzero start deviation;
+- any nonzero completion deviation.
+
+Optional notes and metadata are retained as human-entered operational context.
+
+### Optimistic versions and idempotency
+
+Every task event:
+
+- requires the current schedule optimistic version;
+- increments that schedule version by exactly one;
+- stores schedule version before and after;
+- uses a schedule-scoped idempotency key and canonical request fingerprint;
+- returns the existing event for an exact retry;
+- rejects contradictory key reuse;
+- serializes through the same household operation lock used by schedule mutations.
+
+The task event does not change schedule status. Schedule status remains `approved` until guarded completion, cancellation, or invalidation.
+
+### API
+
+Viewer-authorized read:
+
+`GET /api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/task-execution`
+
+Editor/owner mutations:
+
+- `POST .../tasks/{task_id}/start`;
+- `POST .../tasks/{task_id}/complete`;
+- `POST .../tasks/{task_id}/skip`.
+
+Each mutation returns the updated schedule version, current task state, and append-only event.
+
+### Frontend
+
+The protected `/preparation/operations/execution` workspace provides:
+
+- household and approved/completed schedule selection;
+- explicit progress counts;
+- accessible task cards and state badges;
+- actual-minute, reason, and notes inputs;
+- start, completion, and skip confirmations;
+- viewer read-only behavior;
+- final schedule completion only when all tasks are terminal;
+- append-only actor, transition, deviation, reason, note, and version history.
+
+Nothing is recorded on page load. No local timer, reminder, or UI state implies task execution.
+
+## Append-only schedule and plan evidence
 
 Schedule events retain actor, from/to state, reason, metadata, idempotency, fingerprint, and time. Database constraints permit only valid event/state pairs.
 
 Household plan events retain equivalent transition provenance for approval and cancellation. Schedule invalidations caused by plan cancellation include source-plan ID/version and cancellation reason.
+
+Task execution events are separate from schedule lifecycle events so task-level evidence cannot be mistaken for a schedule status transition.
 
 ## Legacy schedules
 
@@ -197,9 +292,13 @@ Replay state is explicit:
 
 Legacy rows remain readable but cannot be approved. An exact creation retry may backfill missing replay/occurrence payloads only when stored identity and hashes match.
 
+Task execution additionally requires a complete persisted deterministic response with at least one scheduled task and no unresolved tasks.
+
 ## Provenance coverage
 
-`GET /api/v1/households/{household_id}/preparation-operations/coverage` reports exact household denominators for calendars, schedule states, replay states, occurrence documents, scheduler requests, complete replay provenance, source-plan linkage, and append-only events.
+`GET /api/v1/households/{household_id}/preparation-operations/coverage` reports exact household denominators for calendars, schedule states, replay states, occurrence documents, scheduler requests, complete replay provenance, source-plan linkage, and append-only schedule events.
+
+Task-execution coverage denominators are not yet included in this endpoint. They should be added as a separate explicit numerator/denominator set rather than folded into a misleading general completeness score.
 
 Coverage proves record presence, not correctness, freshness, execution, nutrition quality, appliance condition, or food safety.
 
@@ -212,14 +311,18 @@ Configured PostgreSQL probes cover:
 - competing schedule approval/cancellation;
 - calendar supersession versus approval;
 - identical plan approval retries;
-- competing plan approval/cancellation.
+- competing plan approval/cancellation;
+- identical task-start retries collapsing to one event;
+- competing start/skip decisions producing one winner.
 
-Plan cancellation and schedule creation share household serialization and exact version rechecks.
+Task and schedule mutations share household serialization and exact optimistic-version checks.
 
 ## Frontend routes
 
 - `/household/plans` — exact plan review, approval, cancellation, and events;
+- `/household/plans/occurrences` — explicit approved-plan occurrence confirmation;
 - `/preparation/operations` — calendars, schedules, hashes, replay state, transitions, and schedule events;
+- `/preparation/operations/execution` — explicit task execution and guarded schedule completion;
 - `/preparation/operations/calendars/new` — structured reviewed calendar builder;
 - `/preparation/operations/coverage` — provenance denominators and warnings.
 
@@ -229,8 +332,9 @@ Plan cancellation and schedule creation share household serialization and exact 
 
 - Plan approval is household confirmation, not clinical or nutritional certification.
 - Availability is declared, not inferred.
-- Execution is not observed.
+- Execution events are user-entered claims; the system does not observe execution.
 - Temperature, contamination, equipment condition, and safe food state are not verified.
 - Plan/calendar changes invalidate dependent work but do not create or approve replacements.
-- Approved-plan occurrence generation, structured schedule review, per-task execution events, timers/reminders, and joint repair remain incomplete.
+- Structured final persistence review, timers/reminders, task-execution coverage denominators, minimal-change repair, and joint optimization remain incomplete.
 - Presence sensors, appliance integrations, autonomous procurement, and control remain disabled pending separate validation and governance.
+- Hosted workflow runs must be inspected before the current `main` commit is described as green.
