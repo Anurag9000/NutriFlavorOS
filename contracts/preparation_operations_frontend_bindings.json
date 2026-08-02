@@ -1,5 +1,5 @@
 {
-  "contract_version": "2026-08-02.3",
+  "contract_version": "2026-08-02.4",
   "typescript_source": "frontend/src/lib/preparationOperationsApi.ts",
   "schemas": {
     "RecipePreparationOccurrence": "RecipePreparationOccurrence",
