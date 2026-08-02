@@ -1,14 +1,21 @@
 {
-  "contract_version": "2026-08-02.3",
+  "contract_version": "2026-08-02.4",
   "typescript_source": "frontend/src/lib/householdPlanApi.ts",
   "schemas": {
     "PersistedHouseholdPlanView": "PersistedHouseholdPlanView",
     "HouseholdPlanTransitionRequest": "HouseholdPlanTransitionRequest",
-    "HouseholdPlanEventView": "HouseholdPlanEventView"
+    "HouseholdPlanEventView": "HouseholdPlanEventView",
+    "ApprovedPlanOccurrenceCandidate": "ApprovedPlanOccurrenceCandidate",
+    "ApprovedPlanOccurrenceCandidatesView": "ApprovedPlanOccurrenceCandidatesView",
+    "PlanOccurrenceConfirmation": "PlanOccurrenceConfirmation",
+    "ConfirmPlanOccurrenceSetRequest": "ConfirmPlanOccurrenceSetRequest",
+    "ConfirmedPlanOccurrenceSetView": "ConfirmedPlanOccurrenceSetView"
   },
   "enums": {
     "HouseholdPlanStatus": "HouseholdPlanStatus",
-    "HouseholdPlanEventType": "HouseholdPlanEventType"
+    "HouseholdPlanEventType": "HouseholdPlanEventType",
+    "DurationPolicy": "DurationPolicy",
+    "PreparationProfileAvailability": "PreparationProfileAvailability"
   },
   "operations": [
     {
@@ -45,6 +52,20 @@
       "object": "householdPlanApi",
       "binding": "events",
       "source_fragment": "${base(householdId)}/${planId}/events"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/plans/{plan_id}/preparation-occurrences/candidates",
+      "method": "get",
+      "object": "householdPlanApi",
+      "binding": "occurrenceCandidates",
+      "source_fragment": "${base(householdId)}/${planId}/preparation-occurrences/candidates?expected_plan_version=${expectedPlanVersion}"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/plans/{plan_id}/preparation-occurrences/confirm",
+      "method": "post",
+      "object": "householdPlanApi",
+      "binding": "confirmOccurrences",
+      "source_fragment": "${base(householdId)}/${planId}/preparation-occurrences/confirm"
     }
   ]
 }
