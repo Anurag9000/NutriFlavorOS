@@ -17,6 +17,15 @@ export type PreparationScheduleEventType =
   | "invalidated"
   | "completed"
   | "cancelled";
+export type PreparationTaskExecutionEventType =
+  | "started"
+  | "completed"
+  | "skipped";
+export type PreparationTaskExecutionState =
+  | "planned"
+  | "in_progress"
+  | "completed"
+  | "skipped";
 export type DurationPolicy = "conservative_max" | "optimistic_min";
 export type ScheduleReplayStatus =
   | "replayable"
@@ -213,6 +222,66 @@ export interface PreparationScheduleEventView {
   created_at: string;
 }
 
+export interface PreparationTaskExecutionEventCreate {
+  expected_schedule_version: number;
+  actual_minute: number;
+  reason?: string | null;
+  notes?: string | null;
+  idempotency_key: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface PreparationTaskExecutionEventView {
+  id: number;
+  schedule_id: number;
+  household_id: string;
+  task_id: string;
+  event_type: PreparationTaskExecutionEventType;
+  actor_user_id: string;
+  from_state: PreparationTaskExecutionState;
+  to_state: PreparationTaskExecutionState;
+  planned_start_minute: number;
+  planned_finish_minute: number;
+  actual_minute: number;
+  deviation_minutes: number;
+  reason: string | null;
+  notes: string | null;
+  metadata: Record<string, unknown>;
+  idempotency_key: string;
+  request_fingerprint: string;
+  schedule_version_before: number;
+  schedule_version_after: number;
+  created_at: string;
+}
+
+export interface PreparationTaskExecutionTaskView {
+  task: ScheduledPreparationTask;
+  state: PreparationTaskExecutionState;
+  latest_event_id: number | null;
+  started_actual_minute: number | null;
+  completed_actual_minute: number | null;
+  skipped_actual_minute: number | null;
+  terminal_reason: string | null;
+}
+
+export interface PreparationTaskExecutionOverview {
+  schedule: PersistedPreparationScheduleView;
+  tasks: PreparationTaskExecutionTaskView[];
+  events: PreparationTaskExecutionEventView[];
+  planned_count: number;
+  in_progress_count: number;
+  completed_count: number;
+  skipped_count: number;
+  terminal_count: number;
+  remaining_count: number;
+}
+
+export interface PreparationTaskExecutionMutationView {
+  schedule: PersistedPreparationScheduleView;
+  task: PreparationTaskExecutionTaskView;
+  event: PreparationTaskExecutionEventView;
+}
+
 export interface PreparationOperationsCoverageView {
   household_id: string;
   generated_at: string;
@@ -238,6 +307,13 @@ export interface PreparationOperationsCoverageView {
 
 const base = (householdId: string) =>
   `/households/${encode(householdId)}/preparation-operations`;
+const schedulePath = (householdId: string, scheduleId: number) =>
+  `${base(householdId)}/schedules/${scheduleId}`;
+const taskPath = (
+  householdId: string,
+  scheduleId: number,
+  taskId: string,
+) => `${schedulePath(householdId, scheduleId)}/tasks/${encode(taskId)}`;
 
 export const preparationOperationsApi = {
   coverage: (householdId: string) =>
@@ -270,7 +346,41 @@ export const preparationOperationsApi = {
   },
   schedule: (householdId: string, scheduleId: number) =>
     request<PersistedPreparationScheduleView>(
-      `${base(householdId)}/schedules/${scheduleId}`,
+      schedulePath(householdId, scheduleId),
+    ),
+  taskExecution: (householdId: string, scheduleId: number) =>
+    request<PreparationTaskExecutionOverview>(
+      `${schedulePath(householdId, scheduleId)}/task-execution`,
+    ),
+  startTask: (
+    householdId: string,
+    scheduleId: number,
+    taskId: string,
+    payload: PreparationTaskExecutionEventCreate,
+  ) =>
+    request<PreparationTaskExecutionMutationView>(
+      `${taskPath(householdId, scheduleId, taskId)}/start`,
+      { method: "POST", body: body(payload) },
+    ),
+  completeTask: (
+    householdId: string,
+    scheduleId: number,
+    taskId: string,
+    payload: PreparationTaskExecutionEventCreate,
+  ) =>
+    request<PreparationTaskExecutionMutationView>(
+      `${taskPath(householdId, scheduleId, taskId)}/complete`,
+      { method: "POST", body: body(payload) },
+    ),
+  skipTask: (
+    householdId: string,
+    scheduleId: number,
+    taskId: string,
+    payload: PreparationTaskExecutionEventCreate,
+  ) =>
+    request<PreparationTaskExecutionMutationView>(
+      `${taskPath(householdId, scheduleId, taskId)}/skip`,
+      { method: "POST", body: body(payload) },
     ),
   approve: (
     householdId: string,
@@ -278,7 +388,7 @@ export const preparationOperationsApi = {
     payload: ScheduleStateTransitionRequest,
   ) =>
     request<PersistedPreparationScheduleView>(
-      `${base(householdId)}/schedules/${scheduleId}/approve`,
+      `${schedulePath(householdId, scheduleId)}/approve`,
       { method: "POST", body: body(payload) },
     ),
   complete: (
@@ -287,7 +397,7 @@ export const preparationOperationsApi = {
     payload: ScheduleStateTransitionRequest,
   ) =>
     request<PersistedPreparationScheduleView>(
-      `${base(householdId)}/schedules/${scheduleId}/complete`,
+      `${schedulePath(householdId, scheduleId)}/complete`,
       { method: "POST", body: body(payload) },
     ),
   cancel: (
@@ -296,7 +406,7 @@ export const preparationOperationsApi = {
     payload: ScheduleStateTransitionRequest,
   ) =>
     request<PersistedPreparationScheduleView>(
-      `${base(householdId)}/schedules/${scheduleId}/cancel`,
+      `${schedulePath(householdId, scheduleId)}/cancel`,
       { method: "POST", body: body(payload) },
     ),
   invalidate: (
@@ -305,11 +415,11 @@ export const preparationOperationsApi = {
     payload: ScheduleStateTransitionRequest,
   ) =>
     request<PersistedPreparationScheduleView>(
-      `${base(householdId)}/schedules/${scheduleId}/invalidate`,
+      `${schedulePath(householdId, scheduleId)}/invalidate`,
       { method: "POST", body: body(payload) },
     ),
   events: (householdId: string, scheduleId: number) =>
     request<PreparationScheduleEventView[]>(
-      `${base(householdId)}/schedules/${scheduleId}/events`,
+      `${schedulePath(householdId, scheduleId)}/events`,
     ),
 };
