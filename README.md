@@ -91,6 +91,7 @@ Migration `20260802_0018` enforces one accepted replacement for `(source_schedul
 - Exact retries are idempotent.
 - Competing proposals/keys fail with `repair_source_already_has_accepted_replacement` and expose the winning proposal, acceptance, and replacement identities.
 - Database uniqueness prevents lower-level bypass.
+- A populated PostgreSQL `0017 → 0018` rehearsal creates 64 valid accepted lifecycles through production services, verifies exact IDs/hashes/events after upgrade, checks the live constraint definition, and proves a lower-level duplicate replacement rolls back completely.
 
 ### Owner-only proposal invalidation
 
@@ -102,7 +103,7 @@ Migration `20260802_0018` enforces one accepted replacement for `(source_schedul
 - Exact retries collapse; contradictory keys, stale versions, and terminal proposals fail closed.
 - Editors may create, accept, or reject proposals but cannot invalidate them.
 - The protected Proposal Invalidation workspace displays current/stale evidence, exact source and repair hashes, append-only history, owner-only destructive confirmation, and read-only editor/viewer behavior.
-- Real PostgreSQL acceptance-versus-invalidation probes require exactly one terminal outcome.
+- Real PostgreSQL acceptance-versus-invalidation and rejection-versus-invalidation probes require exactly one terminal outcome.
 
 ## Method-aware replay and owner approval
 
@@ -160,6 +161,20 @@ Before enabling any task or schedule-completion control, the frontend reads:
 
 A replaced source remains readable but cannot receive new task events or completion. Exact proposal, acceptance, and replacement identities are displayed, controls remain disabled while eligibility is loading or false, and the mutation function reasserts eligibility before submission. Server guards remain authoritative.
 
+## Database transient failures and exact recovery
+
+Operational PostgreSQL failures are sanitized and never retried invisibly.
+
+- SQLSTATEs `40001`, `40P01`, `57014`, and `55P03` return HTTP `503`, `Retry-After: 1`, code `database_transaction_retry_required`, and direction to retry the exact request with the same idempotency key.
+- PostgreSQL connection exceptions (`08xxx`) and invalidated connections return `database_commit_outcome_unknown` because commit state may be ambiguous.
+- Non-retryable operational errors return a sanitized `500` without SQL, parameters, or driver details.
+- `automatic_retry_performed=false` is explicit; the exception handler does not sleep, loop, replay, or commit.
+- Real PostgreSQL statement-timeout evidence forces SQLSTATE `57014`, rolls back, and proves a fresh same-key acceptance creates one draft.
+- A real row-lock/advisory-lock cycle forces exactly one SQLSTATE `40P01` deadlock victim; a fresh exact retry converges to one acceptance, one replacement, and one `accepted` event.
+- Discarded-response recovery tests acceptance, proposal invalidation, and schedule completion from fresh sessions and proves no duplicate rows/events.
+
+Connection loss during commit, database failover, and pool invalidation under load remain unverified operational boundaries.
+
 ## Frontend
 
 Protected interfaces include plan review, occurrence confirmation, preparation profiles/calendars, schedule persistence/approval, advisory repair, immutable repair proposals, owner proposal invalidation, accepted-draft review, schedule derivation, provenance coverage, and user-confirmed task execution with proactive eligibility gating.
@@ -184,10 +199,12 @@ Configured direct-`main` workflows cover:
 
 - dependency, compile, backend, repository, Alembic, OpenAPI, frontend-binding, and static-contract checks;
 - fresh SQLite and PostgreSQL migrations;
+- populated `0017 → 0018` PostgreSQL migration rehearsal with retained JSON evidence;
 - repair computation, proposal creation, acceptance, source uniqueness, invalidation, approval, tamper, derivation, task execution, and lowest-layer completion tests;
-- real PostgreSQL duplicate/competing acceptance, acceptance/rejection, acceptance/invalidation, source-replacement, source-execution, final-task/schedule-completion, and approval races;
+- real PostgreSQL duplicate/competing acceptance, acceptance/rejection, acceptance/invalidation, rejection/invalidation, source-plan cancellation, calendar supersession, source-execution, final-task/schedule-completion, and approval races;
+- real PostgreSQL discarded-response, statement-timeout, and deadlock exact-retry evidence;
 - frontend typecheck and focused Vitest suites;
-- machine-readable benchmark and JUnit artifacts.
+- machine-readable benchmark, migration, and JUnit artifacts.
 
 The exact latest hosted workflow and retained artifacts must be inspected before the current commit is described as green.
 
@@ -198,6 +215,7 @@ The exact latest hosted workflow and retained artifacts must be inspected before
 - Execution-aware repair after source task history begins remains future work.
 - Joint meal, inventory, reservation, shopping, leftover, and preparation repair remains future work.
 - Authenticated PostgreSQL-backed Playwright and automated accessibility evidence remain incomplete.
+- Real connection-loss-during-commit, failover, pool-recovery, and production-snapshot migration evidence remain incomplete.
 - Vision, multimodal nutrition, graph learning, causal/off-policy promotion, continual/federated personalization, sustainability claims, and autonomous control remain gated research.
 - The exact latest hosted workflows have not been observed green in this execution context.
 
