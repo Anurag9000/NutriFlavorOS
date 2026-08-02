@@ -181,6 +181,14 @@ Roles:
 
 Cross-household or unauthorized access returns `404`.
 
+## Structured final persistence review
+
+The routed `/preparation/operations` page consumes `preparation-operations-handoff-v2` once and presents exact plan, occurrence/hash, profile, active reviewed calendar/hash, task-DAG, demand, deadline, and deterministic schedule content structurally. It performs no persistence on load.
+
+Persistence requires four independent confirmations covering source/occurrence/profile evidence, calendar/resource evidence, task/schedule evidence, and the non-execution/non-safety boundary. Canonical JSON remains available only as read-only expert inspection. Extra profile recipes, unresolved tasks, task-ID mismatch, unknown dependencies, calendar drift, horizon drift, or resource-ID drift block the browser action; server replay remains authoritative.
+
+Editor/owner persistence creates a draft only. Owner approval, task execution, and completion remain separate actions.
+
 ## Append-only task execution ledger
 
 Migration `20260802_0014` creates `preparation_task_execution_events`.
@@ -363,6 +371,6 @@ Task and schedule mutations share household serialization and exact optimistic-v
 - Execution events are user-entered claims; the system does not observe execution.
 - Temperature, contamination, equipment condition, and safe food state are not verified.
 - Plan/calendar changes invalidate dependent work but do not create or approve replacements.
-- Structured final persistence review, timers/reminders, minimal-change repair, and joint optimization remain incomplete.
+- Timers/reminders, minimal-change repair, and joint optimization remain incomplete.
 - Presence sensors, appliance integrations, autonomous procurement, and control remain disabled pending separate validation and governance.
 - Hosted workflow runs must be inspected before the current `main` commit is described as green.

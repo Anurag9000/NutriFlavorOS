@@ -125,6 +125,7 @@ A class, endpoint, committed test, configured workflow, synthetic fixture, or ca
 - Source-linked schedule creation requires an exact approved plan version.
 - Plan cancellation invalidates dependent draft/approved schedules.
 - Protected operations and coverage workspaces.
+- Structured final persistence review with exact source-plan, occurrence/hash, profile, calendar/hash, task-DAG, deterministic-output, read-only JSON, four confirmations, and explicit draft persistence.
 
 ### Remaining
 
@@ -188,14 +189,14 @@ Coverage describes stored structure and user-entered claims. It does not certify
 ### Implemented
 
 - Protected lazy routes and profile-completion routing.
-- Dashboard, planner, household/pantry, plan review, occurrence confirmation, analytics, settings, preparation editor, reviewed pipeline, operations, task execution, calendar builder, combined provenance/execution coverage, and research views.
+- Dashboard, planner, household/pantry, plan review, occurrence confirmation, analytics, settings, preparation editor, reviewed pipeline, structured operations review, task execution, calendar builder, combined provenance/execution coverage, and research views.
 - Role-aware controls and exact provenance surfaces.
 - Mechanical TypeScript binding gates for food evidence, preparation operations, and household plans.
 - Vitest coverage for operations, execution, coverage, calendars, plans, household switching, authorization, and failure states.
 
 ### Remaining
 
-- Structured final persistence review, authenticated Playwright/PostgreSQL journeys, automated axe, keyboard-only/screen-reader suites, visual regression, offline/PWA policy, and internationalization.
+- Authenticated Playwright/PostgreSQL journeys, automated axe, keyboard-only/screen-reader suites, visual regression, offline/PWA policy, and internationalization.
 
 ## Governed offline research
 
@@ -230,11 +231,10 @@ The exact latest `main` push workflows have not been observed complete and green
 
 1. Inspect and close the exact latest hosted workflows.
 2. Migrate remaining low-level completion callers to the task terminality guard.
-3. Replace raw schedule-bundle JSON with structured final persistence review.
-4. Add authenticated Playwright/PostgreSQL and automated accessibility coverage.
-5. Add deterministic minimal-change plan/schedule repair with explicit human acceptance.
-6. Expand reviewed evidence and cross-domain coverage.
-7. Expand forecasting uncertainty, stochastic inventory costs, ranking robustness, identity lifecycle, backups, observability, SLOs, and incident evidence.
+3. Add authenticated Playwright/PostgreSQL and automated accessibility coverage.
+4. Add deterministic minimal-change plan/schedule repair with explicit human acceptance.
+5. Expand reviewed evidence and cross-domain coverage.
+6. Expand forecasting uncertainty, stochastic inventory costs, ranking robustness, identity lifecycle, backups, observability, SLOs, and incident evidence.
 
 Detailed specifications:
 

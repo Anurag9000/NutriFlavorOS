@@ -64,11 +64,15 @@ Compatibility hardening remains: migrate every older internal low-level completi
 - Backend, frontend, OpenAPI, TypeScript, and household-isolation tests.
 - Explicit interpretation boundary: stored structure and user-entered claims, not observation, correctness, nutrition quality, appliance state, temperature, or food safety.
 
-## C10 — Forecasting, ranking, and inventory evaluation
+## C10 — Structured final operations persistence review
+
+Exact plan/version, occurrence document/hash, profile identities, active reviewed calendar/hash, task DAG, durations, demands, deadlines, deterministic scheduled output, unresolved-work blocking, read-only canonical JSON, four confirmations, role controls, retry-stable idempotency, and explicit draft persistence are implemented. Approval and task execution remain separate actions.
+
+## C11 — Forecasting, ranking, and inventory evaluation
 
 Dense/intermittent-demand forecasting, rolling-origin evaluation, ranking baselines and temporal hard filters, FEFO inventory replay, and forecast-to-inventory closed-loop metrics.
 
-## C11 — Release governance
+## C12 — Release governance
 
 Linear Alembic validation, repository/catalog/OpenAPI/frontend contracts, fresh SQLite/PostgreSQL migrations, backend/frontend/container jobs, retained reports, and focused task-execution concurrency workflow.
 
@@ -100,30 +104,15 @@ Enable stricter compiler settings incrementally; test nullable/omitted fields, e
 
 # P1 — Complete preparation operations
 
-## P1.1 Structured final persistence review — next product slice
-
-Replace raw bundle JSON editing with a structured review surface showing:
-
-- approved plan ID/version;
-- occurrence document/hash;
-- active reviewed calendar identity/hash;
-- exact profile versions and duration policy;
-- tasks, dependencies, demands, deadlines, active labor, and supervision declarations;
-- deterministic scheduled/unscheduled output;
-- replay/provenance warnings;
-- final explicit persistence confirmation.
-
-Canonical JSON inspection/export remains optional. Persistence and owner approval remain separate actions.
-
-## P1.2 Browser E2E and accessibility
+## P1.1 Browser E2E and accessibility
 
 Playwright against PostgreSQL for generation → plan approval → occurrence confirmation → calendar selection → compile → handoff → persistence → approval → task execution → guarded completion → cancellation/invalidation → coverage/history. Add stale/tampered/adversarial paths plus axe, keyboard-only, screen-reader, and visual-regression tests.
 
-## P1.3 Local timers/reminders without inference
+## P1.2 Local timers/reminders without inference
 
 Optional local assistance only. Timer expiration never writes completion or implies cooking. Explicit user confirmation remains mandatory. No presence, temperature, appliance, or food-safety inference.
 
-## P1.4 Joint minimal-change repair
+## P1.3 Joint minimal-change repair
 
 Two-stage and joint baselines, infeasibility cuts, small-horizon CP-SAT, large-neighborhood repair, preservation of completed work and historical provenance, scenario stress, and explicit human acceptance.
 
@@ -153,10 +142,9 @@ Vision/multimodal nutrition, constrained generation, graph-neural substitution, 
 
 1. Inspect and close the exact latest hosted workflows.
 2. Migrate low-level completion callers and make terminality authoritative.
-3. Build structured final persistence review.
-4. Add authenticated E2E and accessibility coverage.
-5. Add deterministic minimal-change repair.
-6. Expand reviewed evidence and cross-domain coverage.
-7. Continue forecasting, inventory, ranking, security, and reliability hardening.
+3. Add authenticated E2E and accessibility coverage.
+4. Add deterministic minimal-change repair.
+5. Expand reviewed evidence and cross-domain coverage.
+6. Continue forecasting, inventory, ranking, security, and reliability hardening.
 
 See `docs/HOUSEHOLD_PLAN_LIFECYCLE.md`, `docs/PREPARATION_OPERATIONS.md`, and the exhaustive audit continuation documents for exact scope and limitations.

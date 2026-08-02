@@ -130,5 +130,5 @@ Plan approval does not certify task execution, nutrition quality, equipment cond
 
 - Confirmed occurrence documents become durable when incorporated into a persisted schedule; there is not yet a separate standalone occurrence-record table.
 - Low-level legacy schedule completion callers still need migration to the task-terminal guard.
-- Structured final persistence review, authenticated browser E2E, minimal-change repair, and joint optimization remain incomplete.
+- Authenticated browser E2E, minimal-change repair, and joint optimization remain incomplete.
 - Hosted workflows must be inspected before the current commit is described as green.

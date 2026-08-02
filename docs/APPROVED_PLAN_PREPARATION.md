@@ -158,6 +158,6 @@ Committed tests cover serving semantics, missing servings, draft/stale/cancelled
 
 - Confirmation does not certify nutrition, allergies, food safety, equipment condition, or execution.
 - Confirmed occurrences are durable when a schedule is persisted; no separate standalone occurrence table exists yet.
-- Structured final persistence review still exposes expert JSON and remains incomplete.
+- Structured final persistence review is implemented; canonical expert JSON is read-only and optional.
 - Timers/reminders, minimal-change repair, joint optimization, authenticated browser E2E, and automated accessibility evidence remain incomplete.
 - Hosted workflow runs must be inspected before current `main` is described as green.

@@ -103,6 +103,7 @@ Migrations `20260801_0009` through `20260802_0014` provide:
 
 - immutable reviewed household resource calendars;
 - structured calendar builder at `/preparation/operations/calendars/new`;
+- structured final persistence review with exact source, occurrence, profile, calendar, task-DAG, deterministic-output, and confirmation surfaces;
 - complete canonical occurrence documents;
 - exact preparation-profile versions;
 - optional approved source-plan ID/version;
@@ -228,7 +229,7 @@ PostgreSQL is recommended for hosted or concurrent deployments.
 
 - Clinical, medication, allergy-safety, food-safety, and health-outcome claims are not validated.
 - Approved-plan occurrence confirmation is non-persisted until incorporated into a persisted schedule.
-- Raw schedule-bundle JSON still needs a fully structured final persistence-review replacement.
+- Structured final persistence review is implemented; canonical bundle JSON is read-only and optional for expert inspection.
 - Timers and reminders remain local-assistance future work and must never imply completion.
 - Minimal-change plan/schedule repair and joint meal/preparation optimization remain future work.
 - Authenticated Playwright/PostgreSQL and automated accessibility coverage remain incomplete.
