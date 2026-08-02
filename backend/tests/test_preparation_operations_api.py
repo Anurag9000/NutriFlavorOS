@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
@@ -225,7 +226,24 @@ def transition(version: int, key: str, reason: str):
     }
 
 
-def test_role_aware_calendar_schedule_and_event_lifecycle(monkeypatch):
+def task_event(
+    version: int,
+    actual_minute: int,
+    key: str,
+    *,
+    reason: str | None = None,
+):
+    return {
+        "expected_schedule_version": version,
+        "actual_minute": actual_minute,
+        "reason": reason,
+        "notes": "Explicit API fixture confirmation",
+        "idempotency_key": key,
+        "metadata": {"api_fixture": True},
+    }
+
+
+def test_role_aware_calendar_schedule_execution_and_lifecycle(monkeypatch):
     client, identity = _client(monkeypatch)
 
     identity["user_id"] = "editor@example.test"
@@ -271,22 +289,103 @@ def test_role_aware_calendar_schedule_and_event_lifecycle(monkeypatch):
     assert denied_approval.status_code == 404
 
     identity["user_id"] = "owner@example.test"
-    approved = client.post(
+    approved_response = client.post(
         f"/api/v1/households/prep-home/preparation-operations/schedules/{schedule['id']}/approve",
         json=transition(1, "api-approve-v1", "Owner reviewed schedule"),
     )
-    assert approved.status_code == 200
-    assert approved.json()["status"] == "approved"
-    assert approved.json()["version"] == 2
+    assert approved_response.status_code == 200
+    approved = approved_response.json()
+    assert approved["status"] == "approved"
+    assert approved["version"] == 2
+
+    identity["user_id"] = "viewer@example.test"
+    overview_response = client.get(
+        f"/api/v1/households/prep-home/preparation-operations/schedules/{schedule['id']}/task-execution"
+    )
+    assert overview_response.status_code == 200
+    overview = overview_response.json()
+    assert overview["planned_count"] == 2
+    assert overview["remaining_count"] == 2
+    first_task = overview["tasks"][0]["task"]
+    denied_start = client.post(
+        "/api/v1/households/prep-home/preparation-operations/schedules/"
+        f"{schedule['id']}/tasks/{quote(first_task['task_id'], safe='')}/start",
+        json=task_event(
+            approved["version"],
+            first_task["start_minute"],
+            "viewer-task-start",
+        ),
+    )
+    assert denied_start.status_code == 404
 
     identity["user_id"] = "editor@example.test"
-    completed = client.post(
+    premature_completion = client.post(
         f"/api/v1/households/prep-home/preparation-operations/schedules/{schedule['id']}/complete",
-        json=transition(2, "api-complete-v1", "Household confirmed completion"),
+        json=transition(
+            approved["version"],
+            "api-complete-premature",
+            "Attempted before task confirmations",
+        ),
     )
-    assert completed.status_code == 200
-    assert completed.json()["status"] == "completed"
-    assert completed.json()["version"] == 3
+    assert premature_completion.status_code == 409
+    assert premature_completion.json()["detail"]["code"] == (
+        "schedule_tasks_not_terminal"
+    )
+
+    current_version = approved["version"]
+    for index, task_view in enumerate(overview["tasks"]):
+        task = task_view["task"]
+        task_path = quote(task["task_id"], safe="")
+        started_response = client.post(
+            "/api/v1/households/prep-home/preparation-operations/schedules/"
+            f"{schedule['id']}/tasks/{task_path}/start",
+            json=task_event(
+                current_version,
+                task["start_minute"],
+                f"api-task-start-{index}",
+            ),
+        )
+        assert started_response.status_code == 200
+        started = started_response.json()
+        assert started["task"]["state"] == "in_progress"
+        assert started["event"]["deviation_minutes"] == 0
+
+        completed_response = client.post(
+            "/api/v1/households/prep-home/preparation-operations/schedules/"
+            f"{schedule['id']}/tasks/{task_path}/complete",
+            json=task_event(
+                started["schedule"]["version"],
+                task["finish_minute"],
+                f"api-task-complete-{index}",
+            ),
+        )
+        assert completed_response.status_code == 200
+        completed_task = completed_response.json()
+        assert completed_task["task"]["state"] == "completed"
+        current_version = completed_task["schedule"]["version"]
+
+    identity["user_id"] = "viewer@example.test"
+    terminal_overview = client.get(
+        f"/api/v1/households/prep-home/preparation-operations/schedules/{schedule['id']}/task-execution"
+    )
+    assert terminal_overview.status_code == 200
+    assert terminal_overview.json()["remaining_count"] == 0
+    assert terminal_overview.json()["completed_count"] == 2
+    assert len(terminal_overview.json()["events"]) == 4
+
+    identity["user_id"] = "editor@example.test"
+    completed_schedule_response = client.post(
+        f"/api/v1/households/prep-home/preparation-operations/schedules/{schedule['id']}/complete",
+        json=transition(
+            current_version,
+            "api-complete-v1",
+            "Every task was explicitly completed",
+        ),
+    )
+    assert completed_schedule_response.status_code == 200
+    completed_schedule = completed_schedule_response.json()
+    assert completed_schedule["status"] == "completed"
+    assert completed_schedule["version"] == current_version + 1
 
     identity["user_id"] = "viewer@example.test"
     events = client.get(
@@ -301,6 +400,58 @@ def test_role_aware_calendar_schedule_and_event_lifecycle(monkeypatch):
     assert all(
         len(value["request_fingerprint"]) == 64
         for value in events.json()
+    )
+
+
+def test_task_execution_dependency_and_deviation_fail_closed(monkeypatch):
+    client, identity = _client(monkeypatch)
+    identity["user_id"] = "owner@example.test"
+    calendar = client.post(
+        "/api/v1/households/prep-home/preparation-operations/resource-calendars",
+        json=calendar_payload(),
+    ).json()
+    identity["user_id"] = "editor@example.test"
+    schedule = client.post(
+        "/api/v1/households/prep-home/preparation-operations/schedules",
+        json=schedule_payload(calendar),
+    ).json()
+    identity["user_id"] = "owner@example.test"
+    approved = client.post(
+        f"/api/v1/households/prep-home/preparation-operations/schedules/{schedule['id']}/approve",
+        json=transition(1, "dependency-approve", "Approve dependency fixture"),
+    ).json()
+    identity["user_id"] = "editor@example.test"
+    overview = client.get(
+        f"/api/v1/households/prep-home/preparation-operations/schedules/{schedule['id']}/task-execution"
+    ).json()
+    dependent = next(
+        value["task"] for value in overview["tasks"] if value["task"]["dependencies"]
+    )
+    blocked = client.post(
+        "/api/v1/households/prep-home/preparation-operations/schedules/"
+        f"{schedule['id']}/tasks/{quote(dependent['task_id'], safe='')}/start",
+        json=task_event(
+            approved["version"],
+            dependent["start_minute"],
+            "blocked-dependent-start",
+        ),
+    )
+    assert blocked.status_code == 409
+    assert blocked.json()["detail"]["code"] == "task_dependencies_not_terminal"
+
+    first = overview["tasks"][0]["task"]
+    late_without_reason = client.post(
+        "/api/v1/households/prep-home/preparation-operations/schedules/"
+        f"{schedule['id']}/tasks/{quote(first['task_id'], safe='')}/start",
+        json=task_event(
+            approved["version"],
+            first["start_minute"] + 5,
+            "late-without-reason",
+        ),
+    )
+    assert late_without_reason.status_code == 422
+    assert late_without_reason.json()["detail"]["code"] == (
+        "task_execution_reason_required"
     )
 
 
