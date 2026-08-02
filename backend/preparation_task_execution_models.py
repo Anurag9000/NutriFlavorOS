@@ -110,16 +110,14 @@ class DBPreparationTaskExecutionEvent(Base):
         Integer,
         ForeignKey("persisted_preparation_schedules.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
     household_id = Column(
         String,
         ForeignKey("households.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
-    task_id = Column(String(160), nullable=False, index=True)
-    event_type = Column(String(32), nullable=False, index=True)
+    task_id = Column(String(160), nullable=False)
+    event_type = Column(String(32), nullable=False)
     actor_user_id = Column(
         String,
         ForeignKey("users.id", ondelete="RESTRICT"),
@@ -135,7 +133,7 @@ class DBPreparationTaskExecutionEvent(Base):
     notes = Column(Text, nullable=True)
     event_metadata = Column(JSON, nullable=False, default=dict)
     idempotency_key = Column(String(240), nullable=False)
-    request_fingerprint = Column(String(64), nullable=False, index=True)
+    request_fingerprint = Column(String(64), nullable=False)
     schedule_version_before = Column(Integer, nullable=False)
     schedule_version_after = Column(Integer, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
