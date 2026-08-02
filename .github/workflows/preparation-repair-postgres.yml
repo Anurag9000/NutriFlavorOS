@@ -54,6 +54,8 @@ jobs:
           backend/services/preparation_repair_proposal_acceptance_service.py
           backend/services/preparation_repair_proposal_invalidation_service.py
           backend/services/preparation_repair_source_acceptance_guard_service.py
+          backend/services/preparation_repair_approval_guard_service.py
+          backend/services/preparation_schedule_approval_service.py
           backend/services/preparation_task_execution_service.py
           backend/services/preparation_task_completion_service.py
           backend/tests/postgres_preparation_fixture.py
@@ -62,6 +64,7 @@ jobs:
           backend/tests/test_preparation_repair_proposal_invalidation_postgres.py
           backend/tests/test_preparation_repair_plan_cancellation_postgres.py
           backend/tests/test_preparation_repair_calendar_supersession_postgres.py
+          backend/tests/test_preparation_repair_calendar_approval_postgres.py
           backend/tests/test_preparation_schedule_completion_postgres.py
           scripts/validate_preparation_repair_plan_cancellation_race.py
           scripts/validate_preparation_repair_calendar_supersession_race.py
@@ -98,6 +101,7 @@ jobs:
           backend/tests/test_preparation_repair_proposal_invalidation_postgres.py
           backend/tests/test_preparation_repair_plan_cancellation_postgres.py
           backend/tests/test_preparation_repair_calendar_supersession_postgres.py
+          backend/tests/test_preparation_repair_calendar_approval_postgres.py
           backend/tests/test_preparation_schedule_completion_postgres.py
           --junitxml=reports/preparation-repair-postgres.xml
 
