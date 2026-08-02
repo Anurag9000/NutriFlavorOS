@@ -26,14 +26,6 @@ class DBPreparationRepairProposal(Base):
             "creation_idempotency_key",
             name="uq_preparation_repair_proposal_household_idempotency",
         ),
-        UniqueConstraint(
-            "source_schedule_id",
-            "source_schedule_version",
-            "target_calendar_version_id",
-            "revised_request_hash",
-            "repaired_response_hash",
-            name="uq_preparation_repair_proposal_semantic_identity",
-        ),
         CheckConstraint(
             "status IN ('proposed','rejected','invalidated')",
             name="ck_preparation_repair_proposal_status",
@@ -92,6 +84,14 @@ class DBPreparationRepairProposal(Base):
             "ix_preparation_repair_proposals_source_schedule",
             "source_schedule_id",
             "source_schedule_version",
+        ),
+        Index(
+            "ix_preparation_repair_proposals_semantic_hashes",
+            "source_schedule_id",
+            "source_schedule_version",
+            "target_calendar_version_id",
+            "revised_request_hash",
+            "repaired_response_hash",
         ),
     )
 
