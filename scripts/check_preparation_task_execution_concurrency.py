@@ -22,7 +22,7 @@ from backend.services.preparation_operations_service import transition_schedule
 from backend.services.preparation_task_execution_service import (
     record_task_execution_event,
 )
-from scripts.check_preparation_operations_concurrency import (
+from check_preparation_operations_concurrency import (
     HOUSEHOLD_ID,
     USER_ID,
     _calendar,
