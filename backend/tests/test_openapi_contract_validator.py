@@ -5,8 +5,8 @@ from scripts.validate_openapi_contracts import validate_openapi_contract
 
 def test_generated_openapi_matches_required_product_contract():
     report = validate_openapi_contract()
-    assert report["contract_version"] == "2026-08-02.11"
-    assert report["api_version"] == "0.15.1"
+    assert report["contract_version"] == "2026-08-02.12"
+    assert report["api_version"] == "0.15.2"
     assert "OAuth2PasswordBearer" in report["security_schemes"]
     assert {
         "IngredientConversionVersionView",
@@ -23,6 +23,7 @@ def test_generated_openapi_matches_required_product_contract():
         "PreparationTaskExecutionEligibilityView",
         "PreparationRepairProposalCreateRequest",
         "PreparationRepairProposalRejectRequest",
+        "PreparationRepairProposalInvalidateRequest",
         "PreparationRepairProposalAcceptRequest",
         "PreparationRepairProposalView",
         "PreparationRepairProposalEventView",
@@ -44,6 +45,7 @@ def test_generated_openapi_matches_required_product_contract():
         "/api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/events",
         "/api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/accept",
         "/api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/reject",
+        "/api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/invalidate",
     } <= set(report["required_paths"])
     assert report["valid"] is True, report["errors"]
     assert report["errors"] == []
