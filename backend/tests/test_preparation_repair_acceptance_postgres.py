@@ -3,7 +3,6 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 
-import pytest
 from fastapi import HTTPException
 from sqlalchemy.orm import sessionmaker
 
@@ -15,16 +14,16 @@ from backend.preparation_repair_proposal_models import (
     DBPreparationRepairProposal,
     DBPreparationRepairProposalAcceptance,
 )
-from backend.services.preparation_repair_proposal_acceptance_service import (
-    accept_repair_proposal,
-)
 from backend.services.preparation_repair_proposal_read_service import (
     reject_repair_proposal,
 )
+from backend.services.preparation_repair_source_acceptance_guard_service import (
+    accept_repair_proposal_with_source_guard,
+)
+from backend.tests.postgres_preparation_fixture import postgres_db as db
 from backend.tests.test_preparation_operations_service import (
     HOUSEHOLD_ID,
     OWNER_ID,
-    db,
 )
 from backend.tests.test_preparation_repair_proposal_acceptance import (
     acceptance_payload,
@@ -54,7 +53,7 @@ def _accept_worker(
     session = factory()
     try:
         barrier.wait(timeout=20)
-        result = accept_repair_proposal(
+        result = accept_repair_proposal_with_source_guard(
             session,
             household_id=HOUSEHOLD_ID,
             proposal_id=proposal.id,
@@ -189,6 +188,7 @@ def test_postgres_competing_acceptance_keys_create_only_one_draft(db):
         "repair_proposal_already_accepted",
         "repair_acceptance_creation_conflict",
         "repair_proposal_not_acceptable",
+        "repair_source_already_has_accepted_replacement",
     }
 
 
