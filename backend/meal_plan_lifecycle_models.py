@@ -13,6 +13,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     JSON,
     String,
@@ -24,7 +25,7 @@ from backend.database import Base, DBMealPlan, utcnow
 
 if not hasattr(DBMealPlan, "version"):
     DBMealPlan.version = Column(Integer, nullable=False, default=1)
-    DBMealPlan.status = Column(String(32), nullable=False, default="draft", index=True)
+    DBMealPlan.status = Column(String(32), nullable=False, default="draft")
     DBMealPlan.approved_by_user_id = Column(
         String,
         ForeignKey("users.id", ondelete="RESTRICT"),
@@ -68,6 +69,12 @@ if not hasattr(DBMealPlan, "version"):
             name="ck_meal_plan_state_fields",
         )
     )
+    Index(
+        "ix_meal_plans_household_status_created",
+        DBMealPlan.__table__.c.household_id,
+        DBMealPlan.__table__.c.status,
+        DBMealPlan.__table__.c.created_at,
+    )
 
 
 class DBHouseholdPlanEvent(Base):
@@ -101,6 +108,18 @@ class DBHouseholdPlanEvent(Base):
             "length(trim(reason)) > 0",
             name="ck_household_plan_event_reason_nonblank",
         ),
+        Index(
+            "ix_household_plan_events_plan_created",
+            "plan_id",
+            "created_at",
+            "id",
+        ),
+        Index(
+            "ix_household_plan_events_household_created",
+            "household_id",
+            "created_at",
+            "id",
+        ),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -108,13 +127,11 @@ class DBHouseholdPlanEvent(Base):
         Integer,
         ForeignKey("meal_plans.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
     household_id = Column(
         String,
         ForeignKey("households.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
     event_type = Column(String(32), nullable=False)
     actor_user_id = Column(
@@ -132,5 +149,4 @@ class DBHouseholdPlanEvent(Base):
         DateTime(timezone=True),
         nullable=False,
         default=utcnow,
-        index=True,
     )
