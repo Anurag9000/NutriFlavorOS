@@ -1,0 +1,50 @@
+{
+  "contract_version": "2026-08-02.3",
+  "typescript_source": "frontend/src/lib/householdPlanApi.ts",
+  "schemas": {
+    "PersistedHouseholdPlanView": "PersistedHouseholdPlanView",
+    "HouseholdPlanTransitionRequest": "HouseholdPlanTransitionRequest",
+    "HouseholdPlanEventView": "HouseholdPlanEventView"
+  },
+  "enums": {
+    "HouseholdPlanStatus": "HouseholdPlanStatus",
+    "HouseholdPlanEventType": "HouseholdPlanEventType"
+  },
+  "operations": [
+    {
+      "openapi_path": "/api/v1/households/{household_id}/plans",
+      "method": "get",
+      "object": "householdPlanApi",
+      "binding": "list",
+      "source_fragment": "${base(householdId)}${suffix}"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/plans/{plan_id}",
+      "method": "get",
+      "object": "householdPlanApi",
+      "binding": "get",
+      "source_fragment": "${base(householdId)}/${planId}"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/plans/{plan_id}/approve",
+      "method": "post",
+      "object": "householdPlanApi",
+      "binding": "approve",
+      "source_fragment": "${base(householdId)}/${planId}/approve"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/plans/{plan_id}/cancel",
+      "method": "post",
+      "object": "householdPlanApi",
+      "binding": "cancel",
+      "source_fragment": "${base(householdId)}/${planId}/cancel"
+    },
+    {
+      "openapi_path": "/api/v1/households/{household_id}/plans/{plan_id}/events",
+      "method": "get",
+      "object": "householdPlanApi",
+      "binding": "events",
+      "source_fragment": "${base(householdId)}/${planId}/events"
+    }
+  ]
+}
