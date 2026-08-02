@@ -137,6 +137,16 @@ Activating a successor always leaves:
 
 In every ordering the repaired draft ends invalidated on the old calendar and no old-calendar draft or approved schedule remains live.
 
+## Migration rehearsal
+
+The dedicated PostgreSQL migration rehearsal validates the populated `20260802_0017 → 20260802_0018` path rather than only upgrading an empty schema.
+
+It creates **64 valid historical acceptances** through the production calendar, schedule, proposal, and guarded-acceptance services while the database is at `0017`. The seed manifest records exact proposal, source, replacement, acceptance, schedule-event, proposal-event, version, and hash identities. After `alembic upgrade head`, verification requires every recorded identity and hash to remain unchanged, confirms the source/version unique constraint through PostgreSQL catalog evidence, and requires the distinct source/version count to equal the acceptance count.
+
+The rehearsal then performs a deliberate **lower-level bypass** attempt through the unguarded acceptance implementation. PostgreSQL must reject the second accepted replacement for the same source/version, the transaction must roll back, and proposal, acceptance, schedule, and event row counts must remain unchanged. The seed manifest, verification report, and JUnit suite are retained as separate workflow artifacts.
+
+This is representative synthetic historical volume generated through production services. It is not a production snapshot, performance certification, network-failure simulation, or proof of a hosted green run until the exact workflow execution is observed.
+
 ## Method-aware owner approval
 
 The approval endpoint dispatches by persisted derivation method. Original drafts retain original deterministic replay. Repair-derived drafts require exact proposal/acceptance linkage, source identity and no execution history, active calendar, approved source plan, occurrence/profile provenance, acknowledged tasks, hashes, method-aware replay, and combined schedule hash.
@@ -212,10 +222,11 @@ Configured real PostgreSQL probes include:
 - final task completion versus schedule completion;
 - duplicate/competing owner approval;
 - lost-response exact retry recovery for acceptance, invalidation, and completion;
+- populated `0017 → 0018` migration rehearsal with 64 accepted lifecycles;
 - exact migration-head and PostgreSQL-dialect assertions.
 
-Final plan, calendar, proposal, acceptance, schedule, task/schedule event, version, hash, status, and structured-error evidence is retained in JUnit artifacts. Configuration is not reported as green until the exact hosted run is observed.
+Final plan, calendar, proposal, acceptance, schedule, task/schedule event, version, hash, status, migration-manifest, migration-verification, and structured-error evidence is retained in workflow artifacts. Configuration is not reported as green until the exact hosted run is observed.
 
 ## Non-claims
 
-Acceptance means only that an authorized household member reviewed the proposal and created a new draft. It does not establish owner approval, actual task execution, human presence, appliance state, temperature/contamination status, food safety, clinical/nutritional validity, global repair optimality, actual network-failure recovery, or green hosted workflows without observed runs.
+Acceptance means only that an authorized household member reviewed the proposal and created a new draft. It does not establish owner approval, actual task execution, human presence, appliance state, temperature/contamination status, food safety, clinical/nutritional validity, global repair optimality, actual network-failure recovery, production-scale migration performance, or green hosted workflows without observed runs.
