@@ -1,0 +1,49 @@
+name: synchronize-final-structured-preparation-docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/src/pages/PreparationOperations.mjs"
+      - "frontend/src/pages/PreparationOperationsV3.tsx"
+      - "frontend/src/pages/PreparationOperationsPreload.test.tsx"
+      - "backend/api/preparation_operations_routes/__init__.py"
+      - "backend/services/preparation_operations_coverage_service/__init__.py"
+      - "backend/services/preparation_task_completion_service/__init__.py"
+      - "scripts/synchronize_structured_operations_docs_v2.py"
+      - ".github/workflows/synchronize-structured-preparation-docs-v2.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: synchronize-final-structured-preparation-docs-main
+  cancel-in-progress: false
+
+jobs:
+  synchronize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - run: git pull --ff-only origin main
+      - run: python scripts/synchronize_structured_operations_docs_v2.py
+      - name: Prove idempotency and commit direct to main
+        run: |
+          git diff > /tmp/first.diff
+          python scripts/synchronize_structured_operations_docs_v2.py
+          git diff > /tmp/second.diff
+          cmp /tmp/first.diff /tmp/second.diff
+          git diff --check
+          if git diff --quiet; then
+            echo "Documentation already synchronized."
+            exit 0
+          fi
+          git config user.name "NutriFlavorOS release synchronizer"
+          git config user.email "actions@users.noreply.github.com"
+          git add README.md docs/IMPLEMENTATION_STATUS.md docs/ROADMAP.md docs/PREPARATION_OPERATIONS.md docs/APPROVED_PLAN_PREPARATION.md docs/HOUSEHOLD_PLAN_LIFECYCLE.md
+          git commit -m "docs(status): synchronize final structured operations review [skip ci]"
+          git push origin HEAD:main
