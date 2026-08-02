@@ -1,4 +1,4 @@
-"""Persistence models for immutable preparation repair proposals and events."""
+"""Persistence models for preparation repair proposals and acceptance evidence."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ class DBPreparationRepairProposal(Base):
             name="uq_preparation_repair_proposal_household_idempotency",
         ),
         CheckConstraint(
-            "status IN ('proposed','rejected','invalidated')",
+            "status IN ('proposed','accepted','rejected','invalidated')",
             name="ck_preparation_repair_proposal_status",
         ),
         CheckConstraint(
@@ -155,21 +155,23 @@ class DBPreparationRepairProposalEvent(Base):
             name="uq_preparation_repair_event_proposal_idempotency",
         ),
         CheckConstraint(
-            "event_type IN ('created','rejected','invalidated')",
+            "event_type IN ('created','accepted','rejected','invalidated')",
             name="ck_preparation_repair_event_type",
         ),
         CheckConstraint(
-            "to_status IN ('proposed','rejected','invalidated')",
+            "to_status IN ('proposed','accepted','rejected','invalidated')",
             name="ck_preparation_repair_event_to_status",
         ),
         CheckConstraint(
             "from_status IS NULL OR from_status IN "
-            "('proposed','rejected','invalidated')",
+            "('proposed','accepted','rejected','invalidated')",
             name="ck_preparation_repair_event_from_status",
         ),
         CheckConstraint(
             "((event_type = 'created' AND from_status IS NULL "
             "AND to_status = 'proposed') OR "
+            "(event_type = 'accepted' AND from_status = 'proposed' "
+            "AND to_status = 'accepted') OR "
             "(event_type = 'rejected' AND from_status = 'proposed' "
             "AND to_status = 'rejected') OR "
             "(event_type = 'invalidated' AND from_status = 'proposed' "
@@ -228,6 +230,109 @@ class DBPreparationRepairProposalEvent(Base):
     event_metadata = Column(JSON, nullable=False, default=dict)
     proposal_version_before = Column(Integer, nullable=False)
     proposal_version_after = Column(Integer, nullable=False)
+    idempotency_key = Column(String(240), nullable=False)
+    request_fingerprint = Column(String(64), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class DBPreparationRepairProposalAcceptance(Base):
+    __tablename__ = "preparation_repair_proposal_acceptances"
+    __table_args__ = (
+        UniqueConstraint(
+            "proposal_id",
+            name="uq_preparation_repair_acceptance_proposal",
+        ),
+        UniqueConstraint(
+            "created_schedule_id",
+            name="uq_preparation_repair_acceptance_schedule",
+        ),
+        UniqueConstraint(
+            "household_id",
+            "idempotency_key",
+            name="uq_preparation_repair_acceptance_household_idempotency",
+        ),
+        CheckConstraint(
+            "proposal_version_before >= 1 "
+            "AND proposal_version_after = proposal_version_before + 1",
+            name="ck_preparation_repair_acceptance_versions",
+        ),
+        CheckConstraint(
+            "created_schedule_version = 1",
+            name="ck_preparation_repair_acceptance_schedule_version",
+        ),
+        CheckConstraint(
+            "derivation_method = "
+            "'deterministic_minimal_change_preparation_repair_v1'",
+            name="ck_preparation_repair_acceptance_method",
+        ),
+        CheckConstraint(
+            "length(source_schedule_hash) = 64 "
+            "AND length(source_schedule_request_hash) = 64 "
+            "AND length(target_calendar_content_hash) = 64 "
+            "AND length(repair_request_hash) = 64 "
+            "AND length(repair_result_hash) = 64 "
+            "AND length(revised_request_hash) = 64 "
+            "AND length(repaired_response_hash) = 64 "
+            "AND length(request_fingerprint) = 64",
+            name="ck_preparation_repair_acceptance_hash_lengths",
+        ),
+        CheckConstraint(
+            "length(trim(reason)) > 0",
+            name="ck_preparation_repair_acceptance_reason_nonblank",
+        ),
+        Index(
+            "ix_preparation_repair_acceptances_household_created",
+            "household_id",
+            "created_at",
+            "id",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    household_id = Column(
+        String,
+        ForeignKey("households.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    proposal_id = Column(
+        Integer,
+        ForeignKey("preparation_repair_proposals.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    proposal_version_before = Column(Integer, nullable=False)
+    proposal_version_after = Column(Integer, nullable=False)
+    source_schedule_id = Column(
+        Integer,
+        ForeignKey("persisted_preparation_schedules.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    source_schedule_version = Column(Integer, nullable=False)
+    created_schedule_id = Column(
+        Integer,
+        ForeignKey("persisted_preparation_schedules.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    created_schedule_version = Column(Integer, nullable=False, default=1)
+    derivation_method = Column(String(96), nullable=False)
+    source_schedule_hash = Column(String(64), nullable=False)
+    source_schedule_request_hash = Column(String(64), nullable=False)
+    target_calendar_content_hash = Column(String(64), nullable=False)
+    repair_request_hash = Column(String(64), nullable=False)
+    repair_result_hash = Column(String(64), nullable=False)
+    revised_request_hash = Column(String(64), nullable=False)
+    repaired_response_hash = Column(String(64), nullable=False)
+    acknowledged_task_ids = Column(JSON, nullable=False, default=list)
+    reason = Column(Text, nullable=False)
+    actor_user_id = Column(
+        String,
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    acceptance_metadata = Column(JSON, nullable=False, default=dict)
     idempotency_key = Column(String(240), nullable=False)
     request_fingerprint = Column(String(64), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
