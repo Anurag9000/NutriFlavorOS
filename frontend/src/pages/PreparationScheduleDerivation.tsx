@@ -40,6 +40,10 @@ function methodLabel(value: string): string {
     : "Original deterministic scheduler";
 }
 
+function percentage(value: number): string {
+  return `${(value * 100).toFixed(1)}%`;
+}
+
 export default function PreparationScheduleDerivationPage() {
   const [householdId, setHouseholdId] = useState("");
   const [scheduleId, setScheduleId] = useState(0);
@@ -59,6 +63,16 @@ export default function PreparationScheduleDerivationPage() {
   const schedules = schedulesQ.data ?? [];
   const activeScheduleId = scheduleId || schedules[0]?.id || 0;
 
+  const coverageQ = useQuery({
+    queryKey: [
+      "preparation-operations",
+      activeHouseholdId,
+      "derivation-coverage",
+    ],
+    queryFn: () => preparationScheduleDerivationApi.coverage(activeHouseholdId),
+    enabled: Boolean(activeHouseholdId),
+  });
+
   const evidenceQ = useQuery({
     queryKey: [
       "preparation-operations",
@@ -76,7 +90,13 @@ export default function PreparationScheduleDerivationPage() {
   }, [activeHouseholdId]);
 
   const evidence = evidenceQ.data;
-  const error = householdsQ.error ?? schedulesQ.error ?? evidenceQ.error ?? null;
+  const coverage = coverageQ.data;
+  const error =
+    householdsQ.error
+    ?? schedulesQ.error
+    ?? coverageQ.error
+    ?? evidenceQ.error
+    ?? null;
   const repaired =
     evidence?.derivation_method
     === "deterministic_minimal_change_preparation_repair_v1";
@@ -90,9 +110,9 @@ export default function PreparationScheduleDerivationPage() {
             Schedule derivation evidence
           </h1>
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            Inspect whether a persisted schedule was produced by the original
-            deterministic scheduler or by an explicitly accepted repair. This is
-            read-only provenance and does not approve or execute anything.
+            Inspect household derivation coverage and whether a persisted schedule
+            came from the original deterministic scheduler or an explicitly accepted
+            repair. This is read-only provenance and does not approve or execute anything.
           </p>
         </div>
 
@@ -106,12 +126,13 @@ export default function PreparationScheduleDerivationPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Select persisted schedule</CardTitle>
+            <CardTitle className="text-base">Household derivation coverage</CardTitle>
             <CardDescription>
-              Viewer access is sufficient; evidence is household-scoped and fail-closed.
+              Explicit denominators describe stored structural evidence; they do not
+              certify schedule quality, execution, or safety.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
+          <CardContent className="space-y-4">
             <div className="space-y-1">
               <Label htmlFor="derivation-household">Household</Label>
               <select
@@ -125,6 +146,84 @@ export default function PreparationScheduleDerivationPage() {
                 ))}
               </select>
             </div>
+
+            {coverageQ.isLoading && activeHouseholdId && (
+              <p className="text-sm text-muted-foreground" aria-live="polite">
+                Computing derivation coverage…
+              </p>
+            )}
+
+            {coverage && (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {[
+                    ["Schedules", coverage.schedule_total],
+                    ["Original", coverage.original_schedule_count],
+                    ["Repair-derived", coverage.repair_schedule_count],
+                    ["Incomplete", coverage.incomplete_derivation_count],
+                    ["Accepted proposals", coverage.accepted_proposal_count],
+                    ["Acceptance records", coverage.acceptance_record_count],
+                    ["Repaired drafts", coverage.repaired_draft_count],
+                    ["Repaired approved", coverage.repaired_approved_count],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-md border p-3">
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                      <p className="text-xl font-semibold">{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-md border p-3">
+                    <p className="text-xs text-muted-foreground">
+                      Complete derivation coverage
+                    </p>
+                    <p className="text-xl font-semibold">
+                      {percentage(coverage.derivation_coverage_ratio)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {coverage.complete_derivation_count} complete of {coverage.schedule_total}
+                    </p>
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <p className="text-xs text-muted-foreground">
+                      Repair acceptance-link coverage
+                    </p>
+                    <p className="text-xl font-semibold">
+                      {percentage(coverage.repair_acceptance_link_coverage_ratio)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {coverage.repaired_execution_history_count} repair-derived schedules have task history
+                    </p>
+                  </div>
+                </div>
+
+                {coverage.warnings.length > 0 && (
+                  <Alert variant="destructive" role="status">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Incomplete derivation chains</AlertTitle>
+                    <AlertDescription>
+                      <ul className="list-disc space-y-1 pl-5">
+                        {coverage.warnings.map((warning) => (
+                          <li key={warning}>{warning}</li>
+                        ))}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Select persisted schedule</CardTitle>
+            <CardDescription>
+              Viewer access is sufficient; evidence is household-scoped and fail-closed.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
             <div className="space-y-1">
               <Label htmlFor="derivation-schedule">Schedule</Label>
               <select
