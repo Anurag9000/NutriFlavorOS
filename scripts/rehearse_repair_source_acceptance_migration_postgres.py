@@ -194,9 +194,7 @@ def seed(*, count: int, manifest_path: Path) -> dict[str, Any]:
                     key=f"migration-rehearsal-acceptance-{index:04d}",
                 ),
             )
-            records.append(
-                _acceptance_snapshot(db, accepted.acceptance.id)
-            )
+            records.append(_acceptance_snapshot(db, accepted.acceptance.id))
             if first_source is None:
                 first_source = source
 
@@ -337,7 +335,7 @@ def verify(*, manifest_path: Path, report_path: Path) -> dict[str, Any]:
             )
         else:
             raise RuntimeError("Database uniqueness allowed a second source replacement")
-        if bypass_code != "repair_acceptance_creation_conflict":
+        if bypass_code != "repair_acceptance_conflict":
             raise RuntimeError(f"Unexpected bypass conflict code: {bypass_code}")
         db.expire_all()
         after_bypass = _counts(db)
