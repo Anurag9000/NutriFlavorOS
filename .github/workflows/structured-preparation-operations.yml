@@ -1,0 +1,62 @@
+name: validate-structured-preparation-operations
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-structured-preparation-operations-main
+  cancel-in-progress: true
+
+jobs:
+  backend-authority:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r backend/requirements.txt
+      - run: pip check
+      - run: python scripts/validate_preparation_authoritative_entrypoints.py
+      - run: python scripts/validate_preparation_completion_calls.py
+      - run: >-
+          pytest -q
+          backend/tests/test_preparation_operations_route_resolution.py
+          backend/tests/test_preparation_authoritative_service_resolution.py
+          backend/tests/test_preparation_task_execution_authoritative_service.py
+          backend/tests/test_preparation_task_completion_authoritative_entry.py
+          backend/tests/test_preparation_operations_execution_coverage.py
+          backend/tests/test_preparation_operations_coverage_authoritative_entry.py
+          backend/tests/test_preparation_task_execution_migration.py
+
+  frontend-structured-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - name: Structured operations and task isolation tests
+        run: >-
+          npx vitest run
+          src/pages/PreparationOperationsStructuredReview.test.tsx
+          src/pages/PreparationTaskExecutionIsolation.test.tsx
+          src/pages/PreparationOperationsCoverage.test.tsx
+          src/pages/PreparationTaskExecution.test.tsx
+      - run: npm run build
