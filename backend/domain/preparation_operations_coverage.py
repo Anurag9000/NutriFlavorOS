@@ -10,7 +10,7 @@ from backend.domain.preparation_operations import StrictPreparationOperationsMod
 
 
 class PreparationOperationsCoverageView(StrictPreparationOperationsModel):
-    """Descriptive coverage only; never a correctness or safety score."""
+    """Descriptive record coverage only; never correctness or safety."""
 
     household_id: str
     generated_at: str
@@ -29,6 +29,23 @@ class PreparationOperationsCoverageView(StrictPreparationOperationsModel):
     occurrence_document_coverage: float = Field(ge=0.0, le=1.0)
     scheduler_request_coverage: float = Field(ge=0.0, le=1.0)
     replayable_schedule_coverage: float = Field(ge=0.0, le=1.0)
+
+    execution_scope_schedule_count: int = Field(ge=0)
+    execution_active_schedule_count: int = Field(ge=0)
+    execution_history_schedule_count: int = Field(ge=0)
+    execution_invalid_schedule_count: int = Field(ge=0)
+    deterministic_task_count: int = Field(ge=0)
+    task_state_counts: Dict[str, int]
+    terminal_task_count: int = Field(ge=0)
+    fully_terminal_schedule_count: int = Field(ge=0)
+    task_event_total: int = Field(ge=0)
+    nonzero_deviation_event_count: int = Field(ge=0)
+    skipped_task_event_count: int = Field(ge=0)
+    skip_reason_count: int = Field(ge=0)
+    task_event_schedule_coverage: float = Field(ge=0.0, le=1.0)
+    terminal_task_coverage: float = Field(ge=0.0, le=1.0)
+
     latest_calendar_created_at: Optional[str]
     latest_schedule_created_at: Optional[str]
+    latest_task_event_at: Optional[str]
     warnings: List[str] = Field(default_factory=list)
