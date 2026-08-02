@@ -1,0 +1,67 @@
+name: validate-preparation-repair-postgres
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-preparation-repair-postgres-main
+  cancel-in-progress: true
+
+jobs:
+  repair-acceptance-races:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nutriflav test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nutriflavor_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/nutriflavor_test
+      JWT_SECRET: repair-postgres-ci-secret-at-least-32-bytes
+      AUTO_CREATE_SCHEMA: "false"
+      SEED_REVIEWED_STORAGE_POLICIES: "false"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r backend/requirements.txt
+      - run: pip check
+      - name: Upgrade PostgreSQL to exact reviewed head
+        run: |
+          alembic upgrade head
+          python - <<'PY'
+          from backend.database import engine
+          from backend.schema_revision import CURRENT_ALEMBIC_REVISION
+          from backend.schema_verification import verify_runtime_schema
+          assert engine.dialect.name == "postgresql", engine.dialect.name
+          assert CURRENT_ALEMBIC_REVISION == "20260802_0017"
+          verify_runtime_schema()
+          PY
+      - name: Run PostgreSQL repair acceptance races
+        run: >-
+          pytest -q
+          backend/tests/test_preparation_repair_acceptance_postgres.py
+          --junitxml=reports/preparation-repair-postgres.xml
+      - uses: actions/upload-artifact@v7
+        with:
+          name: preparation-repair-postgres-races
+          path: reports/preparation-repair-postgres.xml
+          if-no-files-found: error
