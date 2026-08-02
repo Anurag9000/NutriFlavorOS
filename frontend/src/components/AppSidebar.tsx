@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   ListChecks,
   LogOut,
+  PlayCircle,
   Settings,
   UtensilsCrossed,
 } from "lucide-react";
@@ -50,6 +51,11 @@ const navItems = [
     title: "Preparation Operations",
     url: "/preparation/operations",
     icon: CalendarRange,
+  },
+  {
+    title: "Task Execution",
+    url: "/preparation/operations/execution",
+    icon: PlayCircle,
   },
   {
     title: "Calendar Builder",
