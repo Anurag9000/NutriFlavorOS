@@ -1,320 +1,252 @@
 # NutriFlavorOS Engineering and Research Roadmap
 
 **Roadmap date:** 2026-08-02  
-**Execution rule:** implement directly on `main` in coherent commits. Keep code, tests, migrations, contracts, fixtures, capability registrations, catalog records, CI, and public documents synchronized. Do not rewrite history.
+**Execution rule:** implement directly on `main` in coherent commits. Keep code, tests, migrations, contracts, fixtures, catalogs, CI, and public documentation synchronized. Do not rewrite history.
 
-Current platform boundary:
+Current boundary:
 
-- database migration head `20260801_0012`;
-- API version `0.8.0`;
-- OpenAPI release contract `2026-08-02.1`;
-- food-evidence frontend binding contract `2026-08-01.2`;
-- preparation-operations frontend binding contract `2026-08-02.1`;
-- effective catalog `2026-08-01.3`;
-- 37 task contracts, 30 dataset families, 75 model/algorithm families, 29 experiment contracts, and 39 feature contracts.
-
-A class, endpoint, fixture, or catalog entry is not complete unless its scope is explicit. Product work requires authorization, persistence, migration, provenance, UX, tests, operational evidence, and rollback. Offline research requires strict data contracts, leakage-safe evaluation, deterministic or seeded replay, metrics, limitations, and truthful non-enablement.
+- migration head `20260802_0013`;
+- API `0.9.0`;
+- OpenAPI contract `2026-08-02.3`;
+- food-evidence bindings `2026-08-01.2`;
+- preparation-operations bindings `2026-08-02.2`;
+- household-plan bindings `2026-08-02.3`;
+- catalog `2026-08-01.3`;
+- 37 task contracts, 30 dataset families, 75 model or algorithm families, 29 experiment contracts, and 39 feature contracts.
 
 ## Definition of done
 
-Unless explicitly research-only, completion requires:
+A product capability requires strict contracts, authorization, persistence, migration, provenance, UX, tests, concurrency and failure handling, operational evidence, rollback, and truthful limitations. Research work requires licensed or consented data, leakage-safe evaluation, deterministic or seeded replay, calibration and subgroup analysis where relevant, artifact lineage, and explicit readiness.
 
-1. strict typed contract with unknown/non-finite input rejection;
-2. deterministic or seeded behavior;
-3. unit, adversarial, migration, concurrency, property, and failure tests where relevant;
-4. persistence, API, and frontend integration where relevant;
-5. authorization, privacy, and abuse boundaries;
-6. immutable provenance and uncertainty representation;
-7. operational or benchmark acceptance criteria;
-8. catalog/capability readiness that matches reality;
-9. synchronized OpenAPI/frontend contracts and public documentation;
-10. no fabricated fallback, silent relaxation, automatic approval, autonomous execution, or unobserved-green claim.
+A class, endpoint, fixture, or catalog row is not completion.
 
 # Completed architecture milestones
 
 ## C1 — Transactional household platform
 
-- Secure authentication and explicit profile-completion boundary.
+- Authentication and explicit profile-completion boundary.
 - Owner/editor/viewer households and hashed invitations.
-- Transactional pantry, leftovers, append-only inventory events, reservations, optimistic versions, and full-request idempotency fingerprints.
-- PostgreSQL inventory/reservation/idempotency race probes.
-- Evidence-driven household React workspace.
+- Transactional pantry, leftovers, inventory events, reservations, optimistic versions, and full-request idempotency.
+- PostgreSQL race probes.
 
 ## C2 — Quantity-aware meal planning
 
-- Deterministic horizon beam planner and hard restriction filtering.
+- Deterministic horizon planner with hard restrictions before optimization.
 - Household target aggregation and pantry-aware objectives.
-- Persisted plan provenance, shopping reconciliation, and batch grouping.
-- Pareto, optional CP-SAT/MILP, robust scenarios, and deterministic benchmark gate.
+- Persisted plan documents, shopping reconciliation, reservations, and batch grouping.
+- Pareto, optional CP-SAT/MILP, robust-scenario, and exact comparator paths.
 
-## C3 — Immutable evidence platform
+## C3 — Human-reviewed household plan lifecycle
 
-- Reviewed preparation profiles, conversion versions, storage-policy versions, exact leftover links, content hashes, source/reviewer metadata, supersession, and one-active-reviewed constraints.
-- Atomic preparation and food-evidence importers with manifests.
-- Append-only evidence rejection/deactivation with read-only product history.
-- Natural-key advisory locks and PostgreSQL retry/successor/lifecycle probes.
-- Exact evidence provenance in product APIs and frontend views.
+- Migration-backed optimistic `draft`, `approved`, and `cancelled` plan states.
+- Owner approval and editor/owner cancellation with explicit reasons.
+- Append-only plan events, exact idempotency, stale-version rejection, and PostgreSQL races.
+- Protected plan-review workspace.
+- Exact approved source-plan ID/version requirement for preparation schedules.
+- Atomic reservation release and dependent schedule invalidation on cancellation.
 
-## C4 — Deterministic preparation scheduling
+## C4 — Immutable evidence platform
+
+- Reviewed preparation profiles, conversions, storage policies, exact leftover links, hashes, source/reviewer metadata, supersession, and active uniqueness.
+- Atomic import/lifecycle tools, manifests, locks, and concurrency probes.
+
+## C5 — Deterministic preparation scheduling
 
 - Strict task/resource/DAG contracts.
-- Multi-window capacities, gap containment, cumulative capacity, deadlines, dependency propagation, utilization, critical path, and structured infeasibility.
-- Explicitly empty or mixed calendar representations fail closed.
-- Fail-closed reviewed-profile compile-and-schedule path.
-- Bounded exact comparator, canonical zero-gap gate, and initial metamorphic suite.
+- Multi-window capacities, gap containment, deadlines, dependency propagation, utilization, critical path, and structured infeasibility.
+- Bounded exact comparator and metamorphic suite.
 
-## C5 — Persisted occurrence-bound preparation operations
+## C6 — Persisted preparation operations
 
-- Immutable reviewed household resource-calendar versions.
-- Complete canonical occurrence document, profile map, optional source-plan pair, scheduler request/hash, deterministic response, and combined schedule hash.
-- Occurrence hash/version derived server-side rather than trusted from clients.
-- Replay before persistence and approval-time replay with tamper detection.
-- Legacy rows readable but non-approvable; exact retry may backfill replay provenance.
-- Calendar supersession atomically invalidates dependent draft/approved schedules.
-- Draft/approved/invalidated/completed/cancelled lifecycle with optimistic versions and append-only events.
-- One authoritative mutation service, role-aware API, protected operations workspace, generated OpenAPI/TypeScript contract, and PostgreSQL race probe.
-- Typed `preparation-operations-handoff-v2` from reviewed pipeline output; no automatic persistence or approval.
+- Immutable reviewed calendars and structured calendar builder.
+- Complete occurrence documents, profile maps, scheduler requests/responses, and hashes.
+- Replay before persistence and approval.
+- Schedule lifecycle, append-only events, coverage dashboard, and PostgreSQL races.
+- Typed pipeline handoff with no automatic persistence or approval.
 
-## C6 — Forecasting and inventory evaluation
+## C7 — Forecasting, ranking, and inventory evaluation
 
-- Moving average, seasonal naive, SES, damped Holt, Croston, and TSB.
-- Rolling-origin evaluation.
-- FEFO perishable-inventory replay and closed-loop forecast/inventory analysis.
-- Separate forecast, service, stockout, and waste outcomes.
-- Strict canonical fixtures and direct-main gates.
+- Dense and intermittent-demand forecasting with rolling-origin evaluation.
+- Ranking/recommendation baselines with temporal hard-filter evaluation.
+- FEFO inventory replay and forecast-to-inventory closed-loop metrics.
 
-## C7 — Ranking evaluation
+## C8 — Release governance
 
-- Popularity, Bayesian popularity, content, item-kNN, matrix factorization, and MMR.
-- Temporal leave-last-out, common hard-allowed candidates, and violation audit.
-- Recall, HitRate, MRR, NDCG, coverage, novelty, diversity, and group metrics.
+- Linear Alembic validation.
+- Repository, catalog, OpenAPI, and three TypeScript binding gates.
+- Fresh SQLite/PostgreSQL migrations.
+- Backend/frontend/container jobs and retained reports.
 
-## C8 — Repository and release governance
+# P0 — Verification closure
 
-- Mechanically verified capability registry.
-- Strict canonical benchmark documents.
-- Complete linear Alembic-chain validation.
-- Six-scenario clean-process catalog import-order proof.
-- Generated OpenAPI and OpenAPI-to-TypeScript gates.
-- Fresh SQLite/PostgreSQL migrations, retained reports, frontend build/tests, container build, and hosted concurrency configuration.
-- Workflow action-major and ephemeral PostgreSQL credential repair.
+## P0.1 Observe one exact complete workflow
 
-# P0 — Immediate validation closure
+- Identify the latest `main` SHA and matching Actions run.
+- Inspect backend, migration, PostgreSQL, frontend, and container jobs.
+- Repair every failure without weakening required gates.
+- Inspect retained JSON reports and record exact commit/run identity.
+- Do not claim green before observation.
 
-## P0.1 Observe and close one exact complete workflow
+## P0.2 Expand properties and state-machine tests
 
-Tasks:
+Add generated or metamorphic invariants for:
 
-- identify the exact latest `main` SHA and corresponding Actions run;
-- inspect backend, migrations, PostgreSQL probes, frontend, and container jobs;
-- repair every observed failure without weakening a required gate;
-- inspect retained JSON reports and verify commit identity;
-- document failure triage and rerun procedure.
-
-Acceptance:
-
-- every required job is green on one exact commit;
-- no required suite is skipped or weakened;
-- status documents name the verified commit/run;
-- no green claim is made before inspection.
-
-## P0.2 Property and metamorphic expansion
-
-Preparation scheduling now covers deterministic input reordering, unused resources, capacity monotonicity, availability expansion, ambiguous calendars, and occurrence canonicalization. Add systematic generated properties for:
-
-- ingredient parsing and exact conversions;
+- parsing and exact conversions;
 - inventory conservation and interval arithmetic;
-- reservation/idempotency state machines;
-- larger generated preparation DAGs, replay hashes, and heuristic/exact parity;
-- evidence supersession/lifecycle histories;
-- FEFO and forecast/inventory closed loop;
+- reservation and plan lifecycle state machines;
+- plan cancellation versus schedule creation races;
+- larger preparation DAGs and heuristic/exact parity;
+- evidence supersession;
+- FEFO and closed-loop inventory;
 - ranking hard filters and temporal leakage;
-- migration invariants and catalog references.
+- migration and catalog invariants.
 
-Required invariants include:
+## P0.3 TypeScript and transport strictness
 
-- identical idempotent retry cannot change state;
-- hard exclusions only remove candidates;
-- superseded evidence remains readable but inactive;
-- one natural key has at most one active reviewed version;
-- linked historical evidence is not rewritten;
-- approval cannot succeed after request, response, occurrence, profile, plan, hash, or calendar tampering.
+- Enable stricter compiler options incrementally.
+- Test nullable versus omitted fields, enum drift, empty bodies, `204`, and `205`.
+- Expand generated bindings and eliminate duplicate handwritten DTOs.
 
-## P0.3 TypeScript strictness and transport edge cases
+# P1 — Complete approved-plan preparation workflow
 
-- Incrementally enable `strict`, `noImplicitAny`, unused-symbol checks, and exact optional-property semantics.
-- Prove compatibility exports are unused before removal.
-- Test nullable versus omitted fields, enum drift, empty body, `204`, and `205`.
-- Move more API surfaces under generated binding checks.
-- Avoid duplicate handwritten request/response shapes.
+## P1.1 Plan approval prerequisite — implemented
 
-# P1 — Complete the preparation product workflow
+Implemented:
 
-## P1.1 Structured resource-calendar editor
+- exact optimistic versions;
+- human approval/cancellation;
+- events and idempotency;
+- role controls and non-disclosure;
+- source-plan approval enforcement;
+- reservation release and schedule invalidation;
+- frontend review workspace;
+- service, API, frontend, and PostgreSQL tests.
 
-Add:
+Remaining hardening:
 
-- templates for person, burner, oven, counter, refrigerator, and custom equipment;
-- structured multi-window editing with overlap/horizon validation;
-- timezone-aware review display;
-- predecessor diff;
-- explicit review checklist and activation confirmation;
-- canonical JSON import/export;
-- keyboard, screen-reader, and automated accessibility tests.
+- authenticated Playwright/PostgreSQL journey;
+- accessibility and visual regression;
+- account/household export and plan retention policy.
 
-## P1.2 Approved-plan-to-confirmed-occurrence workflow
+## P1.2 Approved-plan occurrence generation — next
 
-- Derive candidate occurrences only from an approved persisted plan version.
-- Require serving count and finish-time confirmation.
-- Surface recipes without reviewed preparation profiles.
-- Show profile ID/version/hash and duration policy.
-- Build the immutable occurrence document client-side and verify it server-side.
-- Never auto-submit generated occurrences.
-- Reject stale plan/profile/calendar versions.
+Build a server-authoritative candidate occurrence endpoint from an exact approved plan ID/version.
 
-## P1.3 Browser E2E for direct handoff
+Required behavior:
 
-The typed handoff is implemented. Add Playwright/PostgreSQL coverage for:
+- reject draft, cancelled, stale, or cross-household plans;
+- derive each day/meal recipe occurrence from the immutable stored plan document;
+- retain day, meal slot, recipe ID/name, planned portion multiplier, and source recipe servings;
+- require the household to confirm final servings and required finish minute;
+- expose missing or incompatible reviewed preparation profiles;
+- allow explicit exclusion of an occurrence without mutating the plan;
+- produce canonical `preparation-occurrence-set-v1` only after confirmation;
+- never persist or schedule automatically.
 
-- exact successful handoff and persistence;
-- stale calendar and stale source-plan version;
-- missing profile and unresolved tasks;
-- occurrence/profile/duration mismatch;
-- owner approval, tamper failure, calendar supersession, and append-only history.
+## P1.3 Structured compile and schedule review
 
-## P1.4 Execution checklist without autonomous control
+Replace raw bundle JSON with a structured surface showing:
 
-- User-confirmed task start/complete/skip events.
-- Optional local reminders and timers.
+- approved plan ID/version;
+- occurrence document and local hash preview;
+- active reviewed calendar identity/hash;
+- preparation-profile ID/version/hash and duration policy;
+- tasks, dependencies, demands, deadlines, and active labor;
+- deterministic scheduled/unscheduled output;
+- replay and provenance warnings.
+
+Persistence remains a separate explicit action. Approval remains owner-only and server-replayed.
+
+## P1.4 Browser E2E and accessibility
+
+Add Playwright against PostgreSQL for:
+
+- household generation → draft review → approval;
+- occurrence confirmation;
+- active calendar selection;
+- compile, handoff, persistence, and approval;
+- stale plan/profile/calendar failures;
+- plan cancellation releasing reservations and invalidating schedules;
+- coverage and event history.
+
+Add axe, keyboard-only, screen-reader landmark, and visual-regression tests.
+
+## P1.5 Execution checklist without autonomous control
+
+- User-confirmed task start, complete, and skip events.
+- Local reminders/timers.
 - Explicit deviations and reasons.
-- No inferred presence, background completion, or appliance control.
-- Do not use execution confirmation as proof of temperature or food safety.
+- No inferred presence, background completion, temperature proof, or appliance control.
 
-## P1.5 Joint meal and preparation repair
+## P1.6 Joint minimal-change repair
 
 - Two-stage plan then schedule repair.
 - Infeasibility cuts back to meal selection.
 - Small-horizon joint CP-SAT benchmark.
-- Large-neighborhood minimal-change repair after pantry, evidence, plan, or calendar updates.
+- Large-neighborhood repair after pantry, plan, evidence, or calendar changes.
 - Human acceptance before persistence.
 
-Metrics:
+Metrics: plan regret, changed meals, feasibility, makespan, active labor, violations, and acceptance.
 
-- plan regret;
-- changed-meal count;
-- preparation feasibility;
-- makespan and active labor;
-- hard violation count;
-- repair acceptance.
+# P1 — Evidence, forecasting, inventory, and ranking
 
-# P1 — Evidence coverage and trust
+## Evidence coverage and trust
 
-## P1.6 Evidence coverage dashboard
+- Preparation-profile coverage by recipe and serving range.
+- Conversion coverage by ingredient/unit direction.
+- Storage-policy coverage by category/state.
+- Review age, stale evidence, abstention, source/reviewer completeness, and exact leftover links.
+- Optional detached signatures, trust roots, revocation, and signed manifests.
+- More real reviewed recipes, conversions, and policies.
 
-Report explicit denominators and timestamps for:
+## Forecasting and inventory
 
-- preparation-profile coverage by recipe and serving range;
-- conversion coverage by ingredient/unit direction;
-- storage-policy coverage by category/state;
-- review age, stale evidence, and abstention;
-- draft, legacy, inactive, rejected, and superseded records;
-- leftovers linked to exact versions;
-- lifecycle activity;
-- calendars/schedules with complete occurrence and replay provenance.
+- Last-value, drift, SBA, ADIDA, IMAPA, Theta, and optional ARIMA/ETS.
+- Quantile and conformal intervals.
+- Hierarchical reconciliation and shift strata.
+- Variable lead times, partial delivery, cancellation, substitution, pending orders, and explicit costs.
+- Service/waste/cost Pareto evaluation without automatic procurement.
 
-Coverage must never imply correctness or safety.
-
-## P1.7 Signed evidence and operations documents
-
-- Optional detached signatures for evidence import/lifecycle and calendar review documents.
-- Signer identity, trust roots, revocation, and explicit unsigned-development mode.
-- Verification before preflight.
-- Signed manifest retention.
-- Distinguish integrity hashing from publisher authentication.
-
-## P1.8 Broader reviewed evidence
-
-- Real-recipe preparation profiles and serving ranges.
-- More exact densities, portion weights, package conversions, and storage policies.
-- Reviewed parse workflow and coverage dashboard.
-- Cooling/time-temperature instrumentation only through explicit validated integrations.
-- No autonomous safe-to-eat decision.
-
-# P1 — Forecasting, inventory, and ranking expansion
-
-## P1.9 Forecast baselines and uncertainty
-
-- Last-value, drift, SBA, ADIDA, IMAPA, Theta, optional ARIMA/ETS.
-- Quantile regression and split-conformal forecast intervals.
-- Hierarchical reconciliation.
-- History-length, intermittency, horizon, and distribution-shift strata.
-- Interval coverage/width and subgroup reporting.
-- Deep temporal models only after sufficient representative data.
-
-## P1.10 Stochastic inventory costs
-
-- Pending-order state and pipeline metrics.
-- Variable lead times, partial delivery, cancellation, and substitution.
-- Purchase, holding, ordering, stockout, and waste costs.
-- Scenario replay and service/waste/cost Pareto fronts.
-- No automatic procurement policy selection.
-
-## P1.11 Ranking robustness and policy safety
+## Ranking and policy safety
 
 - Cold-start and sparse-user strata.
-- Popularity/exposure bias, calibration, serendipity, and long-tail metrics.
-- Logged-policy propensity validation before off-policy evaluation.
-- Safe-policy-improvement, sequential monitoring, rollback, and kill-switch requirements before online learning.
+- Exposure/popularity bias, calibration, serendipity, and long-tail metrics.
+- Propensity validation before off-policy evaluation.
+- Safe-policy improvement, sequential monitoring, rollback, and kill switch before online learning.
 
-# P2 — Security, privacy, reliability, and accessibility
-
-## P2.1 Authenticated browser E2E and accessibility
-
-- Playwright journeys against PostgreSQL for signup/login/profile, household invitation, pantry/reservations, immutable leftover provenance, reviewed pipeline, calendar registration, schedule persistence/approval/invalidation, and event history.
-- Axe audits for protected routes and high-risk dialogs.
-- Keyboard-only and screen-reader landmark tests.
-- Visual regression for provenance and warning states.
-
-## P2.2 Identity and account lifecycle
+# P2 — Security, privacy, reliability, and operations
 
 - Verified email, reset, MFA, token rotation/revocation, and rate limiting.
 - Reviewed ownership transfer and recovery.
-- Account/household archive and deletion with provenance retention policy.
-- Complete export/delete lifecycle and support tooling.
-
-## P2.3 Hosted reliability
-
+- Account/household archive, deletion, export, and retention policy.
 - Backup/restore and point-in-time recovery drills.
-- Large-table migration rehearsal.
-- Retention/purge policy.
-- Pool sizing, read replica, and failover guidance.
-- SLOs, tracing, structured audit export, and incident runbooks.
-- SBOM, dependency/container scanning, secret scanning, and provenance attestations.
+- Large-table migration rehearsal, pooling, failover, SLOs, tracing, incident runbooks, SBOM, scans, and attestations.
 
-# P3 — Gated research programs
+# P3 — Gated research
 
-Remain disabled until declared prerequisites are met:
+Remain disabled pending prerequisites:
 
-- computer vision and multimodal nutrition;
+- vision and multimodal nutrition;
 - constrained recipe generation;
 - graph-neural substitution;
+- causal/off-policy promotion;
 - continual/federated personalization;
-- causal and off-policy promotion;
-- privacy attacks and defenses;
+- privacy-sensitive learning;
 - sustainability claims;
-- clinical-condition or medication personalization;
+- clinical personalization;
 - autonomous appliance or procurement control.
 
-Each program requires licensed/consented data, leakage-safe splits, calibration, OOD/subgroup evaluation, privacy review, human review, artifact lineage, promotion approval, rollback, and monitoring before readiness can advance.
+Each requires licensed/consented data, leakage-safe splits, calibration, OOD/subgroup analysis, privacy review, human review, lineage, promotion approval, rollback, and monitoring.
 
 # Immediate execution order
 
-1. Inspect and close the exact latest `main` Actions run.
-2. Fix all observed backend/frontend/migration/concurrency/container failures without weakening gates.
-3. Build the structured calendar editor and approved-plan occurrence workflow.
-4. Add authenticated Playwright/PostgreSQL and accessibility coverage for the completed handoff.
+1. Inspect and close the exact latest hosted workflow.
+2. Implement approved-plan candidate occurrence derivation and confirmation.
+3. Build structured compile/schedule review.
+4. Add authenticated E2E and accessibility coverage.
 5. Add per-task execution/deviation events.
-6. Expand real reviewed evidence and coverage reporting.
-7. Implement minimal-change joint plan/schedule repair only after the operational workflow is green end to end.
+6. Add minimal-change joint repair.
+7. Expand reviewed evidence and cross-domain coverage.
+8. Continue forecasting, inventory, ranking, security, and reliability hardening.
 
-See `docs/EXHAUSTIVE_AUDIT_2026-08-02.md` for the complete reconstructed mission, pull-request audit, current completion matrix, additional architecture/model/dataset proposals, and execution priorities.
+See `docs/HOUSEHOLD_PLAN_LIFECYCLE.md` and the exhaustive audit continuation documents for exact completed scope and limitations.
