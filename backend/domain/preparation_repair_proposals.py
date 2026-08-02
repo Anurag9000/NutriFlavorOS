@@ -85,6 +85,25 @@ class PreparationRepairProposalRejectRequest(StrictRepairModel):
         return self
 
 
+class PreparationRepairProposalInvalidateRequest(StrictRepairModel):
+    expected_version: int = Field(ge=1)
+    reason: str = Field(min_length=1, max_length=4000)
+    acknowledge_historical_only: Literal[True]
+    idempotency_key: str = Field(
+        min_length=8,
+        max_length=240,
+        pattern=r"^[A-Za-z0-9_.:-]+$",
+    )
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def normalize(self):
+        self.reason = " ".join(self.reason.strip().split())
+        if not self.reason:
+            raise ValueError("reason cannot be blank")
+        return self
+
+
 class PreparationRepairProposalAcceptRequest(StrictRepairModel):
     expected_proposal_version: int = Field(ge=1)
     expected_source_schedule_version: int = Field(ge=1)
