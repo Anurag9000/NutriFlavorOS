@@ -107,10 +107,30 @@ def _derive_candidate_rows(plan) -> List[Tuple[int, str, object, float, float]]:
     occurrence_ids: set[str] = set()
     for day in sorted(plan.plan.days, key=lambda value: value.day):
         for meal_slot, recipe in sorted(day.meals.items()):
-            multiplier = float(day.portions.get(meal_slot, 1.0))
+            if meal_slot not in day.portions:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "code": "stored_plan_occurrence_invalid",
+                        "message": (
+                            "Stored plan meal is missing its explicit serving count"
+                        ),
+                        "day": day.day,
+                        "meal_slot": meal_slot,
+                        "recipe_id": recipe.id,
+                    },
+                )
+            planned_servings = float(day.portions[meal_slot])
             source_servings = float(recipe.servings)
-            planned_servings = source_servings * multiplier
-            if multiplier <= 0 or source_servings <= 0 or planned_servings > 1000:
+            recipe_batch_scale = planned_servings / source_servings
+            if (
+                planned_servings <= 0
+                or planned_servings > 1000
+                or source_servings <= 0
+                or source_servings > 1000
+                or recipe_batch_scale <= 0
+                or recipe_batch_scale > 1000
+            ):
                 raise HTTPException(
                     status_code=409,
                     detail={
@@ -142,8 +162,8 @@ def _derive_candidate_rows(plan) -> List[Tuple[int, str, object, float, float]]:
                     day.day,
                     meal_slot,
                     recipe,
-                    multiplier,
                     planned_servings,
+                    recipe_batch_scale,
                 )
             )
     if not rows:
@@ -177,7 +197,7 @@ def get_approved_plan_occurrence_candidates(
     )
     candidates: List[ApprovedPlanOccurrenceCandidate] = []
     compatible = 0
-    for day, meal_slot, recipe, multiplier, planned_servings in rows:
+    for day, meal_slot, recipe, planned_servings, recipe_batch_scale in rows:
         profile = profiles.get(recipe.id)
         status = _profile_status(profile, planned_servings)
         if status == PreparationProfileAvailability.REVIEWED_COMPATIBLE:
@@ -202,8 +222,8 @@ def get_approved_plan_occurrence_candidates(
                 recipe_id=recipe.id,
                 recipe_name=recipe.name,
                 source_recipe_servings=float(recipe.servings),
-                planned_portion_multiplier=multiplier,
                 planned_servings=planned_servings,
+                recipe_batch_scale=recipe_batch_scale,
                 preparation_profile_status=status,
                 preparation_profile_id=profile.id if profile else None,
                 preparation_profile_version=(
@@ -230,8 +250,10 @@ def get_approved_plan_occurrence_candidates(
         reviewed_compatible_count=compatible,
         unresolved_profile_count=len(candidates) - compatible,
         warnings=[
-            "Planned servings are derived from source recipe servings and the "
-            "stored portion multiplier; the household must confirm them",
+            "Planned servings come directly from the immutable plan's explicit "
+            "serving count and must still be confirmed by the household",
+            "Recipe batch scale is descriptive planned servings divided by the "
+            "source recipe yield; it is not the confirmed serving count",
             "Required finish minutes are not inferred from meal-slot names and "
             "must be entered explicitly",
             "Candidate generation does not persist an occurrence document or "
