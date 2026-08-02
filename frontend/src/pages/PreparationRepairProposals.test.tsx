@@ -12,30 +12,29 @@ const mocks = vi.hoisted(() => ({
   calendars: vi.fn(),
   proposals: vi.fn(),
   events: vi.fn(),
+  acceptance: vi.fn(),
   create: vi.fn(),
+  accept: vi.fn(),
   reject: vi.fn(),
 }));
 
 vi.mock("@/components/AppLayout", () => ({
   default: ({ children }: { children: ReactNode }) => <main>{children}</main>,
 }));
-
-vi.mock("@/lib/platformApi", () => ({
-  householdApi: { list: mocks.households },
-}));
-
+vi.mock("@/lib/platformApi", () => ({ householdApi: { list: mocks.households } }));
 vi.mock("@/lib/preparationOperationsApi", () => ({
   preparationOperationsApi: {
     schedules: mocks.schedules,
     calendars: mocks.calendars,
   },
 }));
-
 vi.mock("@/lib/preparationRepairProposalApi", () => ({
   preparationRepairProposalApi: {
     list: mocks.proposals,
     events: mocks.events,
+    acceptance: mocks.acceptance,
     create: mocks.create,
+    accept: mocks.accept,
     reject: mocks.reject,
   },
 }));
@@ -71,6 +70,17 @@ const request = {
   ],
 };
 
+const deterministicTask = {
+  task_id: "dinner.prep",
+  start_minute: 0,
+  finish_minute: 10,
+  duration_minutes: 10,
+  priority: 1,
+  resource_demands: { person: 1 },
+  dependencies: [],
+  metadata: request.tasks[0].metadata,
+};
+
 const schedule = {
   id: 7,
   household_id: "home-1",
@@ -90,18 +100,7 @@ const schedule = {
     deterministic: true,
     horizon_minutes: 120,
     granularity_minutes: 5,
-    scheduled: [
-      {
-        task_id: "dinner.prep",
-        start_minute: 0,
-        finish_minute: 10,
-        duration_minutes: 10,
-        priority: 1,
-        resource_demands: { person: 1 },
-        dependencies: [],
-        metadata: request.tasks[0].metadata,
-      },
-    ],
+    scheduled: [deterministicTask],
     unscheduled: [],
     resource_utilization: { person: 1 / 12 },
     resource_peak_usage: { person: 1 },
@@ -144,13 +143,7 @@ const repairResult = {
   response: {
     ...schedule.schedule,
     method: "deterministic_minimal_change_preparation_repair_v1",
-    scheduled: [
-      {
-        ...schedule.schedule.scheduled[0],
-        start_minute: 5,
-        finish_minute: 15,
-      },
-    ],
+    scheduled: [{ ...deterministicTask, start_minute: 5, finish_minute: 15 }],
     makespan_minutes: 15,
   },
   complete: true,
@@ -220,11 +213,60 @@ const proposal = {
   stale_reasons: [],
   accepted: false,
   schedule_persistence_performed: false,
+  accepted_schedule_id: null,
+  accepted_schedule_hash: null,
+  accepted_by_user_id: null,
+  accepted_at: null,
+  acceptance_reason: null,
   created_at: "2026-08-02T00:00:00Z",
   updated_at: "2026-08-02T00:00:00Z",
 };
 
-const event = {
+const acceptedProposal = {
+  ...proposal,
+  status: "accepted",
+  version: 2,
+  current: false,
+  stale_reasons: ["proposal_status_accepted"],
+  accepted: true,
+  schedule_persistence_performed: true,
+  accepted_schedule_id: 22,
+  accepted_schedule_hash: "5".repeat(64),
+  accepted_by_user_id: "editor@example.test",
+  accepted_at: "2026-08-02T01:00:00Z",
+  acceptance_reason: "Create a separately approvable draft",
+};
+
+const acceptance = {
+  id: 31,
+  household_id: "home-1",
+  proposal_id: 11,
+  proposal_version_before: 1,
+  proposal_version_after: 2,
+  source_schedule_id: 7,
+  source_schedule_version: 2,
+  created_schedule_id: 22,
+  created_schedule_version: 1,
+  created_schedule_status: "draft",
+  created_schedule_hash: "5".repeat(64),
+  derivation_method: "deterministic_minimal_change_preparation_repair_v1",
+  source_schedule_hash: schedule.schedule_hash,
+  source_schedule_request_hash: schedule.schedule_request_hash,
+  target_calendar_content_hash: calendar.content_hash,
+  repair_request_hash: proposal.repair_request_hash,
+  repair_result_hash: proposal.repair_result_hash,
+  revised_request_hash: proposal.revised_request_hash,
+  repaired_response_hash: proposal.repaired_response_hash,
+  acknowledged_task_ids: ["dinner.prep"],
+  reason: "Create a separately approvable draft",
+  actor_user_id: "editor@example.test",
+  metadata: { reviewed_change_count: 1 },
+  idempotency_key: "repair-accept:fixed-uuid",
+  request_fingerprint: "6".repeat(64),
+  created_at: "2026-08-02T01:00:00Z",
+};
+
+const createdEvent = {
   id: 1,
   proposal_id: 11,
   household_id: "home-1",
@@ -241,22 +283,6 @@ const event = {
   created_at: "2026-08-02T00:00:00Z",
 };
 
-function renderPage() {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false },
-      mutations: { retry: false },
-    },
-  });
-  return render(
-    <MemoryRouter>
-      <QueryClientProvider client={queryClient}>
-        <PreparationRepairProposalsPage />
-      </QueryClientProvider>
-    </MemoryRouter>,
-  );
-}
-
 function household(role: "owner" | "editor" | "viewer") {
   return {
     id: "home-1",
@@ -270,6 +296,22 @@ function household(role: "owner" | "editor" | "viewer") {
   };
 }
 
+function renderPage() {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+  return render(
+    <MemoryRouter>
+      <QueryClientProvider client={client}>
+        <PreparationRepairProposalsPage />
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "fixed-uuid") });
@@ -277,8 +319,17 @@ beforeEach(() => {
   mocks.schedules.mockResolvedValue([schedule]);
   mocks.calendars.mockResolvedValue([calendar]);
   mocks.proposals.mockResolvedValue([proposal]);
-  mocks.events.mockResolvedValue([event]);
+  mocks.events.mockResolvedValue([createdEvent]);
+  mocks.acceptance.mockResolvedValue(acceptance);
   mocks.create.mockResolvedValue(proposal);
+  mocks.accept.mockResolvedValue({
+    proposal: acceptedProposal,
+    acceptance,
+    accepted: true,
+    schedule_persistence_performed: true,
+    approval_performed: false,
+    execution_performed: false,
+  });
   mocks.reject.mockResolvedValue({
     ...proposal,
     status: "rejected",
@@ -292,62 +343,57 @@ beforeEach(() => {
 });
 
 describe("Preparation repair proposal registry", () => {
-  it("shows immutable evidence and no acceptance controls", async () => {
+  it("shows the separated proposal, acceptance, and owner approval boundary", async () => {
     renderPage();
 
     expect(
       await screen.findByRole("heading", { name: "Repair proposal registry" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Accepted: false\./)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Schedule persistence performed: false\./),
-    ).toBeInTheDocument();
-    expect(screen.getByText("dinner.prep")).toBeInTheDocument();
-    expect(screen.getByText(event.reason)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Accept/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Two explicit lifecycle decisions")).toBeInTheDocument();
+    expect(screen.getByText(/Draft persistence: false/)).toBeInTheDocument();
+    expect(screen.getByText(createdEvent.reason)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Schedule approval" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Approve/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Persist/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Execute/i })).not.toBeInTheDocument();
   });
 
-  it("requires both non-acceptance acknowledgements before creation", async () => {
+  it("requires both advisory acknowledgements before proposal creation", async () => {
     renderPage();
-    const createButton = await screen.findByRole("button", {
-      name: "Create immutable proposal",
+    const button = await screen.findByRole("button", {
+      name: "Create advisory proposal",
     });
-    expect(createButton).toBeDisabled();
+    expect(button).toBeDisabled();
 
     fireEvent.click(
       screen.getByRole("checkbox", {
-        name: /proposal creation is not acceptance or approval/i,
+        name: /proposal creation is not acceptance or owner approval/i,
       }),
     );
-    expect(createButton).toBeDisabled();
+    expect(button).toBeDisabled();
     fireEvent.click(
       screen.getByRole("checkbox", {
-        name: /no replacement schedule will be persisted/i,
+        name: /does not persist a replacement schedule/i,
       }),
     );
-    expect(createButton).toBeEnabled();
+    expect(button).toBeEnabled();
   });
 
-  it("submits exact source, calendar, revised request, and immutable tasks", async () => {
+  it("submits exact proposal creation evidence", async () => {
     renderPage();
     await screen.findByLabelText("Strict revised request JSON");
 
     fireEvent.click(screen.getByRole("checkbox", { name: /dinner\.prep/i }));
     fireEvent.click(
       screen.getByRole("checkbox", {
-        name: /proposal creation is not acceptance or approval/i,
+        name: /proposal creation is not acceptance or owner approval/i,
       }),
     );
     fireEvent.click(
       screen.getByRole("checkbox", {
-        name: /no replacement schedule will be persisted/i,
+        name: /does not persist a replacement schedule/i,
       }),
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Create immutable proposal" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Create advisory proposal" }));
 
     await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
     expect(mocks.create).toHaveBeenCalledWith("home-1", {
@@ -364,38 +410,105 @@ describe("Preparation repair proposal registry", () => {
     });
   });
 
-  it("allows versioned rejection but not source mutation", async () => {
+  it("requires every changed task, a reason, and draft-only confirmation", async () => {
     renderPage();
-    const reason = await screen.findByLabelText("Reason");
-    fireEvent.change(reason, { target: { value: "Not acceptable" } });
-    fireEvent.click(screen.getByRole("button", { name: "Reject proposal" }));
+    const button = await screen.findByRole("button", {
+      name: "Accept and create draft",
+    });
+    expect(button).toBeDisabled();
 
-    await waitFor(() => expect(mocks.reject).toHaveBeenCalledTimes(1));
-    expect(mocks.reject).toHaveBeenCalledWith("home-1", 11, {
-      expected_version: 1,
-      reason: "Not acceptable",
-      idempotency_key: "repair-reject:fixed-uuid",
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /reviewed the change to dinner\.prep/i }),
+    );
+    expect(button).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Acceptance reason"), {
+      target: { value: "Create a separately approvable draft" },
+    });
+    expect(button).toBeDisabled();
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: /creates one new draft only; it does not approve, execute, or complete/i,
+      }),
+    );
+    expect(button).toBeEnabled();
+  });
+
+  it("submits every exact proposal hash when accepting", async () => {
+    renderPage();
+    await screen.findByRole("button", { name: "Accept and create draft" });
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /reviewed the change to dinner\.prep/i }),
+    );
+    fireEvent.change(screen.getByLabelText("Acceptance reason"), {
+      target: { value: "Create a separately approvable draft" },
+    });
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: /creates one new draft only; it does not approve, execute, or complete/i,
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Accept and create draft" }));
+
+    await waitFor(() => expect(mocks.accept).toHaveBeenCalledTimes(1));
+    expect(mocks.accept).toHaveBeenCalledWith("home-1", 11, {
+      expected_proposal_version: 1,
+      expected_source_schedule_version: 2,
+      expected_source_schedule_hash: proposal.source_schedule_hash,
+      expected_source_schedule_request_hash: proposal.source_schedule_request_hash,
+      expected_target_calendar_content_hash: proposal.target_calendar_content_hash,
+      expected_repair_request_hash: proposal.repair_request_hash,
+      expected_repair_result_hash: proposal.repair_result_hash,
+      expected_revised_request_hash: proposal.revised_request_hash,
+      expected_repaired_response_hash: proposal.repaired_response_hash,
+      acknowledged_task_ids: ["dinner.prep"],
+      reason: "Create a separately approvable draft",
+      acknowledge_creates_new_draft_only: true,
+      idempotency_key: "repair-accept:fixed-uuid",
       metadata: { required_acknowledgement_task_count: 1 },
     });
   });
 
-  it("keeps viewers read-only", async () => {
+  it("shows immutable accepted draft evidence without auto-approval", async () => {
+    mocks.proposals.mockResolvedValueOnce([acceptedProposal]);
+    mocks.events.mockResolvedValueOnce([
+      createdEvent,
+      {
+        ...createdEvent,
+        id: 2,
+        event_type: "accepted",
+        from_status: "proposed",
+        to_status: "accepted",
+        reason: acceptance.reason,
+        proposal_version_before: 1,
+        proposal_version_after: 2,
+      },
+    ]);
+    renderPage();
+
+    expect(await screen.findByText("Accepted draft evidence")).toBeInTheDocument();
+    expect(screen.getByText("#22")).toBeInTheDocument();
+    expect(screen.getByText("Owner approval still required")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Review draft for approval" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Accept and create draft" })).not.toBeInTheDocument();
+    expect(mocks.acceptance).toHaveBeenCalledWith("home-1", 11);
+  });
+
+  it("keeps viewers read-only while preserving proposal evidence", async () => {
     mocks.households.mockResolvedValueOnce([household("viewer")]);
     renderPage();
 
     expect(
       await screen.findByRole("heading", { name: "Repair proposal registry" }),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Create immutable proposal" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Reject proposal" }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByText(/Accepted: false\./)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create advisory proposal" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Accept and create draft" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reject proposal" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Draft persistence: false/)).toBeInTheDocument();
   });
 
-  it("surfaces execution-history staleness", async () => {
+  it("blocks acceptance controls for stale proposals", async () => {
     mocks.proposals.mockResolvedValueOnce([
       {
         ...proposal,
@@ -408,10 +521,8 @@ describe("Preparation repair proposal registry", () => {
     ]);
     renderPage();
 
-    expect(
-      await screen.findByText("source schedule has execution history"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("source schedule version changed")).toBeInTheDocument();
-    expect(screen.getByText("Stale evidence")).toBeInTheDocument();
+    expect(await screen.findByText("Cannot accept while stale")).toBeInTheDocument();
+    expect(screen.getByText("source schedule has execution history")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Accept and create draft" })).not.toBeInTheDocument();
   });
 });
