@@ -1,6 +1,6 @@
 # NutriFlavorOS Engineering and Research Roadmap
 
-**Roadmap date:** 2026-08-02  
+**Roadmap date:** 2026-08-03  
 **Execution rule:** implement directly on `main` in coherent commits; keep code, tests, migrations, contracts, frontend clients, CI, and documentation synchronized; never rewrite history.  
 **Current migration head:** `20260802_0018`  
 **Current API:** `0.15.2`  
@@ -46,7 +46,7 @@ Task-execution eligibility is implemented through a viewer-authorized endpoint a
 
 ### C8 — Proposal invalidation authority and administration
 
-Owner-only proposal invalidation is implemented through an authenticated API, strict request contract, append-only event, server-observed stale reasons, exact idempotency, optimistic versioning, typed frontend client, protected owner administration workspace, editor/viewer read-only behavior, static contracts, Vitest coverage, and a real PostgreSQL acceptance-versus-invalidation race.
+Owner-only proposal invalidation is implemented through an authenticated API, strict request contract, append-only event, server-observed stale reasons, exact idempotency, optimistic versioning, typed frontend client, protected owner administration workspace, editor/viewer read-only behavior, static contracts, Vitest coverage, and real PostgreSQL acceptance-versus-invalidation plus rejection-versus-invalidation races.
 
 Invalidation cannot accept, persist, approve, execute, complete, or mutate a source schedule. It permanently closes only a `proposed` review record.
 
@@ -60,6 +60,23 @@ Invalidation cannot accept, persist, approve, execute, complete, or mutate a sou
 - Static validation forbids product code from importing the preserved implementation directly.
 - The complete historical operations test corpus is retained, with the obsolete implicit-completion case replaced by explicit terminality evidence.
 - A real PostgreSQL final-task-versus-schedule-completion race proves completion cannot commit ahead of the last task event.
+
+### C10 — PostgreSQL lifecycle, migration, and transient-failure evidence
+
+The configured real-database evidence now includes:
+
+- acceptance versus rejection, acceptance versus invalidation, and rejection versus invalidation;
+- source-plan cancellation versus acceptance and repaired owner approval;
+- calendar supersession versus acceptance and repaired owner approval;
+- final task completion versus schedule completion;
+- discarded committed-response exact retry for acceptance, invalidation, and completion;
+- a populated `0017 → 0018` migration rehearsal with 64 production-service acceptances, exact identity/hash preservation, catalog constraint verification, and lower-level bypass rollback;
+- a real `statement_timeout` abort with SQLSTATE `57014` followed by successful same-key retry;
+- a genuine PostgreSQL row-lock/advisory-lock deadlock with exactly one SQLSTATE `40P01` victim and one accepted replacement after exact retry;
+- a sanitized API boundary for retryable transaction SQLSTATEs and ambiguous connection outcomes;
+- explicit `automatic_retry_performed=false` so the server never conceals duplicate or unknown commit outcomes.
+
+Configured workflows retain JUnit and migration JSON evidence. None is represented as hosted green evidence until the exact current runs and artifacts are observed.
 
 ## P0 — Observe and repair exact hosted verification
 
@@ -80,20 +97,18 @@ Backend and frontend eligibility are implemented. Remaining:
 - eligibility in exports/support tooling and operational metrics;
 - continued server-side mutation authority against stale clients and races.
 
-## P0 — PostgreSQL lifecycle and recovery evidence
+## P0 — Finish PostgreSQL operational recovery evidence
 
-Extend real-database probes for:
+Remaining real-database work:
 
-- rejection versus invalidation;
-- source plan cancellation racing acceptance;
-- target calendar supersession racing acceptance/approval;
-- unknown commit outcome and exact retry recovery;
-- connection loss after flush but before response;
-- statement timeout/deadlock retry behavior;
-- migration `0018` on representative historical data volumes;
-- concurrent export/support reads during lifecycle mutation.
+- connection loss during or immediately after commit with exact same-key outcome recovery;
+- PostgreSQL failover and pool-invalidated connection recovery;
+- repeated serialization failures and a bounded, observable client retry policy;
+- production-snapshot or production-scale migration rehearsal beyond the 64-lifecycle synthetic corpus;
+- concurrent export/support reads during lifecycle mutation;
+- SQLSTATE, retry, ambiguous-outcome, pool, and lock-wait metrics/alerts.
 
-Each probe must retain final proposal, acceptance, schedule, event, version, hash, and structured-error evidence.
+Each probe must retain final proposal, acceptance, schedule, event, version, hash, SQLSTATE, structured error, and retry identity evidence. The HTTP exception boundary must never perform automatic mutation retries.
 
 ## P1 — Authenticated browser and accessibility evidence
 
@@ -169,6 +184,7 @@ Clinical nutrition, medication decisions, allergy-safety guarantees, microbial/c
 - Repair-derived approval requires exact acceptance evidence and method-aware replay.
 - Replaced sources remain readable but cannot receive new execution events.
 - Every new schedule completion transition requires explicit terminal task evidence at the lowest exported authority.
+- Retryable or ambiguous database failures never trigger an automatic server-side mutation retry; clients repeat the exact request with the same idempotency key.
 - Frontend preflight never replaces server authority.
 - No global-optimality or model-readiness claim from greedy/truncated search, catalog registration, importability, or synthetic tests.
 - No green-build claim until exact hosted workflows/artifacts are observed.
