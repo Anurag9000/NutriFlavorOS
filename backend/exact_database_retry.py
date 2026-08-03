@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from math import isfinite
 from typing import Callable, Generic, Optional, TypeVar
 
 from sqlalchemy.exc import OperationalError, TimeoutError as SQLAlchemyTimeoutError
@@ -29,6 +30,15 @@ RetryObserver = Callable[["DatabaseRetryObservation"], None]
 SleepFunction = Callable[[float], None]
 
 
+def _finite_nonnegative_policy_value(name: str, value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{name} must be a finite nonnegative number")
+    normalized = float(value)
+    if not isfinite(normalized) or normalized < 0:
+        raise ValueError(f"{name} must be a finite nonnegative number")
+    return normalized
+
+
 @dataclass(frozen=True)
 class ExactDatabaseRetryPolicy:
     """Finite exponential-backoff policy for exact idempotent requests."""
@@ -38,20 +48,28 @@ class ExactDatabaseRetryPolicy:
     max_delay_seconds: float = 1.0
 
     def __post_init__(self) -> None:
+        if type(self.max_attempts) is not int:
+            raise ValueError("max_attempts must be an integer between 1 and 20")
         if self.max_attempts < 1 or self.max_attempts > 20:
             raise ValueError("max_attempts must be between 1 and 20")
-        if self.base_delay_seconds < 0:
-            raise ValueError("base_delay_seconds cannot be negative")
-        if self.max_delay_seconds < 0:
-            raise ValueError("max_delay_seconds cannot be negative")
-        if self.max_delay_seconds < self.base_delay_seconds:
+        base_delay = _finite_nonnegative_policy_value(
+            "base_delay_seconds",
+            self.base_delay_seconds,
+        )
+        max_delay = _finite_nonnegative_policy_value(
+            "max_delay_seconds",
+            self.max_delay_seconds,
+        )
+        if max_delay < base_delay:
             raise ValueError(
                 "max_delay_seconds cannot be less than base_delay_seconds"
             )
+        object.__setattr__(self, "base_delay_seconds", base_delay)
+        object.__setattr__(self, "max_delay_seconds", max_delay)
 
     def delay_for_failed_attempt(self, attempt: int) -> float:
-        if attempt < 1:
-            raise ValueError("attempt must be positive")
+        if type(attempt) is not int or attempt < 1:
+            raise ValueError("attempt must be a positive integer")
         return min(
             self.base_delay_seconds * (2 ** (attempt - 1)),
             self.max_delay_seconds,
