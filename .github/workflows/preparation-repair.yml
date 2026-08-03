@@ -42,6 +42,7 @@ jobs:
           backend/api/preparation_schedule_derivation_routes.py
           backend/api/preparation_task_execution_eligibility_routes.py
           backend/database_recovery_metrics.py
+          backend/database_recovery_openmetrics.py
           backend/exact_database_retry.py
           backend/domain/preparation_repair.py
           backend/domain/preparation_repair_proposals.py
@@ -73,6 +74,7 @@ jobs:
           backend/services/preparation_task_completion_service.py
           backend/tests/test_database_operational_error_handler.py
           backend/tests/test_database_recovery_metrics.py
+          backend/tests/test_database_recovery_openmetrics.py
           backend/tests/test_exact_database_retry.py
           backend/tests/test_preparation_operations_service.py
           backend/tests/preparation_operations_service_cases.py
@@ -178,6 +180,7 @@ jobs:
           pytest -q
           backend/tests/test_database_operational_error_handler.py
           backend/tests/test_database_recovery_metrics.py
+          backend/tests/test_database_recovery_openmetrics.py
           backend/tests/test_exact_database_retry.py
           backend/tests/test_preparation_operations_service.py
           backend/tests/test_preparation_task_execution_service.py
