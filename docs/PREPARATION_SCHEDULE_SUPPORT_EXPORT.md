@@ -55,12 +55,14 @@ SQLite uses the caller session and reports `serializable` as a local best-effort
 
 ## Snapshot-internal authorization
 
+This snapshot-internal authorization closes the membership-change gap between request authorization and evidence materialization.
+
 The HTTP endpoint applies two authorization layers:
 
 1. the normal request-session household viewer check preserves authentication and `404` non-disclosure before export work begins;
 2. PostgreSQL then repeats `require_household_access(..., HouseholdRole.VIEWER)` inside the exact read-only repeatable-read snapshot used to assemble the package.
 
-The second check closes the membership-change gap between request authorization and the dedicated evidence transaction. The authenticated user ID comes only from the server-side current-user dependency; it is never accepted from request JSON or query parameters.
+The authenticated user ID comes only from the server-side current-user dependency; it is never accepted from request JSON or query parameters.
 
 SQLite revalidates viewer access on the caller session before building the export. The operational CLI intentionally uses the separate unprivileged export service because it is an operator tool rather than an application authorization surface.
 
