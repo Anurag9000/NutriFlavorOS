@@ -11,9 +11,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FILES = {
     "metrics": "backend/database_recovery_metrics.py",
+    "renderer": "backend/database_recovery_openmetrics.py",
     "handler": "backend/api/database_error_handlers.py",
     "retry": "backend/exact_database_retry.py",
     "tests": "backend/tests/test_database_recovery_metrics.py",
+    "renderer_tests": "backend/tests/test_database_recovery_openmetrics.py",
     "repair_workflow": ".github/workflows/preparation-repair.yml",
     "postgres_workflow": ".github/workflows/preparation-repair-postgres.yml",
     "docs": "docs/DATABASE_RECOVERY_OBSERVABILITY.md",
@@ -138,6 +140,23 @@ def validate_contract() -> dict:
             "record_utility_outcome_unknown",
             "RLock()",
         },
+        "renderer": {
+            'METRIC_PREFIX = "nutriflavor_database_recovery"',
+            "def render_database_recovery_openmetrics",
+            "_validate_bounded_labels(snapshot)",
+            "_validate_values(snapshot)",
+            '"database_transaction_retry_required"',
+            '"database_commit_outcome_unknown"',
+            '"database_operation_failed"',
+            '"40001"',
+            '"40P01"',
+            '"57014"',
+            '"55P03"',
+            '"08xxx"',
+            '"unknown"',
+            "isfinite(numeric)",
+            'lines.append("# EOF")',
+        },
         "handler": {
             "from backend.database_recovery_metrics import DATABASE_RECOVERY_METRICS",
             "DATABASE_RECOVERY_METRICS.record_operational_error(",
@@ -162,21 +181,37 @@ def validate_contract() -> dict:
             'assert "metrics-success-key" not in rendered',
             'assert "sensitive SQL statement" not in rendered',
         },
+        "renderer_tests": {
+            "test_openmetrics_render_is_deterministic_and_complete",
+            "test_openmetrics_render_contains_no_domain_or_request_identifiers",
+            "test_openmetrics_rejects_unbounded_error_code_label",
+            "test_openmetrics_rejects_unbounded_sqlstate_label",
+            "test_openmetrics_rejects_negative_or_nonfinite_values",
+            "test_openmetrics_empty_label_maps_remain_valid",
+            'assert rendered.count("# EOF") == 1',
+            'assert "idempotency"',
+        },
         "repair_workflow": {
             "backend/database_recovery_metrics.py",
+            "backend/database_recovery_openmetrics.py",
             "backend/tests/test_database_recovery_metrics.py",
+            "backend/tests/test_database_recovery_openmetrics.py",
             "validate_database_recovery_observability.py",
         },
         "postgres_workflow": {
             "backend/database_recovery_metrics.py",
+            "backend/database_recovery_openmetrics.py",
             "backend/tests/test_database_recovery_metrics.py",
+            "backend/tests/test_database_recovery_openmetrics.py",
             "validate_database_recovery_observability.py",
         },
         "docs": {
             "Database Recovery Observability",
             "never receives or stores SQL text",
             "retry_success_after_retry_total",
-            "outcome-unknown events: critical",
+            "Sanitized OpenMetrics adapter",
+            "nutriflavor_database_recovery",
+            "unreviewed code or SQLSTATE labels",
             "1,600 concurrent updates",
             "no unauthenticated HTTP metrics endpoint",
         },
@@ -229,10 +264,24 @@ def validate_contract() -> dict:
     for name in sorted(expected_tests - _test_names(sources["tests"])):
         errors.append(f"database recovery observability test is missing: {name}")
 
+    expected_renderer_tests = {
+        "test_openmetrics_render_is_deterministic_and_complete",
+        "test_openmetrics_render_contains_no_domain_or_request_identifiers",
+        "test_openmetrics_rejects_unbounded_error_code_label",
+        "test_openmetrics_rejects_unbounded_sqlstate_label",
+        "test_openmetrics_rejects_negative_or_nonfinite_values",
+        "test_openmetrics_empty_label_maps_remain_valid",
+    }
+    for name in sorted(
+        expected_renderer_tests - _test_names(sources["renderer_tests"])
+    ):
+        errors.append(f"database recovery OpenMetrics test is missing: {name}")
+
     forbidden_main = {
         "database-recovery-metrics",
         "DATABASE_RECOVERY_METRICS.snapshot",
         "snapshot_database_recovery_metrics",
+        "render_database_recovery_openmetrics",
     }
     for fragment in sorted(forbidden_main):
         if fragment in sources["main"]:
@@ -254,9 +303,13 @@ def validate_contract() -> dict:
         "parameters:",
         "exception_message:",
     }
-    for fragment in sorted(forbidden_metrics):
-        if fragment in sources["metrics"]:
-            errors.append(f"metrics core contains forbidden surface: {fragment}")
+    for label in ("metrics", "renderer"):
+        for fragment in sorted(forbidden_metrics):
+            if fragment in sources[label]:
+                errors.append(
+                    f"{FILES[label]} contains forbidden observability surface: "
+                    f"{fragment}"
+                )
 
     return {
         "valid": not errors,
@@ -265,6 +318,9 @@ def validate_contract() -> dict:
         "snapshot_immutable": True,
         "bounded_code_labels": True,
         "bounded_sqlstate_labels": True,
+        "openmetrics_renderer": True,
+        "openmetrics_prefix": "nutriflavor_database_recovery",
+        "malformed_values_rejected": True,
         "sensitive_identifiers_recorded": False,
         "public_http_endpoint": False,
         "cross_replica_aggregation": False,
