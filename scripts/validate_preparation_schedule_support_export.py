@@ -18,9 +18,17 @@ PATH = (
 FILES = {
     "domain": "backend/domain/preparation_schedule_support_export.py",
     "service": "backend/services/preparation_schedule_support_export_service.py",
+    "authorized_service": (
+        "backend/services/"
+        "preparation_schedule_support_export_authorized_service.py"
+    ),
     "routes": "backend/api/preparation_operations_routes.py",
     "cli": "scripts/export_preparation_schedule_support_snapshot.py",
     "tests": "backend/tests/test_preparation_schedule_support_export.py",
+    "authorization_tests": (
+        "backend/tests/"
+        "test_preparation_schedule_support_export_authorization.py"
+    ),
     "postgres_tests": "backend/tests/test_preparation_schedule_support_export_postgres.py",
     "repair_workflow": ".github/workflows/preparation-repair.yml",
     "postgres_workflow": ".github/workflows/preparation-repair-postgres.yml",
@@ -98,11 +106,24 @@ def validate_contract() -> dict:
             '"mutation_performed": False',
             "transaction.rollback()",
         },
+        "authorized_service": {
+            "def export_authorized_preparation_schedule_support_snapshot",
+            "authorized_user_id: str",
+            "require_household_access(",
+            "HouseholdRole.VIEWER",
+            'isolation_level="REPEATABLE READ"',
+            'text("SET TRANSACTION READ ONLY")',
+            'text("SELECT txid_current_snapshot()")',
+            "snapshot_db",
+            "_build_snapshot(",
+            "transaction.rollback()",
+        },
         "routes": {
             '"/schedules/{schedule_id}/support-export"',
             "response_model=PreparationScheduleSupportExport",
             "HouseholdRole.VIEWER",
-            "return export_preparation_schedule_support_snapshot(",
+            "return export_authorized_preparation_schedule_support_snapshot(",
+            "authorized_user_id=current_user.id",
         },
         "cli": {
             "def build_export_payload",
@@ -121,6 +142,15 @@ def validate_contract() -> dict:
             "test_viewer_authorized_support_export_returns_read_only_evidence",
             "test_support_export_preserves_cross_household_non_disclosure",
         },
+        "authorization_tests": {
+            "test_authorized_support_snapshot_revalidates_owner_access",
+            "test_authorized_support_snapshot_fails_closed_for_nonmember",
+            "test_operator_snapshot_remains_explicitly_separate_from_http_authorization",
+            "export_authorized_preparation_schedule_support_snapshot(",
+            "authorized_user_id=OWNER_ID",
+            "authorized_user_id=outsider_id",
+            "assert exc.value.status_code == 404",
+        },
         "postgres_tests": {
             "test_postgres_support_export_is_repeatable_read_during_acceptance",
             "snapshot_started",
@@ -134,10 +164,13 @@ def validate_contract() -> dict:
         "repair_workflow": {
             "preparation_schedule_support_export.py",
             "preparation_schedule_support_export_service.py",
+            "preparation_schedule_support_export_authorized_service.py",
             "test_preparation_schedule_support_export.py",
+            "test_preparation_schedule_support_export_authorization.py",
             "validate_preparation_schedule_support_export.py",
         },
         "postgres_workflow": {
+            "preparation_schedule_support_export_authorized_service.py",
             "test_preparation_schedule_support_export_postgres.py",
             "validate_preparation_schedule_support_export.py",
         },
@@ -154,6 +187,7 @@ def validate_contract() -> dict:
             "Canonical evidence hash",
             "Concurrent acceptance proof",
             "viewer access",
+            "snapshot-internal authorization",
             "mutation_performed=false",
         },
     }
@@ -176,14 +210,20 @@ def validate_contract() -> dict:
         "invalidate_repair_proposal(",
         "reject_repair_proposal(",
     }
-    for fragment in sorted(forbidden_service):
-        if fragment in sources["service"]:
-            errors.append(f"support export service contains mutation: {fragment}")
+    for label in ["service", "authorized_service"]:
+        for fragment in sorted(forbidden_service):
+            if fragment in sources[label]:
+                errors.append(
+                    f"{FILES[label]} contains support-export mutation: {fragment}"
+                )
 
     return {
         "valid": not errors,
         "path": PATH,
         "required_role": "viewer",
+        "request_session_authorization": True,
+        "snapshot_internal_authorization": True,
+        "operator_cli_separate": True,
         "postgres_isolation": "repeatable_read",
         "postgres_read_only": True,
         "canonical_hash": "sha256",
