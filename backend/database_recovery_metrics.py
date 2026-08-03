@@ -83,6 +83,7 @@ class DatabaseRecoveryMetricsSnapshot:
     nonretryable_error_total: int
     retry_observation_total: int
     retry_scheduled_total: int
+    retry_success_after_retry_total: int
     retry_exhausted_total: int
     utility_outcome_unknown_total: int
     invalidated_connection_total: int
@@ -106,6 +107,7 @@ class DatabaseRecoveryMetrics:
         self._nonretryable_error_total = 0
         self._retry_observation_total = 0
         self._retry_scheduled_total = 0
+        self._retry_success_after_retry_total = 0
         self._retry_exhausted_total = 0
         self._utility_outcome_unknown_total = 0
         self._invalidated_connection_total = 0
@@ -180,6 +182,10 @@ class DatabaseRecoveryMetrics:
                 delay_seconds,
             )
 
+    def record_retry_succeeded_after_retry(self) -> None:
+        with self._lock:
+            self._retry_success_after_retry_total += 1
+
     def record_retry_exhausted(self) -> None:
         with self._lock:
             self._retry_exhausted_total += 1
@@ -198,6 +204,9 @@ class DatabaseRecoveryMetrics:
                 nonretryable_error_total=self._nonretryable_error_total,
                 retry_observation_total=self._retry_observation_total,
                 retry_scheduled_total=self._retry_scheduled_total,
+                retry_success_after_retry_total=(
+                    self._retry_success_after_retry_total
+                ),
                 retry_exhausted_total=self._retry_exhausted_total,
                 utility_outcome_unknown_total=self._utility_outcome_unknown_total,
                 invalidated_connection_total=self._invalidated_connection_total,
