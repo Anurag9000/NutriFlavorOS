@@ -32,19 +32,18 @@ Verified email, password reset, MFA, refresh-token rotation/revocation, authenti
 
 ### Implemented
 
-- Reviewed Alembic head `20260802_0018`.
-- Runtime schema verification against the exact head.
-- Fresh SQLite/PostgreSQL migration workflows.
+- Reviewed Alembic head `20260802_0018` and exact runtime schema verification.
+- Fresh SQLite and PostgreSQL migration workflows.
 - API/OpenAPI/repository release-identity validation.
 - Migration `0018` duplicate-data preflight and source-version acceptance uniqueness.
 - SQLAlchemy model and Alembic migration parity for `uq_preparation_repair_acceptance_source_version`.
-- Populated PostgreSQL `0017 → 0018` rehearsal with 64 valid accepted lifecycles created through production services, exact identity/hash preservation, PostgreSQL catalog verification, and a lower-level bypass rollback probe.
-- Sanitized operational-database response boundary for transaction aborts and ambiguous connection failures.
+- Populated PostgreSQL `0017 → 0018` rehearsal with **64 valid accepted lifecycles** created through production services, exact identity/hash preservation, PostgreSQL catalog verification, and lower-level bypass rollback.
+- Sanitized operational-database response boundary for retryable transaction aborts and ambiguous connection outcomes.
 - Immutable hashes, optimistic versions, append-only events, full request fingerprints, and idempotency constraints.
 
 ### Remaining
 
-Observe the exact current hosted workflow runs/artifacts; add production-snapshot/production-scale migration rehearsal, backup/restore, point-in-time recovery, connection-loss/failover exercises, signed releases, SBOM/provenance attestations, and deployment runbooks.
+Observe exact current hosted workflow runs/artifacts; add production-snapshot or production-scale rehearsal, backup/restore, point-in-time recovery, multi-node failover, pool invalidation under load, signed releases, SBOM/provenance attestations, and deployment runbooks.
 
 ## Transactional household food state
 
@@ -70,7 +69,7 @@ Independent persisted occurrence-confirmation history, joint meal/inventory/prep
 
 ### Implemented
 
-Explicit capacities/windows/deadlines/priorities/dependencies/provenance; continuous-window enforcement; heuristic/exact semantic parity; reviewed resource calendars; complete occurrence/profile/request/response provenance; combined hashes; deterministic replay; and draft/approved/invalidated/completed/cancelled schedule lifecycle.
+Explicit capacities/windows/deadlines/priorities/dependencies/provenance; continuous-window enforcement; heuristic/exact semantic parity; reviewed resource calendars; complete occurrence/profile/request/response provenance; combined hashes; deterministic replay; and draft/approved/invalidated/completed/cancelled lifecycle.
 
 ### Remaining
 
@@ -101,7 +100,7 @@ Execution-aware repair, joint meal/lot/reservation/shopping/leftover/preparation
 
 ### One accepted replacement per source schedule version
 
-Migration `20260802_0018` enforces one accepted replacement for each source schedule/version. Multiple advisory proposals may exist, but only one may create a replacement draft. Competing proposals/keys return the winning proposal, acceptance, and replacement identities.
+**One accepted replacement per source schedule version** is enforced by migration `20260802_0018`. Multiple advisory proposals may exist, but only one may create a replacement draft. Competing proposals or keys return the winning proposal, acceptance, and replacement identities.
 
 ### Owner-only proposal invalidation
 
@@ -109,25 +108,24 @@ Migration `20260802_0018` enforces one accepted replacement for each source sche
 
 - Only `proposed` records can be invalidated.
 - Requires expected version, reason, `acknowledge_historical_only=true`, metadata, and idempotency key.
-- Server-observed stale reasons are recorded in the append-only invalidation event.
-- No acceptance, schedule persistence, approval, execution, source mutation, or rejection-field reuse occurs.
+- Server-observed stale reasons are recorded in the append-only event.
+- No acceptance, persistence, approval, execution, source mutation, or rejection-field reuse occurs.
 - Exact retry is idempotent; contradictory keys, stale versions, and terminal proposals fail closed.
 - Editors and viewers remain read-only.
-- The workspace exposes exact source/repair evidence, stale reasons, destructive confirmation, append-only history, and live no-schedule-created feedback.
 
 ### Remaining
 
-Connection-loss-during-commit/failover evidence and execution-aware lifecycle semantics after task history exists.
+Execution-aware lifecycle semantics after task history exists, multi-node database failover evidence, and production operational monitoring.
 
 ## Schedule derivation evidence
 
 ### Implemented
 
-**Schedule derivation evidence** distinguishes original and accepted repair-derived schedules through per-schedule and household coverage endpoints. It cross-checks proposal, acceptance, source, calendar, acknowledgement, derivation, and hash evidence. The protected read-only inspector displays denominators, ratios, incomplete-chain warnings, identities, and hashes.
+**Schedule derivation evidence** distinguishes original and accepted repair-derived schedules through per-schedule and household coverage endpoints. It cross-checks proposal, acceptance, source, calendar, acknowledgement, method, and hash evidence. The protected read-only inspector displays denominators, ratios, incomplete-chain warnings, identities, and hashes.
 
 ### Remaining
 
-Embed derivation evidence directly into mutation responses and signed/retained external evidence packages.
+Embed derivation evidence in additional mutation responses and signed/retained external evidence packages.
 
 ## User-confirmed task execution and completion
 
@@ -144,18 +142,14 @@ Embed derivation evidence directly into mutation responses and signed/retained e
 **Lowest-layer task terminality** is implemented in the exported `transition_schedule` authority.
 
 - Direct low-level completion before terminal task evidence returns `schedule_tasks_not_terminal` with sorted remaining IDs.
-- Exact completion retry, contradictory key reuse, stale versions, missing resources, and invalid transitions retain their existing precedence.
-- The public authority facade owns the terminality proof and delegates lifecycle mutation/commit to the preserved implementation.
-- The named completion service is a compatibility delegate only and contains no duplicate lock, proof, or commit path.
-- Static repository validation forbids other product modules from importing the preserved implementation directly.
-- Direct-service regressions preserve the complete historical operations corpus while replacing the obsolete implicit-completion expectation.
-- A real PostgreSQL final-task-versus-schedule-completion race proves schedule completion cannot commit ahead of the final task event.
+- Exact retry, contradictory key reuse, stale versions, missing resources, and invalid transitions retain precedence.
+- The public authority facade owns the proof and delegates mutation/commit to the preserved implementation.
+- Static validation forbids product modules from importing the preserved implementation directly.
+- A real PostgreSQL final-task-versus-schedule-completion race proves completion cannot commit ahead of the final task event.
 
 ### Task-execution eligibility
 
-**Task-execution eligibility** reads authoritative evidence before any frontend mutation and returns `eligible`, `schedule_not_approved`, or `source_schedule_has_accepted_replacement`.
-
-A replaced source remains readable but cannot receive new task events or completion. Exact proposal, acceptance, and replacement identities are exposed, controls remain disabled while eligibility is loading/false, and server mutation guards remain authoritative.
+**Task-execution eligibility** returns `eligible`, `schedule_not_approved`, or `source_schedule_has_accepted_replacement` before frontend mutation. A replaced source remains readable but cannot receive task events or completion. Exact proposal, acceptance, and replacement identities are exposed; backend mutation guards remain authoritative.
 
 ### Remaining
 
@@ -165,18 +159,18 @@ Authenticated PostgreSQL-backed browser evidence and execution-aware repair.
 
 ### Implemented
 
-The viewer-authorized `Preparation schedule support export` endpoint, operator CLI, typed GET-only client, and protected browser workspace produce one strict, hash-addressed, read-only schedule evidence package.
+The viewer-authorized **Preparation schedule support export** endpoint, operator CLI, typed GET-only client, and protected browser workspace produce one strict, hash-addressed, read-only schedule evidence package.
 
 - Includes schedule provenance, lifecycle events, derivation, execution eligibility, deterministic task state/history, related proposals, acceptances, and proposal events.
-- PostgreSQL uses `REPEATABLE READ`, `SET TRANSACTION READ ONLY`, and retains `txid_current_snapshot()`.
-- Canonical SHA-256 excludes transaction timestamps/snapshot metadata but binds every domain evidence field and non-claim.
+- PostgreSQL uses `REPEATABLE READ`, `SET TRANSACTION READ ONLY`, and `txid_current_snapshot()`.
+- Canonical SHA-256 excludes transaction timestamps/snapshot metadata but binds all domain evidence and non-claim fields.
 - Explicit fields remain `mutation_performed=false`, `actual_execution_verified=false`, and `food_safety_verified=false`.
-- Authentication and household viewer access are required; cross-household access preserves `404` non-disclosure.
-- CLI output uses atomic temporary-file replacement and structured failures.
-- The browser requires explicit generation, clears stale evidence after household/schedule changes, displays server hash/isolation/counts/non-claims, downloads the complete response under a hash-addressed filename, revokes temporary object URLs, and uses no browser storage or mutation method.
-- `AppLayout` owns the sole main landmark; the export page creates no duplicate `<main>` or `main-content` ID.
-- SQLite/API regressions prove complete evidence chains and no export-created rows.
-- Focused frontend tests prove explicit generation, fail-closed errors, complete JSON download, scope reset, URL-constructor preservation, and accessible live feedback.
+- The request session requires viewer access and preserves `404` non-disclosure.
+- PostgreSQL repeats viewer authorization inside the exact read-only evidence snapshot, closing the request-session/snapshot-session membership gap.
+- The authenticated user ID is server-derived; the client cannot choose it.
+- The operator CLI remains a separate privileged path, writes atomically, and does not substitute for HTTP authorization.
+- The browser requires explicit generation, clears stale evidence after scope changes, displays server hash/isolation/counts/non-claims, downloads the complete response under a hash-addressed filename, restores focus to generated evidence, revokes object URLs, and uses no browser storage or mutation method.
+- SQLite/API regressions prove complete evidence chains, owner success, nonmember `404`, operator-path separation, and no export-created rows.
 - A real PostgreSQL concurrent-acceptance race proves an existing export retains the pre-acceptance snapshot while a fresh export sees the accepted replacement and a different evidence hash.
 
 ### Remaining
@@ -187,22 +181,25 @@ Signed/encrypted packages, configurable redaction, retention policy, secure obje
 
 ### Implemented
 
+**Database transient failures and exact recovery** include:
+
 - SQLSTATEs `40001`, `40P01`, `57014`, and `55P03` return sanitized HTTP `503` responses with `database_transaction_retry_required`, `Retry-After: 1`, and same-idempotency-key guidance.
-- PostgreSQL connection exceptions (`08xxx`) and invalidated connections return `database_commit_outcome_unknown` because commit state may be ambiguous.
+- PostgreSQL connection exceptions (`08xxx`) and invalidated connections return `database_commit_outcome_unknown`; the server does not claim whether the transaction committed.
 - No automatic retry occurs in the exception handler.
-- Real PostgreSQL statement-timeout evidence locks the household row, forces SQLSTATE `57014`, rolls back, and proves a fresh exact retry creates one accepted draft.
-- Real PostgreSQL deadlock evidence creates an actual row-lock/advisory-lock cycle, requires exactly one `40P01` victim, and proves exact retry converges to one acceptance and one replacement.
-- Lost-response evidence discards committed responses for acceptance, invalidation, and completion, then proves fresh same-key retries return the original result without duplicate rows/events.
+- Real **statement-timeout evidence** forces SQLSTATE `57014`, rolls back, and proves a fresh exact retry creates one accepted draft.
+- Real **deadlock evidence** creates an actual row-lock/advisory-lock cycle, requires one `40P01` victim, and proves exact retry converges to one acceptance and replacement.
+- Lost-response evidence discards committed responses for acceptance, invalidation, and completion, then proves same-key retries return original results without duplicate rows/events.
+- Real **post-commit connection-loss evidence** terminates the service PostgreSQL backend with `pg_terminate_backend()` after guarded acceptance commits but before the first refresh/response. The observed failure is classified as `database_commit_outcome_unknown`; independent reads prove one committed acceptance/replacement/event chain, and a fresh same-key retry returns it without duplication.
 
 ### Remaining
 
-Real connection loss during or immediately after commit, database failover, pool invalidation under load, repeated serialization failures, bounded client retry policy, and operational metrics/alerts for SQLSTATE classes.
+Connection loss while the COMMIT acknowledgement itself is in flight, PostgreSQL failover, pool invalidation under load, repeated serialization failures, bounded client retry policy, and SQLSTATE/retry/ambiguous-outcome/pool/lock-wait metrics and alerts.
 
 ## Provenance and coverage
 
 ### Implemented
 
-Preparation operations coverage and derivation coverage expose explicit denominators for calendars, replayability, occurrence/request provenance, lifecycle states, task histories, original/repair methods, acceptance linkage, malformed histories, and incomplete chains. The support export captures the selected schedule’s full current evidence chain in one canonical snapshot.
+Preparation operations coverage and derivation coverage expose explicit denominators for calendars, replayability, occurrence/request provenance, lifecycle states, task histories, original/repair methods, acceptance linkage, malformed histories, and incomplete chains. Support export captures one schedule’s current evidence chain in one canonical snapshot.
 
 ### Remaining
 
@@ -216,7 +213,7 @@ Protected plan review, occurrence confirmation, profiles/calendars, schedule per
 
 ### Remaining
 
-Authenticated PostgreSQL-backed Playwright, axe, keyboard/focus/reflow/contrast evidence, signed/redacted support download verification, and full generated-client parity.
+Authenticated PostgreSQL-backed Playwright, axe, keyboard/reflow/contrast evidence across all workflows, signed/redacted support download verification, and full generated-client parity.
 
 ## PostgreSQL concurrency evidence
 
@@ -225,7 +222,7 @@ Authenticated PostgreSQL-backed Playwright, axe, keyboard/focus/reflow/contrast 
 Real PostgreSQL-only fixtures cover:
 
 - duplicate/competing acceptance and source-version uniqueness;
-- acceptance versus rejection and acceptance versus invalidation;
+- acceptance versus rejection and invalidation;
 - rejection versus invalidation;
 - acceptance versus source task start;
 - source-plan cancellation versus acceptance and repaired owner approval;
@@ -234,6 +231,7 @@ Real PostgreSQL-only fixtures cover:
 - repeatable-read support export versus concurrent acceptance;
 - duplicate/competing repaired owner approval;
 - discarded-response exact retries;
+- post-commit backend termination and same-key recovery;
 - statement timeout and genuine deadlock recovery;
 - populated `0017 → 0018` migration rehearsal;
 - exact migration/dialect assertions and retained JUnit/JSON artifacts.
@@ -254,4 +252,4 @@ Vision/multimodal nutrition, constrained generation, graph learning, causal/off-
 
 ## Non-claims
 
-NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, current connection-loss/failover recovery, signed/export-retention guarantees, or current hosted green-build status.
+NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, commit-acknowledgement-in-flight recovery, failover recovery, signed/export-retention guarantees, or current hosted green-build status.
