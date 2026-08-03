@@ -15,7 +15,7 @@ concurrency:
 jobs:
   repair-acceptance-races:
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 80
     services:
       postgres:
         image: postgres:16
@@ -75,12 +75,14 @@ jobs:
           backend/tests/test_preparation_repair_recovery_postgres.py
           backend/tests/test_preparation_repair_transient_failures_postgres.py
           backend/tests/test_preparation_repair_connection_loss_postgres.py
+          backend/tests/test_preparation_repair_pool_invalidation_postgres.py
           backend/tests/test_preparation_schedule_support_export_postgres.py
           scripts/export_preparation_schedule_support_snapshot.py
           scripts/rehearse_repair_source_acceptance_migration_postgres.py
           scripts/validate_database_transient_failure_boundary.py
           scripts/validate_preparation_schedule_support_export.py
           scripts/validate_preparation_repair_connection_loss_contract.py
+          scripts/validate_preparation_repair_pool_invalidation_contract.py
           scripts/validate_preparation_repair_migration_rehearsal.py
           scripts/validate_preparation_repair_plan_cancellation_race.py
           scripts/validate_preparation_repair_calendar_supersession_race.py
@@ -137,11 +139,12 @@ jobs:
           python scripts/validate_preparation_schedule_completion_authority.py
           python scripts/validate_preparation_schedule_support_export.py
           python scripts/validate_preparation_repair_connection_loss_contract.py
+          python scripts/validate_preparation_repair_pool_invalidation_contract.py
           python scripts/validate_preparation_repair_recovery_postgres.py
           python scripts/validate_database_transient_failure_boundary.py
           python scripts/validate_repair_release_identity.py
 
-      - name: Run real PostgreSQL lifecycle, support, recovery, connection-loss, timeout, and deadlock evidence
+      - name: Run real PostgreSQL lifecycle, support, recovery, connection, timeout, and deadlock evidence
         run: >-
           pytest -q
           backend/tests/test_database_operational_error_handler.py
@@ -156,6 +159,7 @@ jobs:
           backend/tests/test_preparation_schedule_support_export_postgres.py
           backend/tests/test_preparation_repair_recovery_postgres.py
           backend/tests/test_preparation_repair_connection_loss_postgres.py
+          backend/tests/test_preparation_repair_pool_invalidation_postgres.py
           backend/tests/test_preparation_repair_transient_failures_postgres.py
           --junitxml=reports/preparation-repair-postgres.xml
 
