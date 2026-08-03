@@ -62,6 +62,7 @@ def validate_contract() -> dict:
         "handler": {
             '"40001"',
             "retry_safe = transaction_aborted and not outcome_unknown",
+            "def classify_database_error",
             '"automatic_retry_performed": False',
         },
         "utility": {
@@ -75,7 +76,7 @@ def validate_contract() -> dict:
             "def execute_exact_idempotent_database_request",
             "normalized_key = idempotency_key.strip()",
             "for attempt in range(1, policy.max_attempts + 1)",
-            "classify_operational_error(exc)",
+            "classify_database_error(exc)",
             "will_retry = retry_safe and attempt < policy.max_attempts",
             "observer(observation)",
             "sleep(delay_seconds)",
@@ -158,8 +159,7 @@ def validate_contract() -> dict:
         "test_nonretryable_failure_is_re_raised_without_sleep",
         "test_policy_and_idempotency_key_validation",
     }
-    missing_unit_tests = expected_unit_tests - _test_names(sources["unit_tests"])
-    for name in sorted(missing_unit_tests):
+    for name in sorted(expected_unit_tests - _test_names(sources["unit_tests"])):
         errors.append(f"bounded retry unit test is missing: {name}")
 
     if (
@@ -168,26 +168,24 @@ def validate_contract() -> dict:
     ):
         errors.append("real PostgreSQL repeated-serialization test is missing")
 
-    forbidden_utility = {
+    for fragment in {
         "while True",
         "session.commit(",
         "db.commit(",
         "accept_repair_proposal",
         "time.sleep(1",
-    }
-    for fragment in sorted(forbidden_utility):
+    }:
         if fragment in sources["utility"]:
             errors.append(
                 "bounded retry utility contains forbidden mutation or unbounded action: "
                 f"{fragment}"
             )
 
-    forbidden_postgres_test = {
+    for fragment in {
         "raise OperationalError(",
         "monkeypatch",
         "network_or_failover_simulated",
-    }
-    for fragment in sorted(forbidden_postgres_test):
+    }:
         if fragment in sources["postgres_test"]:
             errors.append(
                 "serialization test fabricates the database abort: "
@@ -205,6 +203,7 @@ def validate_contract() -> dict:
         "bounded_client_retry": True,
         "server_automatic_retry": False,
         "outcome_unknown_automatic_retry": False,
+        "pool_timeout_retry_supported": True,
         "observer_required": True,
         "final_acceptance_count": 1,
         "final_replacement_count": 1,
