@@ -8,29 +8,25 @@ Acceptance does not approve the draft, start or complete tasks, mutate the sourc
 
 ## Lifecycle separation
 
-The complete sequence is:
+The sequence is:
 
 1. compute advisory repair;
 2. persist immutable proposal;
 3. review every changed task;
 4. accept proposal and create one new draft;
-5. owner separately approves the draft after method-aware replay;
+5. owner separately approves after method-aware replay;
 6. users separately record task execution;
-7. schedule completion remains separately guarded by task terminality.
+7. schedule completion remains guarded by explicit task terminality.
 
 No step implies a later step.
 
-## Authorization
+## Authorization and request contract
 
-Household editors and owners may accept. Viewers may read proposal, event, and acceptance evidence but cannot accept or reject.
+Household editors and owners may accept. Viewers may read proposal, event, and acceptance evidence but cannot accept or reject. Owner approval remains a different endpoint and action.
 
-Owner approval remains a different endpoint and action.
+The client supplies expected proposal/source versions; exact source schedule/request, calendar, repair, revised-request, and repaired-response hashes; the complete changed-task acknowledgement set; a nonblank reason; `acknowledge_creates_new_draft_only=true`; an idempotency key; and optional metadata.
 
-## Acceptance request
-
-The client must provide expected proposal/source versions, exact source schedule/request hashes, the exact active reviewed target calendar hash, exact repair/revised-request/repaired-response hashes, the complete changed-task acknowledgement set, nonblank reason, `acknowledge_creates_new_draft_only = true`, idempotency key, and optional metadata.
-
-Acknowledged task IDs must exactly equal the proposal’s sorted union of moved, added, removed, and unresolved tasks. Missing and unexpected IDs both fail closed.
+Acknowledged task IDs must exactly equal the sorted union of moved, added, removed, and unresolved tasks. Missing or unexpected IDs fail closed.
 
 ## Transactional validation
 
@@ -55,200 +51,111 @@ Migration `20260802_0018` adds a unique constraint on `(source_schedule_id, sour
 
 - Multiple advisory proposals may exist for one source version.
 - Exactly one proposal may create its accepted replacement draft.
-- Exact retry of the winning acceptance returns the same immutable evidence.
-- A competing proposal or different key fails with `repair_source_already_has_accepted_replacement` and exposes the winning proposal, acceptance, and replacement IDs.
+- Exact retry returns the same immutable evidence.
+- A competing proposal or different key fails with `repair_source_already_has_accepted_replacement` and exposes the winning identities.
 - Migration preflight refuses conflicting historical rows.
 - Database uniqueness prevents lower-level bypass.
 
-## New repaired draft
+## New repaired draft and immutable evidence
 
-Acceptance creates one new schedule with:
-
-- `status = draft` and `version = 1`;
-- no approval actor/time and no task history;
-- exact source plan, occurrence, profile, calendar, revised-request, and repaired-response provenance;
-- `derivation_method = deterministic_minimal_change_preparation_repair_v1`;
-- exact proposal/version and repair hashes;
-- a derivation-bound combined schedule hash.
+Acceptance creates one new schedule with `status=draft`, `version=1`, no approval actor/time, no task history, exact source plan/occurrence/profile/calendar/request/response provenance, `derivation_method=deterministic_minimal_change_preparation_repair_v1`, exact proposal/version and repair hashes, and a derivation-bound combined schedule hash.
 
 The source schedule is never updated or deleted.
 
-## Immutable acceptance evidence and events
-
 `preparation_repair_proposal_acceptances` records household/proposal identity, proposal versions, source schedule identity/hashes, created draft identity/hash, calendar and repair hashes, method, acknowledged tasks, actor, reason, metadata, idempotency key, request fingerprint, and UTC time.
 
-One acceptance transaction appends:
-
-1. proposal `accepted`;
-2. schedule `created` for the new draft.
-
-Both explicitly record that persistence occurred while approval and execution did not.
+One transaction appends proposal `accepted` and replacement schedule `created`. Both record that persistence occurred while approval and execution did not.
 
 ## Exact idempotency
 
 - Exact retry returns the existing acceptance and draft.
 - Contradictory key reuse fails.
-- A different key for the same accepted proposal fails with the existing draft identity.
+- A different key for the accepted proposal fails with the existing draft identity.
 - A different proposal for the same source version fails with the winning source-level identity.
-- Locks, fingerprints, and uniqueness serialize concurrent duplicates and competitors.
+- Locks, fingerprints, and uniqueness serialize duplicates and competitors.
 
-## Source plan cancellation races
+## Source-plan cancellation and calendar-supersession races
 
-A source plan cancellation, repair acceptance, and repaired owner approval serialize through the same household row lock.
+Source-plan cancellation, target-calendar supersession, acceptance, and repaired owner approval serialize through the household lock.
 
-Cancellation is the dominant final household state:
-
-- the source plan ends `cancelled` at its next version;
-- every linked schedule still `draft` or `approved` is invalidated atomically;
-- no linked schedule remains live.
-
-### Acceptance ordering
-
-1. **source plan cancellation first** — source invalidation/version change or plan approval/version failure blocks acceptance and no replacement is created;
-2. **acceptance first** — the accepted replacement is created, then cancellation invalidates both source and accepted replacement in the cancellation transaction.
-
-### Owner approval ordering
-
-1. **cancellation first** — the accepted draft is invalidated and owner approval fails by lifecycle/version/source-plan evidence;
-2. **owner approval first** — the draft’s `approved` event remains immutable intermediate evidence, then cancellation invalidates both source and approved replacement.
-
-In every ordering the final plan is cancelled, source and replacement are invalidated where present, acceptance evidence remains historical when already committed, and the count of live linked schedules is zero.
-
-## Calendar supersession races
-
-Calendar supersession, repair acceptance, and repaired owner approval also serialize through the household lock.
-
-Activating a successor always leaves:
-
-- the old calendar inactive;
-- the successor active and reviewed;
-- every old-calendar schedule still `draft` or `approved` invalidated;
-- zero live schedules tied to the superseded calendar.
-
-### Acceptance ordering
-
-1. **calendar supersession first** — source invalidation and loss of the exact active reviewed target calendar block acceptance;
-2. **acceptance first** — the accepted replacement is created against the old calendar, then supersession invalidates source and accepted replacement.
-
-### Owner approval ordering
-
-1. **supersession first** — the accepted draft is invalidated and approval fails by lifecycle/version/calendar/source evidence;
-2. **owner approval first** — `approved` remains an append-only intermediate event, followed by `invalidated` when the successor activates.
-
-In every ordering the repaired draft ends invalidated on the old calendar and no old-calendar draft or approved schedule remains live.
+If cancellation or supersession commits first, acceptance or approval fails by lifecycle, version, plan, calendar, or source evidence. If acceptance or approval commits first, the later dependency transition invalidates every affected source or replacement schedule still live. Intermediate approval/acceptance evidence remains immutable, while the final dependency state dominates and no invalid live schedule remains.
 
 ## Migration rehearsal
 
-The dedicated PostgreSQL migration rehearsal validates the populated `20260802_0017 → 20260802_0018` path rather than only upgrading an empty schema.
+The dedicated PostgreSQL **Migration rehearsal** validates a populated `20260802_0017 → 20260802_0018` path.
 
-It creates **64 valid historical acceptances** through the production calendar, schedule, proposal, and guarded-acceptance services while the database is at `0017`. The seed manifest records exact proposal, source, replacement, acceptance, schedule-event, proposal-event, version, and hash identities. After `alembic upgrade head`, verification requires every recorded identity and hash to remain unchanged, confirms the source/version unique constraint through PostgreSQL catalog evidence, and requires the distinct source/version count to equal the acceptance count.
+It creates **64 valid historical acceptances** through production calendar, schedule, proposal, and guarded-acceptance services at `0017`. The manifest records exact proposal, source, replacement, acceptance, event, version, and hash identities. After upgrade, verification requires every identity/hash to remain unchanged, checks the source/version unique constraint in PostgreSQL catalogs, and requires the distinct source/version count to equal the acceptance count.
 
-The rehearsal then performs a deliberate **lower-level bypass** attempt through the unguarded acceptance implementation. PostgreSQL must reject the second accepted replacement for the same source/version, the transaction must roll back, and proposal, acceptance, schedule, and event row counts must remain unchanged. The seed manifest, verification report, and JUnit suite are retained as separate workflow artifacts.
+A deliberate lower-level bypass attempt must fail at the database constraint and roll back without changing proposal, acceptance, schedule, or event counts. Manifest, verification report, and JUnit evidence are retained separately.
 
-This is representative synthetic historical volume generated through production services. It is not a production snapshot, performance certification, network-failure simulation, or proof of a hosted green run until the exact workflow execution is observed.
+This is synthetic historical volume, not a production snapshot, performance certification, or hosted-green claim.
 
-## Method-aware owner approval
+## Method-aware owner approval and source execution boundary
 
-The approval endpoint dispatches by persisted derivation method. Original drafts retain original deterministic replay. Repair-derived drafts require exact proposal/acceptance linkage, source identity and no execution history, active calendar, approved source plan, occurrence/profile provenance, acknowledged tasks, hashes, method-aware replay, and combined schedule hash.
+Original drafts retain original deterministic replay. Repair-derived drafts require exact proposal/acceptance linkage, source identity and no execution history, active calendar, approved source plan, occurrence/profile provenance, acknowledgements, hashes, method-aware replay, and combined schedule hash.
 
-A repaired draft invalidated by source plan cancellation or calendar supersession cannot be approved because its lifecycle status and dependency evidence no longer qualify.
-
-## Source execution after acceptance
-
-Once a replacement is accepted:
-
-- the source remains readable historical evidence;
-- no new source task may start, complete, or skip;
-- the source cannot be completed;
-- forbidden mutation returns `source_schedule_has_accepted_replacement` with exact replacement-chain identities;
-- the replacement remains non-executable while draft;
-- only separately owner-approved replacement may become execution eligible.
-
-Frontend eligibility is explanatory preflight; backend mutation guards remain authoritative.
+Once a replacement is accepted, the source remains readable historical evidence but cannot receive new start/complete/skip events or completion. Forbidden mutation returns `source_schedule_has_accepted_replacement`. The replacement remains non-executable while draft and becomes eligible only after separate owner approval.
 
 ## Lost-response recovery
 
-Real PostgreSQL probes implement **lost-response recovery** for acceptance, proposal invalidation, and schedule completion:
+Real PostgreSQL probes implement lost-response recovery for acceptance, proposal invalidation, and schedule completion:
 
-1. execute the service in one committed session;
+1. execute and commit in one session;
 2. deliberately discard the returned response;
 3. close the session;
-4. issue an exact retry from a fresh session using the same idempotency key and payload;
-5. verify the original acceptance/draft, invalidation event, or completed schedule is returned;
-6. verify no duplicate acceptance row, replacement draft, invalidation event, or completion event exists.
+4. issue an exact retry from a fresh session using the **same idempotency key** and payload;
+5. require the original result;
+6. require no duplicate acceptance, draft, invalidation event, or completion event.
 
-This models an application/client that cannot determine whether a committed response was received. It does not simulate a network disconnect, connection loss during commit, statement timeout, deadlock, or database failover. Those remain separate operational tests.
+This models a response that was not observed. It does not by itself simulate a terminated database connection.
 
 ## Statement timeout and deadlock recovery
 
-The API installs a sanitized operational-database error boundary for PostgreSQL transaction and connection failures.
+The API installs a sanitized operational-database error boundary.
 
-Transaction-abort SQLSTATEs `40001`, `40P01`, `57014`, and `55P03` return HTTP `503` with code `database_transaction_retry_required`, `Retry-After: 1`, and explicit direction to retry the exact request with the **same idempotency key**. PostgreSQL connection exceptions (`08xxx`) or driver-invalidated connections return `database_commit_outcome_unknown`, because the server cannot safely assert whether a commit occurred.
+Transaction-abort SQLSTATEs `40001`, `40P01`, `57014`, and `55P03` return HTTP `503` with `database_transaction_retry_required`, `Retry-After: 1`, and direction to retry the exact request with the **same idempotency key**. PostgreSQL connection exceptions (`08xxx`) or driver-invalidated connections return `database_commit_outcome_unknown`, because commit state may be ambiguous.
 
-The boundary performs **no automatic retry**. It does not sleep, loop, replay a request, or issue a second commit. Automatic retry inside an HTTP exception handler could duplicate a mutation or conceal an ambiguous commit. Instead, exact request identity, existing idempotency records, uniqueness constraints, and fresh-session retry determine the final outcome.
+There is **no automatic retry**. The handler does not sleep, loop, replay, or issue a second commit. Exact request identity, existing idempotency evidence, uniqueness, and a fresh-session retry determine the outcome.
 
-Real PostgreSQL evidence includes:
+Real evidence includes a row-lock `statement_timeout=150ms` producing SQLSTATE `57014`, rollback, and successful exact retry; and a genuine row-lock/advisory-lock cycle producing exactly one `40P01` deadlock victim followed by convergence to one immutable acceptance, one draft, and `created → accepted` proposal events.
 
-1. a household row is locked in one session;
-2. acceptance in another session uses `statement_timeout = 150ms` and receives SQLSTATE `57014`;
-3. the aborted session rolls back;
-4. a fresh exact retry creates exactly one acceptance and one replacement draft;
-5. a genuine cycle is created between a household row lock and transaction-scoped advisory lock;
-6. PostgreSQL selects exactly one deadlock victim with SQLSTATE `40P01`;
-7. regardless of which transaction loses, the exact acceptance retry converges to one immutable acceptance, one draft, and `created → accepted` proposal events.
+## Post-commit connection-loss recovery
 
-Non-retryable operational failures return a sanitized `500` without SQL text, parameters, or driver detail. The tests do not claim connection-loss-during-commit or failover recovery; connection-outcome uncertainty is currently a structured response contract only.
+A real PostgreSQL probe now covers a terminated service backend after commit:
+
+1. create a current repair proposal and exact acceptance payload;
+2. record the worker connection’s `pg_backend_pid()`;
+3. execute guarded acceptance normally;
+4. after the service commits but before its first refresh/response, use an independent administrator session to call `pg_terminate_backend(:pid)`;
+5. require the worker to raise a real `OperationalError`, not a fabricated exception;
+6. classify it as `database_commit_outcome_unknown`, with `outcome_unknown=true`, `retry_safe=false`, and `automatic_retry_performed=false`;
+7. independently read the database and require exactly one acceptance row, one repair-derived replacement schedule, one proposal `accepted` event, and one replacement schedule `created` event;
+8. require the proposal to be `accepted` at exactly the next version;
+9. retry from a fresh session with the exact **same idempotency key** and payload;
+10. require the original acceptance and draft identities and unchanged row/event counts.
+
+The AST-backed contract verifies that the test actually executes `SELECT pg_terminate_backend(:pid)` and forbids monkeypatched commit exceptions or fabricated `OperationalError` construction.
+
+This proves post-commit connection-loss recovery after the database commit has completed but before response materialization. It does not yet prove behavior when the network is severed while the COMMIT acknowledgement itself is in flight, multi-node primary failover, or pool invalidation under load.
 
 ## API
 
 - `POST /api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/accept`
 - `GET /api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/acceptance`
-- owner schedule approval remains separate;
-- source plan cancellation and calendar activation remain separate actions;
-- task execution and completion remain schedule actions.
+- owner approval, plan cancellation, calendar activation, task execution, and schedule completion remain separate actions.
 
-## Representative failure boundaries
+## Representative failures
 
-Acceptance failures include:
-
-- `repair_acceptance_idempotency_conflict`;
-- `repair_proposal_already_accepted`;
-- `repair_source_already_has_accepted_replacement`;
-- `repair_proposal_not_acceptable`;
-- `repair_acceptance_identity_mismatch`;
-- `repair_acceptance_acknowledgement_mismatch`;
-- `repair_acceptance_source_has_execution_history`;
-- `repair_acceptance_source_status_changed`;
-- `repair_acceptance_calendar_stale`;
-- `source_plan_not_approved`;
-- `source_plan_version_mismatch`;
-- `repair_acceptance_previous_schedule_mismatch`;
-- deterministic replay/hash failures.
+Acceptance failures include idempotency conflict, already accepted, source already replaced, proposal not acceptable, identity/hash mismatch, acknowledgement mismatch, source execution/status change, calendar staleness, source-plan mismatch, previous-schedule mismatch, and deterministic replay/hash failure.
 
 Approval failures include proposal/acceptance mismatch, missing evidence, stale source, source execution, stale calendar, unapproved/stale source plan, invalid lifecycle/version, derivation mismatch, and replay/hash mismatch.
 
 ## PostgreSQL concurrency and recovery coverage
 
-Configured real PostgreSQL probes include:
+Configured real PostgreSQL probes include duplicate/competing acceptance; acceptance versus rejection, invalidation, source task start, plan cancellation, calendar supersession, and owner approval; final task completion versus schedule completion; lost-response exact retries; statement timeout; genuine deadlock recovery; post-commit backend termination and same-key recovery; populated `0017 → 0018` migration rehearsal; and exact migration-head/dialect assertions.
 
-- exact duplicate and competing acceptance keys;
-- acceptance versus rejection;
-- acceptance versus proposal invalidation;
-- rejection versus proposal invalidation;
-- two proposals competing for one source version;
-- acceptance versus source task start;
-- source plan cancellation versus acceptance and owner approval;
-- calendar supersession versus acceptance and owner approval;
-- final task completion versus schedule completion;
-- duplicate/competing owner approval;
-- lost-response exact retry recovery for acceptance, invalidation, and completion;
-- statement-timeout exact recovery;
-- genuine PostgreSQL deadlock victim selection and exact recovery;
-- populated `0017 → 0018` migration rehearsal with 64 accepted lifecycles;
-- exact migration-head and PostgreSQL-dialect assertions.
-
-Final plan, calendar, proposal, acceptance, schedule, task/schedule event, version, hash, status, SQLSTATE, migration-manifest, migration-verification, and structured-error evidence is retained in workflow artifacts. Configuration is not reported as green until the exact hosted run is observed.
+Final plan, calendar, proposal, acceptance, schedule, task/schedule event, version, hash, status, SQLSTATE, migration-manifest, migration-verification, and structured-error evidence is retained in workflow artifacts. Configuration is not reported green until the exact hosted run is observed.
 
 ## Non-claims
 
-Acceptance means only that an authorized household member reviewed the proposal and created a new draft. It does not establish owner approval, actual task execution, human presence, appliance state, temperature/contamination status, food safety, clinical/nutritional validity, global repair optimality, actual connection-loss/failover recovery, production-scale migration performance, or green hosted workflows without observed runs.
+Acceptance means only that an authorized household member reviewed the proposal and created a new draft. It does not establish owner approval, actual task execution, human presence, appliance state, temperature or contamination status, food safety, clinical or nutritional validity, global repair optimality, COMMIT-acknowledgement-in-flight recovery, failover recovery, production-scale migration performance, or hosted-green status without observed runs.
