@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -42,6 +42,7 @@ export default function PreparationScheduleSupportExportPage() {
   const [householdId, setHouseholdId] = useState("");
   const [scheduleId, setScheduleId] = useState(0);
   const [downloadMessage, setDownloadMessage] = useState("");
+  const resultRef = useRef<HTMLDivElement>(null);
 
   const householdsQ = useQuery({
     queryKey: ["households"],
@@ -67,6 +68,8 @@ export default function PreparationScheduleSupportExportPage() {
     onSuccess: () => setDownloadMessage("Read-only snapshot generated."),
   });
 
+  const value = exportM.data;
+
   useEffect(() => {
     setScheduleId(0);
     setDownloadMessage("");
@@ -75,14 +78,17 @@ export default function PreparationScheduleSupportExportPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeHouseholdId]);
 
-  const selectSchedule = (value: number) => {
-    setScheduleId(value);
+  useEffect(() => {
+    if (value) resultRef.current?.focus();
+  }, [value]);
+
+  const selectSchedule = (nextScheduleId: number) => {
+    setScheduleId(nextScheduleId);
     setDownloadMessage("");
     exportM.reset();
   };
 
   const download = () => {
-    const value = exportM.data;
     if (!value) return;
     const blob = new Blob([serializeSupportExport(value)], {
       type: "application/json;charset=utf-8",
@@ -99,7 +105,6 @@ export default function PreparationScheduleSupportExportPage() {
   };
 
   const error = householdsQ.error ?? schedulesQ.error ?? exportM.error ?? null;
-  const value = exportM.data;
   const proposalEventCount = value
     ? Object.values(value.repair_proposal_events).reduce(
         (total, events) => total + events.length,
@@ -215,14 +220,21 @@ export default function PreparationScheduleSupportExportPage() {
 
         {value && (
           <>
-            <Alert>
-              <ShieldCheck className="h-4 w-4" />
-              <AlertTitle>Server evidence snapshot ready</AlertTitle>
-              <AlertDescription>
-                Schedule #{value.schedule_id}, status {value.schedule.status}, version {value.schedule.version}.
-                The server reports no mutation, execution verification, or food-safety verification.
-              </AlertDescription>
-            </Alert>
+            <div
+              ref={resultRef}
+              tabIndex={-1}
+              className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              aria-live="polite"
+            >
+              <Alert>
+                <ShieldCheck className="h-4 w-4" />
+                <AlertTitle>Server evidence snapshot ready</AlertTitle>
+                <AlertDescription>
+                  Schedule #{value.schedule_id}, status {value.schedule.status}, version {value.schedule.version}.
+                  The server reports no mutation, execution verification, or food-safety verification.
+                </AlertDescription>
+              </Alert>
+            </div>
 
             <Card>
               <CardHeader>
