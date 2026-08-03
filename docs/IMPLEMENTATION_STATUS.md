@@ -89,12 +89,15 @@ Implemented real PostgreSQL evidence includes:
 The **database recovery observability** foundation provides **privacy-preserving process metrics** for sanitized HTTP failures and explicit bounded retry behavior.
 
 - Labels are restricted to `database_transaction_retry_required`, `database_commit_outcome_unknown`, `database_pool_timeout`, `database_operation_failed`, and SQLSTATE buckets `40001`, `40P01`, `57014`, `55P03`, `08xxx`, and `unknown`.
+- **Exact classification integrity** requires every code to match its transaction-abort, outcome-unknown, pre-transaction, retryable, retry-safe, and invalidated-connection proof flags before counters change.
+- **Nonfinite retry timing** is rejected at both policy and registry boundaries: negative, boolean, nonnumeric, `NaN`, and infinite values fail atomically.
+- Alert thresholds must be positive integers; booleans and fractional values are rejected.
 - Snapshots expose operational errors, transaction aborts, outcome-unknown events, nonretryable errors, invalidated connections, retry observations, scheduled retries, successful convergence, exhausted budgets, outcome-unknown utility exits, and total/maximum delay.
 - Snapshot mappings are immutable and counters are protected by a re-entrant lock.
 - SQL, parameters, exception messages, idempotency keys, household/user/proposal/schedule IDs, food data, and request payloads are never recorded.
 - Alert evaluation emits process-local critical/warning values for outcome unknown, retry exhaustion, transaction-abort volume, invalidated connections, and pool checkout timeout.
 - Deterministic OpenMetrics rendering uses bounded labels, rejects malformed values, emits one `# EOF`, and exposes no HTTP endpoint.
-- Tests prove sanitization, immutable snapshots, handler/retry integration, deterministic alerts, invalid-input atomicity, and 1,600 concurrent updates.
+- Tests prove sanitization, exact classification partitioning, immutable snapshots, finite-value enforcement, handler/retry integration, deterministic alerts, invalid-input atomicity, and 1,600 concurrent updates.
 
 This is an adapter foundation, not production monitoring. Time windows, persistence, **cross-replica aggregation**, dashboards, paging, deduplication, ownership, runbooks, and SLOs remain.
 
