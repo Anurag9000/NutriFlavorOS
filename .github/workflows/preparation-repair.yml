@@ -82,6 +82,7 @@ jobs:
           scripts/repair_preparation_schedule.py
           scripts/validate_database_transient_failure_boundary.py
           scripts/validate_preparation_schedule_support_export.py
+          scripts/validate_preparation_schedule_support_export_frontend.py
           scripts/validate_preparation_repair_contract.py
           scripts/validate_preparation_repair_proposal_contract.py
           scripts/validate_preparation_repair_proposal_invalidation.py
@@ -119,6 +120,8 @@ jobs:
         run: python scripts/validate_database_transient_failure_boundary.py
       - name: Validate read-only schedule support export
         run: python scripts/validate_preparation_schedule_support_export.py
+      - name: Validate protected support export workspace
+        run: python scripts/validate_preparation_schedule_support_export_frontend.py
       - name: Validate advisory repair contract
         run: python scripts/validate_preparation_repair_contract.py
       - name: Validate proposal lifecycle contract
@@ -190,10 +193,10 @@ jobs:
       - name: Install locked frontend dependencies
         working-directory: frontend
         run: npm ci
-      - name: Type-check repair and execution frontend
+      - name: Type-check repair, execution, and support frontend
         working-directory: frontend
         run: npm run typecheck
-      - name: Run repair, derivation, invalidation, and eligibility frontend tests
+      - name: Run repair, derivation, invalidation, eligibility, and support frontend tests
         working-directory: frontend
         run: >-
           npm test --
@@ -205,6 +208,8 @@ jobs:
           src/pages/PreparationScheduleDerivation.test.tsx
           src/lib/preparationTaskExecutionEligibilityApi.test.ts
           src/pages/PreparationTaskExecution.test.tsx
+          src/lib/preparationScheduleSupportExportApi.test.ts
+          src/pages/PreparationScheduleSupportExport.test.tsx
 
       - uses: actions/upload-artifact@v7
         with:
