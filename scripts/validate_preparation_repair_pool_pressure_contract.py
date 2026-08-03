@@ -149,7 +149,7 @@ def validate_contract() -> dict:
         "metrics": {
             '"database_pool_timeout"',
             "pool_timeout_warning_threshold",
-            "database_pool_checkout_timeout",
+            "Database connection-pool checkout timed out before a transaction started",
         },
         "workflow": {
             "test_preparation_repair_pool_pressure_postgres.py",
