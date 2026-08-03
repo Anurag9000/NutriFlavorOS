@@ -3,8 +3,8 @@
 **Status date:** 2026-08-03  
 **Development policy:** coherent direct commits to `main`; no feature pull requests or development branches; no history rewriting.  
 **Database migration head:** `20260802_0018`  
-**API version:** `0.15.2`  
-**OpenAPI release contract:** `2026-08-02.12`  
+**API version:** `0.15.3`  
+**OpenAPI release contract:** `2026-08-03.1`  
 **Food-evidence frontend binding contract:** `2026-08-01.2`  
 **Preparation-operations frontend binding contract:** `2026-08-02.4`  
 **Household-plan frontend binding contract:** `2026-08-02.4`  
@@ -26,7 +26,7 @@ A class, endpoint, committed test, configured workflow, synthetic fixture, or ca
 
 ### Remaining
 
-Verified email, password reset, MFA, refresh-token rotation/revocation, authentication rate limits, ownership transfer, household archive/delete, complete export/delete, and support tooling.
+Verified email, password reset, MFA, refresh-token rotation/revocation, authentication rate limits, ownership transfer, household archive/delete, complete household export/delete, and support case management.
 
 ## Database, migrations, and release integrity
 
@@ -37,6 +37,7 @@ Verified email, password reset, MFA, refresh-token rotation/revocation, authenti
 - Fresh SQLite/PostgreSQL migration workflows.
 - API/OpenAPI/repository release-identity validation.
 - Migration `0018` duplicate-data preflight and source-version acceptance uniqueness.
+- SQLAlchemy model and Alembic migration parity for `uq_preparation_repair_acceptance_source_version`.
 - Populated PostgreSQL `0017 → 0018` rehearsal with 64 valid accepted lifecycles created through production services, exact identity/hash preservation, PostgreSQL catalog verification, and a lower-level bypass rollback probe.
 - Sanitized operational-database response boundary for transaction aborts and ambiguous connection failures.
 - Immutable hashes, optimistic versions, append-only events, full request fingerprints, and idempotency constraints.
@@ -126,7 +127,7 @@ Connection-loss-during-commit/failover evidence and execution-aware lifecycle se
 
 ### Remaining
 
-Embed derivation evidence directly into all mutation responses/export packages and add operational monitoring/support tools.
+Embed derivation evidence directly into mutation responses and signed/retained external evidence packages.
 
 ## User-confirmed task execution and completion
 
@@ -160,6 +161,25 @@ A replaced source remains readable but cannot receive new task events or complet
 
 Authenticated PostgreSQL-backed browser evidence and execution-aware repair.
 
+## Preparation schedule support export
+
+### Implemented
+
+The viewer-authorized `Preparation schedule support export` endpoint and operator CLI produce one strict, hash-addressed, read-only schedule evidence package.
+
+- Includes schedule provenance, lifecycle events, derivation, execution eligibility, deterministic task state/history, related proposals, acceptances, and proposal events.
+- PostgreSQL uses `REPEATABLE READ`, `SET TRANSACTION READ ONLY`, and retains `txid_current_snapshot()`.
+- Canonical SHA-256 excludes transaction timestamps/snapshot metadata but binds every domain evidence field and non-claim.
+- Explicit fields remain `mutation_performed=false`, `actual_execution_verified=false`, and `food_safety_verified=false`.
+- Authentication and household viewer access are required; cross-household access preserves `404` non-disclosure.
+- CLI output uses atomic temporary-file replacement and structured failures.
+- SQLite/API regressions prove complete evidence chains and no export-created rows.
+- A real PostgreSQL concurrent-acceptance race proves an existing export retains the pre-acceptance snapshot while a fresh export sees the accepted replacement and a different evidence hash.
+
+### Remaining
+
+Signed/encrypted packages, configurable redaction, retention policy, secure object storage, support-case linkage, download audit events, size/pagination/streaming limits, and production load evidence.
+
 ## Database transient failures and exact recovery
 
 ### Implemented
@@ -179,11 +199,11 @@ Real connection loss during or immediately after commit, database failover, pool
 
 ### Implemented
 
-Preparation operations coverage and derivation coverage expose explicit denominators for calendars, replayability, occurrence/request provenance, lifecycle states, task histories, original/repair methods, acceptance linkage, malformed histories, and incomplete chains.
+Preparation operations coverage and derivation coverage expose explicit denominators for calendars, replayability, occurrence/request provenance, lifecycle states, task histories, original/repair methods, acceptance linkage, malformed histories, and incomplete chains. The support export captures the selected schedule’s full current evidence chain in one canonical snapshot.
 
 ### Remaining
 
-Alerting/SLOs, exportable evidence packages, and support dashboards.
+Alerting/SLOs, household-level signed evidence bundles, and support dashboards.
 
 ## Frontend
 
@@ -193,7 +213,7 @@ Protected plan review, occurrence confirmation, profiles/calendars, schedule per
 
 ### Remaining
 
-Authenticated PostgreSQL-backed Playwright, axe, keyboard/focus/reflow/contrast evidence, and full generated-client parity.
+Authenticated PostgreSQL-backed Playwright, axe, keyboard/focus/reflow/contrast evidence, a browser support-export download workspace, and full generated-client parity.
 
 ## PostgreSQL concurrency evidence
 
@@ -208,6 +228,7 @@ Real PostgreSQL-only fixtures cover:
 - source-plan cancellation versus acceptance and repaired owner approval;
 - calendar supersession versus acceptance and repaired owner approval;
 - final task completion versus schedule completion;
+- repeatable-read support export versus concurrent acceptance;
 - duplicate/competing repaired owner approval;
 - discarded-response exact retries;
 - statement timeout and genuine deadlock recovery;
@@ -230,4 +251,4 @@ Vision/multimodal nutrition, constrained generation, graph learning, causal/off-
 
 ## Non-claims
 
-NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, current connection-loss/failover recovery, or current hosted green-build status.
+NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, current connection-loss/failover recovery, signed/export-retention guarantees, or current hosted green-build status.
