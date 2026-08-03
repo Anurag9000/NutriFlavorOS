@@ -74,13 +74,19 @@ The renderer provides:
 - no timestamp, request, tenant, household, user, proposal, schedule, food, or idempotency label;
 - no HTTP route or authentication decision.
 
-It rejects unreviewed labels, negative or noninteger counters, negative/nonfinite delays, and malformed labeled-series counts.
+It rejects **unreviewed code or SQLSTATE labels**, negative or noninteger counters, negative/nonfinite delays, and malformed labeled-series counts.
 
 The renderer is an in-process adapter only. A deployment must choose an authenticated/private publishing mechanism and must not add unbounded labels.
 
 ## Alerts
 
-`DatabaseRecoveryAlertPolicy` defines positive integer process-local thresholds for outcome-unknown events, exhausted retry budgets, transaction-abort volume, invalidated checked-out connections, and connection-pool checkout timeout.
+`DatabaseRecoveryAlertPolicy` defines positive integer process-local thresholds for:
+
+- **outcome-unknown events: critical**;
+- exhausted retry budgets: warning;
+- transaction-abort volume: warning;
+- invalidated checked-out connections: warning;
+- connection-pool checkout timeout: warning.
 
 `evaluate_database_recovery_alerts` returns immutable sanitized alert values. These are adapter inputs, not a complete production alerting system. Deployments still need time windows, rates, **cross-replica aggregation**, persistence, dashboards, paging, deduplication, ownership, runbooks, and SLOs.
 
