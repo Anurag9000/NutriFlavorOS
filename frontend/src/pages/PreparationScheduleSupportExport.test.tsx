@@ -32,6 +32,15 @@ vi.mock("@/lib/preparationScheduleSupportExportApi", async (importOriginal) => {
   };
 });
 
+const originalCreateObjectURL = Object.getOwnPropertyDescriptor(
+  URL,
+  "createObjectURL",
+);
+const originalRevokeObjectURL = Object.getOwnPropertyDescriptor(
+  URL,
+  "revokeObjectURL",
+);
+
 const exportFixture = {
   document_version: "preparation-schedule-support-export-v1",
   household_id: "home-1",
@@ -142,17 +151,31 @@ beforeEach(() => {
     { id: 22, status: "draft", version: 1 },
   ]);
   mocks.getExport.mockResolvedValue(exportFixture);
-  vi.stubGlobal("URL", {
-    ...URL,
-    createObjectURL: vi.fn(() => "blob:support-export"),
-    revokeObjectURL: vi.fn(),
+  Object.defineProperty(URL, "createObjectURL", {
+    configurable: true,
+    writable: true,
+    value: vi.fn(() => "blob:support-export"),
+  });
+  Object.defineProperty(URL, "revokeObjectURL", {
+    configurable: true,
+    writable: true,
+    value: vi.fn(),
   });
   vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
 });
 
 afterEach(() => {
-  vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  if (originalCreateObjectURL) {
+    Object.defineProperty(URL, "createObjectURL", originalCreateObjectURL);
+  } else {
+    Reflect.deleteProperty(URL, "createObjectURL");
+  }
+  if (originalRevokeObjectURL) {
+    Object.defineProperty(URL, "revokeObjectURL", originalRevokeObjectURL);
+  } else {
+    Reflect.deleteProperty(URL, "revokeObjectURL");
+  }
 });
 
 describe("Preparation schedule support export workspace", () => {
