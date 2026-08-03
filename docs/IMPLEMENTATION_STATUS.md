@@ -81,7 +81,8 @@ Implemented real PostgreSQL evidence includes:
 - **checked-out pool connection invalidation evidence** with `connection_invalidated=true`, `retry_safe=false`, zero pre-recovery mutation, a different fresh backend PID, and one accepted result;
 - **bounded exact serialization retry** with finite exponential backoff, immutable observations, exact-key preservation, and no replay of outcome-unknown connections;
 - a genuine `SERIALIZABLE` test forcing **three consecutive `40001` aborts** before the fourth exact-key attempt creates exactly one acceptance and replacement;
-- controlled **pool exhaustion** using `QueuePool(pool_size=1, max_overflow=0, pool_timeout=0.1)`, zero acceptance/schedule/event mutation before checkout recovery, and exact-key convergence to one accepted replacement.
+- controlled **pool exhaustion** using `QueuePool(pool_size=1, max_overflow=0, pool_timeout=0.1)`, zero acceptance/schedule/event mutation before checkout recovery, and exact-key convergence to one accepted replacement;
+- **controlled sustained pool pressure** using a two-connection pool, three synchronized waves, and eight callers per wave. All **24 checkout timeouts** preserve `no_transaction_started=true`, produce **zero lifecycle mutation**, exhaust only the caller’s single-attempt budget, release to `checkedout() == 0`, and then converge through the same idempotency key to one immutable accepted replacement.
 
 ## Database recovery observability
 
@@ -99,14 +100,15 @@ This is an adapter foundation, not production monitoring. Time windows, persiste
 
 ## PostgreSQL concurrency evidence
 
-Configured PostgreSQL-only coverage includes duplicate/competing acceptance, acceptance versus rejection/invalidation/source execution, plan cancellation and calendar supersession races, repaired approval races, final-task versus schedule completion, repeatable-read support export, lost responses, statement timeout, deadlock, post-commit backend termination, checked-out pool invalidation, repeated serialization retry, controlled pool exhaustion, populated migration rehearsal, and exact migration/dialect assertions with retained JUnit/JSON evidence.
+Configured PostgreSQL-only coverage includes duplicate/competing acceptance, acceptance versus rejection/invalidation/source execution, plan cancellation and calendar supersession races, repaired approval races, final-task versus schedule completion, repeatable-read support export, lost responses, statement timeout, deadlock, post-commit backend termination, checked-out pool invalidation, repeated serialization retry, controlled single-checkout exhaustion, controlled sustained pool pressure, populated migration rehearsal, and exact migration/dialect assertions with retained JUnit/JSON evidence.
 
 The exact latest hosted executions and artifacts have not been observed in this context. Configured tests are not reported green until inspected.
 
 ## Remaining P0/P1 work
 
 - Observe and repair exact current hosted workflows and artifacts.
-- Test connection loss while COMMIT acknowledgement itself is in flight, multi-node failover, and sustained pool exhaustion/recovery under representative concurrent load.
+- Test connection loss while COMMIT acknowledgement itself is in flight and multi-node failover.
+- Establish representative production capacity under realistic concurrent traffic, queueing, latency, pool sizing, process counts, and duration; the 24-timeout controlled pressure corpus is not representative production capacity.
 - Connect process metrics to authenticated production monitoring with cross-replica rates, dashboards, alerts, paging, SLOs, and runbooks.
 - Add production-snapshot or production-scale migration rehearsal, backup/restore, and point-in-time recovery.
 - Implement authenticated PostgreSQL-backed Playwright, axe, keyboard/reflow/contrast evidence, signed/redacted support packages, retention, and audit linkage.
@@ -114,4 +116,4 @@ The exact latest hosted executions and artifacts have not been observed in this 
 
 ## Non-claims
 
-NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, COMMIT-acknowledgement-in-flight recovery, multi-node failover recovery, production pool sizing or sustained-load capacity, signed/export-retention guarantees, production monitoring completeness, or current hosted green-build status.
+NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, COMMIT-acknowledgement-in-flight recovery, multi-node failover recovery, representative production capacity, production pool sizing or sustained-load capacity, signed/export-retention guarantees, production monitoring completeness, or current hosted green-build status.
