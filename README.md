@@ -8,9 +8,9 @@ NutriFlavorOS is an **experimental household food-planning, transactional invent
 
 Development is performed through coherent commits directly to `main`. Code, tests, migrations, OpenAPI, frontend clients, CI, specifications, and status documentation must move together.
 
-- API: `0.15.3`
+- API: `0.15.4`
 - Alembic head: `20260802_0018`
-- OpenAPI contract: `2026-08-03.1`
+- OpenAPI contract: `2026-08-03.2`
 - Food-evidence frontend binding contract: `2026-08-01.2`
 - Preparation-operations frontend binding contract: `2026-08-02.4`
 - Household-plan frontend binding contract: `2026-08-02.4`
@@ -84,14 +84,14 @@ The explicit lifecycle is:
 
 ### One accepted replacement per source schedule version
 
-Migration `20260802_0018` enforces one accepted replacement for `(source_schedule_id, source_schedule_version)`.
+Migration `20260802_0018` enforces **One accepted replacement per source schedule version** for `(source_schedule_id, source_schedule_version)`.
 
 - Multiple advisory proposals may exist for one source version.
 - Exactly one may create the accepted replacement draft.
 - Exact retries are idempotent.
 - Competing proposals/keys fail with `repair_source_already_has_accepted_replacement` and expose the winning proposal, acceptance, and replacement identities.
 - Database uniqueness prevents lower-level bypass.
-- A populated PostgreSQL `0017 → 0018` rehearsal creates 64 valid accepted lifecycles through production services, verifies exact IDs/hashes/events after upgrade, checks the live constraint definition, and proves a lower-level duplicate replacement rolls back completely.
+- A populated PostgreSQL `0017 → 0018` rehearsal creates **64 valid accepted lifecycles** through production services, verifies exact IDs/hashes/events after upgrade, checks the live constraint definition, and proves a lower-level duplicate replacement rolls back completely.
 
 ### Owner-only proposal invalidation
 
@@ -102,7 +102,7 @@ Migration `20260802_0018` enforces one accepted replacement for `(source_schedul
 - The event explicitly records no acceptance, schedule persistence, approval, or execution.
 - Exact retries collapse; contradictory keys, stale versions, and terminal proposals fail closed.
 - Editors may create, accept, or reject proposals but cannot invalidate them.
-- The protected Proposal Invalidation workspace displays current/stale evidence, exact source and repair hashes, append-only history, owner-only destructive confirmation, and read-only editor/viewer behavior.
+- The protected workspace displays current/stale evidence, exact source and repair hashes, append-only history, owner-only destructive confirmation, and read-only editor/viewer behavior.
 - Real PostgreSQL acceptance-versus-invalidation and rejection-versus-invalidation probes require exactly one terminal outcome.
 
 ## Method-aware replay and owner approval
@@ -141,11 +141,11 @@ Task events are user-entered claims, not observed execution or safety evidence.
 
 - A direct `COMPLETED` transition cannot bypass task evidence.
 - Exact retry, contradictory idempotency-key, optimistic-version, missing-resource, and invalid-lifecycle error precedence remain unchanged.
-- A valid new `approved -> completed` transition reconstructs deterministic tasks and append-only execution history under the household and schedule locks.
+- A valid new `approved → completed` transition reconstructs deterministic tasks and append-only execution history under the household and schedule locks.
 - Nonterminal tasks produce `schedule_tasks_not_terminal` with sorted remaining IDs.
 - The named completion service is only a compatibility delegate and contains no second proof or commit path.
 - Static validation forbids product modules from importing the preserved compatibility implementation directly.
-- A real PostgreSQL race proves that schedule completion cannot commit ahead of the final task event.
+- A real PostgreSQL race proves schedule completion cannot commit ahead of the final task event.
 
 ### Task-execution eligibility
 
@@ -155,7 +155,7 @@ A replaced source remains readable but cannot receive new task events or complet
 
 ## Preparation schedule support export
 
-The viewer-authorized support endpoint is:
+The viewer-authorized **Preparation schedule support export** endpoint is:
 
 `GET /api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/support-export`
 
@@ -164,27 +164,30 @@ It returns a strict `preparation-schedule-support-export-v1` package containing 
 - PostgreSQL uses a dedicated `REPEATABLE READ`, `SET TRANSACTION READ ONLY` snapshot and retains `txid_current_snapshot()` as transaction evidence.
 - A canonical SHA-256 binds domain evidence while excluding transaction timestamps and snapshot metadata.
 - The export explicitly reports `mutation_performed=false`, `actual_execution_verified=false`, and `food_safety_verified=false`.
-- Authentication plus household viewer access is required; unauthorized cross-household reads preserve `404` non-disclosure.
-- An operator CLI writes the same evidence atomically to a caller-selected path.
+- The request session requires household viewer access; PostgreSQL repeats viewer authorization inside the exact evidence snapshot, and unauthorized cross-household reads preserve `404` non-disclosure.
+- The authenticated user identity is server-derived; the operator CLI is a separate privileged path and writes atomically.
 - A real PostgreSQL concurrent-acceptance probe proves an in-progress export retains the pre-acceptance snapshot while a fresh export sees the accepted replacement and a different evidence hash.
 
 ## Database transient failures and exact recovery
 
-Operational PostgreSQL failures are sanitized and never retried invisibly.
+**Database transient failures and exact recovery** are sanitized and never retried invisibly.
 
 - SQLSTATEs `40001`, `40P01`, `57014`, and `55P03` return HTTP `503`, `Retry-After: 1`, code `database_transaction_retry_required`, and direction to retry the exact request with the same idempotency key.
 - PostgreSQL connection exceptions (`08xxx`) and invalidated connections return `database_commit_outcome_unknown` because commit state may be ambiguous.
+- `retryable=true` means exact client retry is the prescribed action. `retry_safe=true` is limited to proven transaction aborts; connection ambiguity reports `retry_safe=false`.
 - Non-retryable operational errors return a sanitized `500` without SQL, parameters, or driver details.
 - `automatic_retry_performed=false` is explicit; the exception handler does not sleep, loop, replay, or commit.
 - Real PostgreSQL statement-timeout evidence forces SQLSTATE `57014`, rolls back, and proves a fresh same-key acceptance creates one draft.
 - A real row-lock/advisory-lock cycle forces exactly one SQLSTATE `40P01` deadlock victim; a fresh exact retry converges to one acceptance, one replacement, and one `accepted` event.
 - Discarded-response recovery tests acceptance, proposal invalidation, and schedule completion from fresh sessions and proves no duplicate rows/events.
+- Real post-commit connection-loss evidence terminates the service backend after commit but before response materialization, classifies the outcome as unknown, proves one committed lifecycle, and recovers through the exact same key.
+- Real checked-out pool connection invalidation evidence terminates a worker before mutation, proves no mutation occurred, requires a fresh backend PID, and converges to one acceptance through exact retry.
 
-Connection loss during commit, database failover, and pool invalidation under load remain unverified operational boundaries.
+COMMIT-acknowledgement-in-flight loss, multi-node database failover, sustained pool exhaustion/recovery, and production load remain unverified operational boundaries.
 
 ## Frontend
 
-Protected interfaces include plan review, occurrence confirmation, preparation profiles/calendars, schedule persistence/approval, advisory repair, immutable repair proposals, owner proposal invalidation, accepted-draft review, schedule derivation, provenance coverage, and user-confirmed task execution with proactive eligibility gating.
+Protected interfaces include plan review, occurrence confirmation, preparation profiles/calendars, schedule persistence/approval, advisory repair, immutable repair proposals, owner proposal invalidation, accepted-draft review, schedule derivation, provenance coverage, user-confirmed task execution with proactive eligibility gating, and explicit support-evidence generation/download.
 
 Typed frontend clients are contract-tested and do not use browser storage to bypass server authority.
 
@@ -202,7 +205,7 @@ Configured direct-`main` workflows cover:
 - fresh SQLite and PostgreSQL migrations;
 - populated `0017 → 0018` PostgreSQL migration rehearsal with retained JSON evidence;
 - repair computation, proposal creation, acceptance, source uniqueness, invalidation, approval, tamper, derivation, task execution, lowest-layer completion, and support-export tests;
-- real PostgreSQL lifecycle/dependency races, final-task/schedule-completion, repeatable-read support export, discarded-response, statement-timeout, and deadlock exact-retry evidence;
+- real PostgreSQL lifecycle/dependency races, final-task/schedule-completion, repeatable-read support export, discarded-response, post-commit connection loss, checked-out pool invalidation, statement-timeout, and deadlock exact-retry evidence;
 - frontend typecheck and focused Vitest suites;
 - machine-readable benchmark, migration, and JUnit artifacts.
 
@@ -215,7 +218,7 @@ The exact latest hosted workflow and retained artifacts must be inspected before
 - Execution-aware repair after source task history begins remains future work.
 - Joint meal, inventory, reservation, shopping, leftover, and preparation repair remains future work.
 - Authenticated PostgreSQL-backed Playwright and automated accessibility evidence remain incomplete.
-- Real connection-loss-during-commit, failover, pool-recovery, production-snapshot migration, signed support packages, and support-retention tooling remain incomplete.
+- COMMIT-acknowledgement-in-flight recovery, failover, sustained pool recovery/load, production-snapshot migration, signed support packages, and support-retention tooling remain incomplete.
 - Vision, multimodal nutrition, graph learning, causal/off-policy promotion, continual/federated personalization, sustainability claims, and autonomous control remain gated research.
 - The exact latest hosted workflows have not been observed green in this execution context.
 
@@ -246,6 +249,7 @@ PostgreSQL is recommended for concurrent or hosted deployments.
 - [Repair Proposals](docs/PREPARATION_REPAIR_PROPOSALS.md)
 - [Repair Acceptance](docs/PREPARATION_REPAIR_ACCEPTANCE.md)
 - [Repair Execution Boundary](docs/PREPARATION_REPAIR_EXECUTION_BOUNDARY.md)
+- [Pool Invalidation Recovery](docs/PREPARATION_REPAIR_POOL_INVALIDATION.md)
 - [Schedule Derivation Evidence](docs/PREPARATION_SCHEDULE_DERIVATION.md)
 - [Preparation Schedule Support Export](docs/PREPARATION_SCHEDULE_SUPPORT_EXPORT.md)
 - [Preparation Operations](docs/PREPARATION_OPERATIONS.md)
