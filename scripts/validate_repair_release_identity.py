@@ -44,6 +44,10 @@ def _read(relative: str, errors: list[str]) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _normalized(value: str) -> str:
+    return " ".join(value.split())
+
+
 def _require_fragments(
     *,
     relative: str,
@@ -52,8 +56,9 @@ def _require_fragments(
     errors: list[str],
     label: str,
 ) -> None:
+    normalized_source = _normalized(source)
     for fragment in sorted(fragments):
-        if fragment not in source:
+        if fragment not in source and _normalized(fragment) not in normalized_source:
             errors.append(f"{relative} lacks {label} fragment: {fragment}")
 
 
@@ -262,6 +267,7 @@ def validate_identity() -> dict:
         fragments={
             "test_postgres_support_export_is_repeatable_read_during_acceptance",
             'historical.snapshot_isolation == "repeatable_read"',
+            'value.status.value for value in historical.related_repair_proposals',
             '== ["proposed"]',
             '== ["accepted"]',
             "current.evidence_hash != historical.evidence_hash",
@@ -451,6 +457,7 @@ def validate_identity() -> dict:
         "migration_head": CURRENT_ALEMBIC_REVISION,
         "required_paths": sorted(required_paths),
         "required_schemas": sorted(required_schemas),
+        "source_formatting_normalized": True,
         "completion_authority": "transition_schedule",
         "database_transient_failure_boundary": True,
         "support_export": True,
