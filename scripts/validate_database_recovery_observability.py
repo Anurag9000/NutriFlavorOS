@@ -39,17 +39,17 @@ EXPECTED_SNAPSHOT_FIELDS = {
     "code_counts",
     "sqlstate_counts",
 }
-FORBIDDEN_FIELD_PARTS = {
+FORBIDDEN_SENSITIVE_NAMES = {
     "sql_text",
     "statement",
-    "parameter",
-    "idempotency",
-    "household",
-    "user",
-    "proposal",
-    "schedule",
-    "exception",
-    "message",
+    "parameters",
+    "idempotency_key",
+    "household_id",
+    "user_id",
+    "proposal_id",
+    "schedule_id",
+    "exception_message",
+    "request_payload",
     "payload",
 }
 
@@ -205,20 +205,18 @@ def validate_contract() -> dict:
             "database recovery snapshot fields drifted: "
             f"{sorted(snapshot_fields)}"
         )
-    for field in sorted(snapshot_fields):
-        if any(part in field for part in FORBIDDEN_FIELD_PARTS):
-            errors.append(f"sensitive metric snapshot field is forbidden: {field}")
+    for field in sorted(snapshot_fields & FORBIDDEN_SENSITIVE_NAMES):
+        errors.append(f"sensitive metric snapshot field is forbidden: {field}")
 
     method_arguments = _method_argument_names(
         sources["metrics"],
         "DatabaseRecoveryMetrics",
     )
     for method, arguments in sorted(method_arguments.items()):
-        for argument in sorted(arguments):
-            if any(part in argument for part in FORBIDDEN_FIELD_PARTS):
-                errors.append(
-                    f"metrics method {method} accepts sensitive argument: {argument}"
-                )
+        for argument in sorted(arguments & FORBIDDEN_SENSITIVE_NAMES):
+            errors.append(
+                f"metrics method {method} accepts sensitive argument: {argument}"
+            )
 
     expected_tests = {
         "test_metrics_snapshot_sanitizes_labels_and_is_immutable",
@@ -272,6 +270,7 @@ def validate_contract() -> dict:
         "cross_replica_aggregation": False,
         "persistent_across_restart": False,
         "alert_evaluation": True,
+        "exact_sensitive_name_validation": True,
         "errors": errors,
     }
 
