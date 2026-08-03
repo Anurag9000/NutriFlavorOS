@@ -51,8 +51,8 @@ from backend.services.preparation_operations_service import (
 from backend.services.preparation_repair_approval_guard_service import (
     approve_schedule_with_repair_acceptance_guard,
 )
-from backend.services.preparation_schedule_support_export_service import (
-    export_preparation_schedule_support_snapshot,
+from backend.services.preparation_schedule_support_export_authorized_service import (
+    export_authorized_preparation_schedule_support_snapshot,
 )
 from backend.services.preparation_task_completion_service import (
     complete_schedule_with_execution_guard,
@@ -228,10 +228,11 @@ def export_preparation_schedule_support_route(
     current_user: DBUser = Depends(get_current_user),
 ):
     _access(db, household_id, current_user.id, HouseholdRole.VIEWER)
-    return export_preparation_schedule_support_snapshot(
+    return export_authorized_preparation_schedule_support_snapshot(
         db,
         household_id=household_id,
         schedule_id=schedule_id,
+        authorized_user_id=current_user.id,
     )
 
 
