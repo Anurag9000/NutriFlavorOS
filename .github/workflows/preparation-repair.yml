@@ -64,6 +64,7 @@ jobs:
           backend/services/preparation_schedule_derivation_service.py
           backend/services/preparation_schedule_derivation_coverage_service.py
           backend/services/preparation_schedule_support_export_service.py
+          backend/services/preparation_schedule_support_export_authorized_service.py
           backend/services/preparation_task_execution_service.py
           backend/services/preparation_task_execution_eligibility_service.py
           backend/services/preparation_task_execution_replacement_guard_service.py
@@ -73,6 +74,7 @@ jobs:
           backend/tests/preparation_operations_service_cases.py
           backend/tests/test_preparation_task_execution_service.py
           backend/tests/test_preparation_schedule_support_export.py
+          backend/tests/test_preparation_schedule_support_export_authorization.py
           backend/migrations/versions/20260802_0015_preparation_repair_proposals.py
           backend/migrations/versions/20260802_0016_repair_proposal_calendar_identity.py
           backend/migrations/versions/20260802_0017_repair_proposal_acceptance.py
@@ -83,6 +85,7 @@ jobs:
           scripts/validate_database_transient_failure_boundary.py
           scripts/validate_preparation_schedule_support_export.py
           scripts/validate_preparation_schedule_support_export_frontend.py
+          scripts/validate_preparation_repair_connection_loss_contract.py
           scripts/validate_preparation_repair_contract.py
           scripts/validate_preparation_repair_proposal_contract.py
           scripts/validate_preparation_repair_proposal_invalidation.py
@@ -118,6 +121,8 @@ jobs:
         run: python scripts/validate_openapi_contracts.py
       - name: Validate structured database transient-failure boundary
         run: python scripts/validate_database_transient_failure_boundary.py
+      - name: Validate post-commit connection-loss recovery contract
+        run: python scripts/validate_preparation_repair_connection_loss_contract.py
       - name: Validate read-only schedule support export
         run: python scripts/validate_preparation_schedule_support_export.py
       - name: Validate protected support export workspace
@@ -162,6 +167,7 @@ jobs:
           backend/tests/test_preparation_operations_service.py
           backend/tests/test_preparation_task_execution_service.py
           backend/tests/test_preparation_schedule_support_export.py
+          backend/tests/test_preparation_schedule_support_export_authorization.py
           backend/tests/test_preparation_schedule_repair.py
           backend/tests/test_preparation_schedule_replay.py
           backend/tests/test_preparation_repair_advisory_boundary.py
