@@ -70,6 +70,7 @@ jobs:
           scripts/validate_preparation_repair_pool_exhaustion_contract.py
           scripts/validate_preparation_repair_pool_pressure_contract.py
           scripts/validate_preparation_repair_worker_recycle_contract.py
+          scripts/validate_preparation_repair_worker_recycle_release.py
           scripts/validate_database_recovery_observability.py
           scripts/validate_database_transient_failure_boundary.py
           scripts/validate_preparation_repair_serialization_retry_contract.py
@@ -97,6 +98,8 @@ jobs:
         run: python scripts/validate_preparation_repair_pool_pressure_contract.py
       - name: Validate controlled application-worker recycle contract
         run: python scripts/validate_preparation_repair_worker_recycle_contract.py
+      - name: Validate controlled application-worker recycle release
+        run: python scripts/validate_preparation_repair_worker_recycle_release.py
       - name: Validate database recovery metric integrity
         run: python scripts/validate_database_recovery_metric_integrity.py
       - name: Validate database recovery observability
