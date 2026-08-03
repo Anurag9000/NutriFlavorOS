@@ -98,8 +98,27 @@ def test_invalidated_connection_without_sqlstate_is_ambiguous():
     detail = classify_operational_error(error)
     assert detail["code"] == "database_commit_outcome_unknown"
     assert detail["outcome_unknown"] is True
+    assert detail["transaction_aborted"] is False
     assert detail["retryable"] is True
     assert detail["retry_safe"] is False
+
+
+def test_invalidated_connection_dominates_retryable_sqlstate():
+    error = _operational_error("40001", connection_invalidated=True)
+    response = _client_for(error).get("/failure")
+
+    assert response.status_code == 503
+    assert response.headers["retry-after"] == "1"
+    detail = response.json()["detail"]
+    assert detail["code"] == "database_commit_outcome_unknown"
+    assert detail["sqlstate"] == "40001"
+    assert detail["outcome_unknown"] is True
+    assert detail["transaction_aborted"] is False
+    assert detail["retryable"] is True
+    assert detail["retry_safe"] is False
+    assert detail["retry_same_idempotency_key"] is True
+    assert detail["automatic_retry_performed"] is False
+    assert "driver details" not in response.text
 
 
 def test_nonretryable_operational_error_is_sanitized_500():
