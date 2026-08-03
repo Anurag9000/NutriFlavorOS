@@ -95,6 +95,22 @@ Invalid metric combinations fail before counters change:
 - outcome-unknown observations cannot schedule automatic retries;
 - retry delay cannot be negative.
 
+## Controlled sustained pressure aggregation
+
+The controlled sustained PostgreSQL pool-pressure test occupies a two-connection pool and executes three synchronized waves with eight callers per wave.
+
+All **24 checkout timeouts** are recorded through the explicit bounded retry utility as:
+
+- 24 `database_pool_timeout` code-count events;
+- 24 retry observations;
+- 24 exhausted single-attempt budgets;
+- zero scheduled retries;
+- zero outcome-unknown events;
+- zero invalidated connections;
+- zero HTTP operational-error events, because the test invokes the explicit caller utility rather than the HTTP boundary.
+
+The test also proves zero lifecycle mutation during pressure and `checkedout() == 0` after capacity is released and exact-key recovery completes. These counts are deterministic evidence for the controlled corpus, not representative production rates or capacity.
+
 ## Verification
 
 Focused tests prove:
@@ -105,6 +121,7 @@ Focused tests prove:
 - snapshots are immutable;
 - HTTP errors and bounded retries update exact counters;
 - pool checkout timeout produces one bounded alert and OpenMetrics series;
+- the three-wave controlled pressure corpus produces exactly 24 checkout-timeout observations and exhausted single-attempt budgets;
 - alert thresholds produce deterministic severity and counts;
 - **1,600 concurrent updates** remain exact;
 - OpenMetrics ordering and output are deterministic;
@@ -121,6 +138,6 @@ This implementation does not provide:
 - cross-replica aggregation;
 - time-windowed rates or histograms;
 - production dashboards, paging, or incident automation;
-- production pool sizing or sustained-load capacity;
+- representative production capacity, production pool sizing, or sustained real-traffic throughput;
 - automatic mutation retries;
 - proof of hosted green workflows without observed exact runs and artifacts.
