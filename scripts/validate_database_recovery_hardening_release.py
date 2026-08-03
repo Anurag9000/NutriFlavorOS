@@ -1,0 +1,258 @@
+#!/usr/bin/env python3
+"""Validate the synchronized database-recovery hardening release addendum."""
+
+from __future__ import annotations
+
+import ast
+import json
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+EXPECTED_API = "0.15.4"
+EXPECTED_OPENAPI = "2026-08-03.2"
+EXPECTED_MIGRATION = "20260802_0018"
+FILES = {
+    "main": "backend/main.py",
+    "schema": "backend/schema_revision.py",
+    "openapi": "contracts/openapi_required.json",
+    "handler": "backend/api/database_error_handlers.py",
+    "metrics": "backend/database_recovery_metrics.py",
+    "renderer": "backend/database_recovery_openmetrics.py",
+    "retry": "backend/exact_database_retry.py",
+    "metrics_tests": "backend/tests/test_database_recovery_metrics.py",
+    "integrity_tests": "backend/tests/test_database_recovery_metric_integrity.py",
+    "retry_tests": "backend/tests/test_exact_database_retry.py",
+    "pool_tests": "backend/tests/test_database_pool_timeout_boundary.py",
+    "exhaustion_test": (
+        "backend/tests/test_preparation_repair_pool_exhaustion_postgres.py"
+    ),
+    "pressure_test": "backend/tests/test_preparation_repair_pool_pressure_postgres.py",
+    "metric_contract": "scripts/validate_database_recovery_metric_integrity.py",
+    "pressure_contract": (
+        "scripts/validate_preparation_repair_pool_pressure_contract.py"
+    ),
+    "workflow": ".github/workflows/preparation-repair-pool-exhaustion.yml",
+    "readme": "README.md",
+    "observability_docs": "docs/DATABASE_RECOVERY_OBSERVABILITY.md",
+    "retry_docs": "docs/PREPARATION_REPAIR_SERIALIZATION_RETRY.md",
+    "pressure_docs": "docs/PREPARATION_REPAIR_POOL_PRESSURE.md",
+    "status": "docs/IMPLEMENTATION_STATUS.md",
+    "roadmap": "docs/ROADMAP.md",
+}
+
+
+def _read(relative: str, errors: list[str]) -> str:
+    path = ROOT / relative
+    if not path.is_file():
+        errors.append(f"missing recovery hardening release file: {relative}")
+        return ""
+    source = path.read_text(encoding="utf-8")
+    if path.suffix == ".py":
+        ast.parse(source, filename=relative)
+    return source
+
+
+def _normalized(value: str) -> str:
+    return " ".join(value.split())
+
+
+def _contains(source: str, fragment: str) -> bool:
+    return fragment in source or _normalized(fragment) in _normalized(source)
+
+
+def validate_release() -> dict:
+    errors: list[str] = []
+    sources = {name: _read(path, errors) for name, path in FILES.items()}
+
+    try:
+        contract = json.loads(sources["openapi"] or "{}")
+    except json.JSONDecodeError as exc:
+        errors.append(f"invalid OpenAPI release JSON: {exc}")
+        contract = {}
+
+    if contract.get("api_version") != EXPECTED_API:
+        errors.append("database recovery release API version drifted")
+    if contract.get("contract_version") != EXPECTED_OPENAPI:
+        errors.append("database recovery OpenAPI release version drifted")
+
+    required = {
+        "main": {f'version="{EXPECTED_API}"'},
+        "schema": {f'CURRENT_ALEMBIC_REVISION = "{EXPECTED_MIGRATION}"'},
+        "handler": {
+            "def classify_operational_error",
+            "def classify_pool_timeout",
+            "def classify_database_error",
+            '"database_transaction_retry_required"',
+            '"database_commit_outcome_unknown"',
+            '"database_pool_timeout"',
+            '"database_operation_failed"',
+            '"automatic_retry_performed": False',
+        },
+        "metrics": {
+            "def _validate_operational_classification",
+            "def _validate_retry_observation_classification",
+            "def _finite_nonnegative_delay",
+            "from math import isfinite",
+            "type(value) is not int or value < 1",
+            '"database_pool_timeout"',
+        },
+        "renderer": {
+            'METRIC_PREFIX = "nutriflavor_database_recovery"',
+            '"database_pool_timeout"',
+            "_validate_values(snapshot)",
+            'lines.append("# EOF")',
+        },
+        "retry": {
+            "def _finite_nonnegative_policy_value",
+            "from math import isfinite",
+            "type(self.max_attempts) is not int",
+            "classify_database_error",
+            "TimeoutError as SQLAlchemyTimeoutError",
+            "no_transaction_started=observation.no_transaction_started",
+        },
+        "metrics_tests": {
+            "test_classification_code_and_flags_must_match_before_counter_mutation",
+            "test_metrics_registry_is_thread_safe_and_monotonic",
+            "retry_observation_total == 1600",
+        },
+        "integrity_tests": {
+            "test_nonfinite_metric_delays_fail_before_counter_mutation",
+            "test_alert_thresholds_require_positive_integers",
+            "test_exact_reviewed_classifications_remain_recordable",
+        },
+        "retry_tests": {
+            "test_policy_and_idempotency_key_validation",
+            'float("nan")',
+            'float("inf")',
+            'float("-inf")',
+        },
+        "pool_tests": {
+            "test_pool_timeout_returns_retry_safe_structured_503",
+            "test_bounded_utility_retries_pool_timeout_with_same_key",
+            "test_pool_timeout_exhaustion_is_bounded_and_observable",
+        },
+        "exhaustion_test": {
+            "test_postgres_pool_exhaustion_times_out_before_mutation_and_recovers",
+            "pool_size=1",
+            "max_overflow=0",
+            "pool_timeout=0.1",
+        },
+        "pressure_test": {
+            "test_postgres_sustained_pool_pressure_times_out_cleanly_then_recovers",
+            "POOL_SIZE = 2",
+            "WORKERS_PER_WAVE = 8",
+            "PRESSURE_WAVES = 3",
+            "EXPECTED_TIMEOUTS = WORKERS_PER_WAVE * PRESSURE_WAVES",
+            "snapshot.retry_exhausted_total == EXPECTED_TIMEOUTS",
+            "constrained_engine.pool.checkedout() == 0",
+        },
+        "metric_contract": {
+            '"exact_code_proof_partition": True',
+            '"nonfinite_policy_values_rejected": True',
+            '"nonfinite_metric_delays_rejected": True',
+            '"alert_thresholds_positive_integers": True',
+            '"atomic_failure_before_counter_mutation": True',
+        },
+        "pressure_contract": {
+            '"expected_checkout_timeouts": 24',
+            '"zero_mutation_before_recovery": True',
+            '"pool_checked_out_after_recovery": 0',
+            '"representative_production_capacity": False',
+        },
+        "workflow": {
+            "test_database_operational_error_handler.py",
+            "test_database_recovery_metrics.py",
+            "test_database_recovery_metric_integrity.py",
+            "test_database_recovery_openmetrics.py",
+            "test_database_pool_timeout_boundary.py",
+            "test_exact_database_retry.py",
+            "test_preparation_repair_pool_exhaustion_postgres.py",
+            "test_preparation_repair_pool_pressure_postgres.py",
+            "validate_database_recovery_metric_integrity.py",
+            "validate_preparation_repair_pool_pressure_contract.py",
+            "reports/preparation-repair-pool-exhaustion.xml",
+        },
+        "readme": {
+            f"API: `{EXPECTED_API}`",
+            f"Alembic head: `{EXPECTED_MIGRATION}`",
+            f"OpenAPI contract: `{EXPECTED_OPENAPI}`",
+            "controlled sustained pool pressure",
+            "24 checkout timeouts",
+            "No public metrics HTTP endpoint",
+            "not representative production capacity",
+        },
+        "observability_docs": {
+            "Exact classification and numeric integrity",
+            "code and proof flags must agree",
+            "finite and nonnegative",
+            "positive integer thresholds",
+            "Controlled sustained pressure aggregation",
+            "24 checkout timeouts",
+            "outcome-unknown events: critical",
+            "unreviewed code or SQLSTATE labels",
+        },
+        "retry_docs": {
+            "Bounded Exact Serialization Retry",
+            "positive integer",
+            "finite and nonnegative",
+            "NaN",
+            "infinity",
+            "SQLAlchemy `TimeoutError`",
+        },
+        "pressure_docs": {
+            "Controlled Sustained PostgreSQL Pool Pressure",
+            "three synchronized waves",
+            "eight callers per wave",
+            "24 checkout timeouts",
+            "exactly zero lifecycle mutation",
+            "checkedout() == 0",
+            "not representative production capacity",
+        },
+        "status": {
+            "Exact classification integrity",
+            "Nonfinite retry timing",
+            "controlled sustained pool pressure",
+            "24 checkout timeouts",
+            "zero lifecycle mutation",
+        },
+        "roadmap": {
+            "C14 — Controlled sustained PostgreSQL pool pressure",
+            "controlled sustained pool pressure",
+            "representative production capacity",
+        },
+    }
+    for label, fragments in required.items():
+        for fragment in sorted(fragments):
+            if not _contains(sources[label], fragment):
+                errors.append(
+                    f"{FILES[label]} lacks recovery-hardening release fragment: "
+                    f"{fragment}"
+                )
+
+    return {
+        "valid": not errors,
+        "api_version": contract.get("api_version"),
+        "openapi_contract_version": contract.get("contract_version"),
+        "migration_head": EXPECTED_MIGRATION,
+        "reviewed_error_code_count": 4,
+        "controlled_pressure_timeout_count": 24,
+        "controlled_pressure_zero_mutation": True,
+        "controlled_pressure_pool_checked_out_after_recovery": 0,
+        "nonfinite_retry_inputs_rejected": True,
+        "classification_integrity_enforced": True,
+        "public_metrics_endpoint": False,
+        "representative_production_capacity": False,
+        "hosted_green_claim": False,
+        "errors": errors,
+    }
+
+
+def main() -> int:
+    report = validate_release()
+    print(json.dumps(report, indent=2, sort_keys=True))
+    return 0 if report["valid"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
