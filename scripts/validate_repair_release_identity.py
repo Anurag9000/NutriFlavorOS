@@ -104,6 +104,9 @@ def validate_identity() -> dict:
             "retry_safe=false",
             "database recovery observability",
             "No public metrics HTTP endpoint",
+            "controlled sustained pool pressure",
+            "24 checkout timeouts",
+            "not representative production capacity",
         },
         "docs/IMPLEMENTATION_STATUS.md": {
             f"**Database migration head:** `{EXPECTED_MIGRATION}`",
@@ -125,6 +128,9 @@ def validate_identity() -> dict:
             "database recovery observability",
             "privacy-preserving process metrics",
             "cross-replica aggregation",
+            "controlled sustained pool pressure",
+            "24 checkout timeouts",
+            "zero lifecycle mutation",
         },
         "docs/ROADMAP.md": {
             f"**Current migration head:** `{EXPECTED_MIGRATION}`",
@@ -138,6 +144,7 @@ def validate_identity() -> dict:
             "C10 — PostgreSQL lifecycle, migration, and recovery evidence",
             "C11 — Read-only support evidence export",
             "C12 — Database recovery observability foundation",
+            "C14 — Controlled sustained PostgreSQL pool pressure",
             "post-commit connection-loss recovery",
             "checked-out pool connection recovery",
             "bounded exact serialization retry",
@@ -145,6 +152,8 @@ def validate_identity() -> dict:
             "database recovery observability",
             "cross-replica aggregation",
             "automatic_retry_performed=false",
+            "controlled sustained pool pressure",
+            "representative production capacity",
         },
         "docs/PREPARATION_REPAIR_ACCEPTANCE.md": {
             "creates exactly one new preparation schedule in `draft` state",
@@ -169,6 +178,22 @@ def validate_identity() -> dict:
             "pool_pre_ping=True",
             "connection_invalidated=true",
             "retry_safe=false",
+        },
+        "docs/PREPARATION_REPAIR_POOL_EXHAUSTION.md": {
+            "PostgreSQL Pool Exhaustion Recovery",
+            "database_pool_timeout",
+            "no_transaction_started=true",
+            "same acceptance and schedule identities",
+        },
+        "docs/PREPARATION_REPAIR_POOL_PRESSURE.md": {
+            "Controlled Sustained PostgreSQL Pool Pressure",
+            "three synchronized waves",
+            "eight callers per wave",
+            "24 checkout timeouts",
+            "exactly zero lifecycle mutation",
+            "same idempotency key",
+            "checkedout() == 0",
+            "not representative production capacity",
         },
         "docs/PREPARATION_REPAIR_SERIALIZATION_RETRY.md": {
             "Bounded Exact Serialization Retry",
@@ -221,7 +246,9 @@ def validate_identity() -> dict:
         {
             "database_transaction_retry_required",
             "database_commit_outcome_unknown",
+            "database_pool_timeout",
             "retry_safe = transaction_aborted and not outcome_unknown",
+            '"no_transaction_started": True',
             '"automatic_retry_performed": False',
             "DATABASE_RECOVERY_METRICS.record_operational_error(",
         },
@@ -239,6 +266,7 @@ def validate_identity() -> dict:
             "record_retry_exhausted",
             "record_utility_outcome_unknown",
             "MappingProxyType(dict(self._code_counts))",
+            '"database_pool_timeout"',
             '"08xxx"',
             "RLock()",
         },
@@ -250,6 +278,7 @@ def validate_identity() -> dict:
         {
             "class ExactDatabaseRetryPolicy",
             "class DatabaseOutcomeUnknown",
+            "classify_database_error",
             "DATABASE_RECOVERY_METRICS.record_retry_observation(",
             "DATABASE_RECOVERY_METRICS.record_retry_succeeded_after_retry()",
             "DATABASE_RECOVERY_METRICS.record_retry_exhausted()",
@@ -340,6 +369,48 @@ def validate_identity() -> dict:
         errors,
         "serialization recovery",
     )
+    _require(
+        "backend/tests/test_preparation_repair_pool_exhaustion_postgres.py",
+        {
+            "test_postgres_pool_exhaustion_times_out_before_mutation_and_recovers",
+            "pool_size=1",
+            "max_overflow=0",
+            "pool_timeout=0.1",
+            '"acceptances": 0',
+            '"acceptances": 1',
+        },
+        errors,
+        "single pool exhaustion",
+    )
+    _require(
+        "backend/tests/test_preparation_repair_pool_pressure_postgres.py",
+        {
+            "test_postgres_sustained_pool_pressure_times_out_cleanly_then_recovers",
+            "POOL_SIZE = 2",
+            "WORKERS_PER_WAVE = 8",
+            "PRESSURE_WAVES = 3",
+            "EXPECTED_TIMEOUTS = WORKERS_PER_WAVE * PRESSURE_WAVES",
+            "ThreadPoolExecutor(max_workers=WORKERS_PER_WAVE)",
+            "Barrier(WORKERS_PER_WAVE + 1)",
+            "snapshot.retry_exhausted_total == EXPECTED_TIMEOUTS",
+            "constrained_engine.pool.checkedout() == 0",
+            "replayed.acceptance.id == accepted.acceptance.id",
+        },
+        errors,
+        "sustained pool pressure",
+    )
+    _require(
+        "scripts/validate_preparation_repair_pool_pressure_contract.py",
+        {
+            "_integer_expression",
+            '"expected_checkout_timeouts": 24',
+            '"derived_constant_evaluation": True',
+            '"zero_mutation_before_recovery": True',
+            '"representative_production_capacity": False',
+        },
+        errors,
+        "sustained pool pressure contract",
+    )
 
     _require(
         ".github/workflows/preparation-repair.yml",
@@ -367,6 +438,19 @@ def validate_identity() -> dict:
         errors,
         "PostgreSQL evidence workflow",
     )
+    _require(
+        ".github/workflows/preparation-repair-pool-exhaustion.yml",
+        {
+            "test_database_pool_timeout_boundary.py",
+            "test_preparation_repair_pool_exhaustion_postgres.py",
+            "test_preparation_repair_pool_pressure_postgres.py",
+            "validate_preparation_repair_pool_exhaustion_contract.py",
+            "validate_preparation_repair_pool_pressure_contract.py",
+            "reports/preparation-repair-pool-exhaustion.xml",
+        },
+        errors,
+        "pool pressure evidence workflow",
+    )
 
     main_source = _read("backend/main.py", errors)
     for forbidden in {
@@ -388,6 +472,14 @@ def validate_identity() -> dict:
         "post_commit_connection_loss_recovery": True,
         "checked_out_pool_recovery": True,
         "bounded_serialization_retry": True,
+        "controlled_pool_exhaustion": True,
+        "controlled_sustained_pool_pressure": True,
+        "pressure_waves": 3,
+        "pressure_workers_per_wave": 8,
+        "pressure_timeout_count": 24,
+        "pressure_zero_mutation": True,
+        "pressure_pool_checked_out_after_recovery": 0,
+        "representative_production_capacity": False,
         "database_recovery_observability": True,
         "metrics_scope": "process_local",
         "metrics_sensitive_identifiers_recorded": False,
