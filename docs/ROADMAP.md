@@ -68,6 +68,20 @@ A real **pool exhaustion** boundary is implemented.
 
 This proves controlled checkout-timeout recovery, not production pool sizing or sustained-load capacity.
 
+### C14 — Controlled sustained PostgreSQL pool pressure
+
+**Controlled sustained pool pressure** is implemented as a deterministic extension of C13.
+
+- A constrained `QueuePool` uses two connections, no overflow, a 0.12-second checkout timeout, and pre-ping.
+- Both connections are deliberately occupied before each pressure corpus begins.
+- Three synchronized waves run eight callers per wave against the same exact idempotent acceptance request.
+- All **24 checkout timeouts** prove `no_transaction_started=true`, `retry_safe=true`, and `outcome_unknown=false`.
+- Independent reads after every wave prove zero acceptance, replacement-schedule, proposal-accepted-event, and replacement-created-event mutation.
+- Metrics prove exactly 24 retry observations and exhausted single-attempt budgets, with no scheduled retries, ambiguity, or invalidated connections.
+- After releasing capacity, `checkedout() == 0`, one exact-key request creates one replacement, a later retry returns the same identities, and the pool returns to zero checked-out connections.
+
+This closes controlled repeated pressure and leak-free recovery. It does not establish **representative production capacity**, safe deployment sizing, real-traffic latency, fairness, or indefinite pressure handling.
+
 ## P0 — Observe and repair exact hosted verification
 
 Inspect exact latest `main` workflow runs and artifacts, record exact commit/run/artifact identities, repair every failure without skip or weakening, and never report green until exact current evidence is observed.
@@ -76,7 +90,8 @@ Inspect exact latest `main` workflow runs and artifacts, record exact commit/run
 
 - Connection loss while COMMIT acknowledgement itself is in flight.
 - PostgreSQL primary loss, replica promotion, DNS/service-discovery changes, and multi-node failover.
-- Sustained pool exhaustion, queueing fairness, timeout/recycle/lifetime behavior, process restart, and representative concurrent-load recovery beyond the controlled one-holder probe.
+- Representative production capacity under realistic concurrent traffic, queueing, latency, process counts, pool sizing, connection lifetime/recycle behavior, and duration beyond the controlled 24-timeout corpus.
+- Process restart while pressure is active and recovery across multiple application replicas.
 - Production-snapshot or production-scale migration rehearsal beyond the 64-lifecycle corpus.
 - Authenticated production monitoring with rates, cross-replica aggregation, dashboards, alerts, paging, SLOs, and runbooks.
 
@@ -108,5 +123,5 @@ Continue reviewed evidence, forecasting, constrained ranking, backup/PITR, relea
 - The server always reports `automatic_retry_performed=false`.
 - Database recovery metrics never store SQL, request contents, idempotency keys, or domain identifiers.
 - Frontend preflight never replaces server authority.
-- No clinical, food-safety, global-optimality, model-readiness, or green-build claim without exact supporting evidence.
+- No clinical, food-safety, global-optimality, model-readiness, representative-capacity, or green-build claim without exact supporting evidence.
 - No force push, history rewrite, feature branch, or feature PR.
