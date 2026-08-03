@@ -14,6 +14,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
@@ -33,6 +34,7 @@ from backend.services.preparation_repair_source_acceptance_guard_service import 
 
 
 POOL_TIMEOUT_SECONDS = 0.12
+WORKER_INSTANCE_ID = uuid4().hex
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -98,7 +100,7 @@ def _pressure(config: dict[str, Any], report_path: Path) -> int:
     )
     holder = engine.connect()
     holder_backend_pid = int(
-        holder.execute(text("SELECT pg_backend_pid()")) .scalar_one()
+        holder.execute(text("SELECT pg_backend_pid()")).scalar_one()
     )
 
     def operation(exact_key: str, attempt: int):
@@ -136,6 +138,7 @@ def _pressure(config: dict[str, Any], report_path: Path) -> int:
 
     report = {
         "mode": "pressure",
+        "worker_instance_id": WORKER_INSTANCE_ID,
         "worker_pid": os.getpid(),
         "holder_backend_pid": holder_backend_pid,
         "pool_checked_out": engine.pool.checkedout(),
@@ -186,7 +189,7 @@ def _recover(config: dict[str, Any], report_path: Path) -> int:
     db = Session()
     try:
         recovery_backend_pid = int(
-            db.execute(text("SELECT pg_backend_pid()")) .scalar_one()
+            db.execute(text("SELECT pg_backend_pid()")).scalar_one()
         )
         accepted = accept_repair_proposal_with_source_guard(
             db,
@@ -210,6 +213,7 @@ def _recover(config: dict[str, Any], report_path: Path) -> int:
         report_path,
         {
             "mode": "recovery",
+            "worker_instance_id": WORKER_INSTANCE_ID,
             "worker_pid": os.getpid(),
             "recovery_backend_pid": recovery_backend_pid,
             "acceptance_id": acceptance_id,
@@ -240,6 +244,7 @@ def main() -> int:
             args.report,
             {
                 "mode": args.mode,
+                "worker_instance_id": WORKER_INSTANCE_ID,
                 "worker_pid": os.getpid(),
                 "error_type": type(exc).__name__,
                 "success": False,
