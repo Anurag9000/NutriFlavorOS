@@ -56,6 +56,10 @@ def _wait_for_json(
     while time.monotonic() < deadline:
         if path.is_file():
             last_value = _read_json(path)
+            if last_value.get("success") is False:
+                raise AssertionError(
+                    f"worker reported a failure: {last_value!r}"
+                )
             if predicate(last_value):
                 return last_value
         time.sleep(0.05)
@@ -196,8 +200,11 @@ def test_postgres_worker_recycle_under_pool_pressure_recovers_exact_request(
             lambda value: value.get("waiting_for_orderly_recycle") is True,
         )
         assert pressure_process.poll() is None
+        old_worker_instance_id = str(pressure_report["worker_instance_id"])
+        assert len(old_worker_instance_id) == 32
         assert pressure_report == {
             "mode": "pressure",
+            "worker_instance_id": old_worker_instance_id,
             "worker_pid": pressure_process.pid,
             "holder_backend_pid": pressure_report["holder_backend_pid"],
             "pool_checked_out": 1,
@@ -229,6 +236,7 @@ def test_postgres_worker_recycle_under_pool_pressure_recovers_exact_request(
             pressure_report_path,
             lambda value: value.get("recycle_completed") is True,
         )
+        assert recycled_report["worker_instance_id"] == old_worker_instance_id
         assert recycled_report["waiting_for_orderly_recycle"] is False
         assert recycled_report["pool_checked_out_after_close"] == 0
         _wait_for_backend_absence(db, old_backend_pid)
@@ -263,7 +271,9 @@ def test_postgres_worker_recycle_under_pool_pressure_recovers_exact_request(
         lambda value: value.get("same_key_recovery_performed") is True,
     )
     assert recovery_report["mode"] == "recovery"
-    assert recovery_report["worker_pid"] != pressure_process.pid
+    new_worker_instance_id = str(recovery_report["worker_instance_id"])
+    assert len(new_worker_instance_id) == 32
+    assert new_worker_instance_id != old_worker_instance_id
     assert recovery_report["recovery_backend_pid"] != old_backend_pid
     assert recovery_report["created_schedule_status"] == "draft"
     assert recovery_report["created_schedule_version"] == 1
