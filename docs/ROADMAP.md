@@ -38,7 +38,7 @@ Immutable server-recomputed proposals, exact changed-task acknowledgement, one-n
 
 Configured real-database evidence includes lifecycle/dependency races; populated `0017 → 0018` migration rehearsal; statement-timeout and deadlock recovery; post-commit connection termination; checked-out pool invalidation; discarded-response recovery; **bounded exact serialization retry**; and a genuine `SERIALIZABLE` probe forcing **three consecutive `40001` aborts** before the fourth exact-key attempt creates one acceptance and replacement.
 
-The HTTP server keeps `automatic_retry_performed=false`. `retry_safe=true` is reserved for proven transaction aborts; connection ambiguity remains `retry_safe=false`.
+The HTTP server keeps `automatic_retry_performed=false`. `retry_safe=true` is reserved for proven transaction aborts or proof that no transaction started; connection ambiguity remains `retry_safe=false`.
 
 ### C11 — Read-only support evidence export
 
@@ -46,17 +46,30 @@ A viewer-authorized endpoint, operator CLI, typed GET-only client, and protected
 
 ### C12 — Database recovery observability foundation
 
-The **database recovery observability** foundation is implemented as privacy-preserving process-local metrics plus a sanitized OpenMetrics adapter.
+The **database recovery observability** foundation is implemented as privacy-preserving process-local metrics plus deterministic OpenMetrics rendering.
 
-- Only bounded error codes and SQLSTATE buckets are recorded or rendered.
+- Only bounded error codes and SQLSTATE buckets are recorded.
 - SQL, parameters, exception messages, idempotency keys, domain IDs, food data, and request payloads are excluded.
-- Immutable snapshots expose error, retry, convergence, exhaustion, ambiguity, invalidated-connection, and delay counters.
+- Immutable snapshots expose error, retry, convergence, exhaustion, ambiguity, invalidated-connection, pool-timeout, and delay counters.
 - Thread-safe aggregation and deterministic alert evaluation are covered by focused tests, including 1,600 concurrent updates.
-- OpenMetrics output uses prefix `nutriflavor_database_recovery`, deterministic HELP/TYPE blocks, sorted bounded labels, and one EOF marker.
-- Unreviewed labels, negative/non-integer counters, and negative/non-finite delay values fail closed.
-- No public metrics HTTP endpoint exists.
+- OpenMetrics output rejects unreviewed labels and malformed values and exposes no HTTP endpoint.
 
-This closes the core instrumentation and rendering boundary, not production monitoring. Authenticated publication, persistent time windows, **cross-replica aggregation**, dashboards, paging, deduplication, ownership, runbooks, and SLOs remain.
+This closes the core instrumentation boundary, not production monitoring. Persistent time windows, **cross-replica aggregation**, dashboards, paging, deduplication, ownership, runbooks, and SLOs remain.
+
+### C13 — Controlled PostgreSQL pool exhaustion recovery
+
+A real **pool exhaustion** boundary is implemented.
+
+- SQLAlchemy `TimeoutError` maps to `database_pool_timeout`.
+- The response reports `no_transaction_started=true`, `retry_safe=true`, `transaction_aborted=false`, `outcome_unknown=false`, and `automatic_retry_performed=false`.
+- The explicit bounded utility retries only with the identical idempotency key.
+- A PostgreSQL `QueuePool` probe uses `pool_size=1`, `max_overflow=0`, and `pool_timeout=0.1`.
+- Independent reads prove zero acceptance, replacement schedule, and lifecycle-event mutation before checkout recovery.
+- Releasing the held connection permits exactly one accepted replacement, and a later retry returns the same identities.
+- The bounded metric and OpenMetrics code is `database_pool_timeout`.
+- A dedicated direct-`main` workflow retains JUnit evidence.
+
+This proves controlled checkout-timeout recovery, not production pool sizing or sustained-load capacity.
 
 ## P0 — Observe and repair exact hosted verification
 
@@ -70,9 +83,9 @@ This closes the core instrumentation and rendering boundary, not production moni
 
 - Connection loss while COMMIT acknowledgement itself is in flight.
 - PostgreSQL primary loss, replica promotion, DNS/service-discovery changes, and multi-node failover.
-- Sustained pool exhaustion, timeout, recycle/lifetime behavior, process restart, and concurrent-load recovery.
+- Sustained pool exhaustion, queueing fairness, timeout/recycle/lifetime behavior, process restart, and concurrent-load recovery beyond the controlled one-holder probe.
 - Production-snapshot or production-scale migration rehearsal beyond the 64-lifecycle corpus.
-- Connect process-local metrics/OpenMetrics to authenticated production monitoring with rates, cross-replica aggregation, dashboards, alerts, paging, SLOs, and runbooks.
+- Connect process-local metrics to authenticated production monitoring with rates, cross-replica aggregation, dashboards, alerts, paging, SLOs, and runbooks.
 
 The HTTP server must never perform automatic mutation retries. Explicit callers may use bounded retry only when `retry_safe=true`; connection ambiguity remains `retry_safe=false` and requires authoritative same-key outcome recovery.
 
@@ -106,9 +119,9 @@ Clinical nutrition, medication decisions, allergy-safety guarantees, contaminati
 - Replaced sources remain readable but cannot receive new execution events.
 - Completion requires explicit task terminality at the lowest exported authority.
 - Support export is read-only, hash-addressed, snapshot-authorized, and never upgrades user-entered evidence into execution or safety verification.
-- `retry_safe=true` is reserved for proven transaction aborts; connection ambiguity remains `retry_safe=false`.
+- `retry_safe=true` is reserved for proven transaction aborts or proof that no transaction started; connection ambiguity remains `retry_safe=false`.
 - The server always reports `automatic_retry_performed=false`.
-- Database recovery metrics and OpenMetrics never store or render SQL, request contents, idempotency keys, or domain identifiers.
+- Database recovery metrics never store SQL, request contents, idempotency keys, or domain identifiers.
 - Frontend preflight never replaces server authority.
 - No clinical, food-safety, global-optimality, model-readiness, or green-build claim without exact supporting evidence.
 - No force push, history rewrite, feature branch, or feature PR.
