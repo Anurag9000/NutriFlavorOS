@@ -81,6 +81,20 @@ Implemented real PostgreSQL evidence includes:
 - **bounded exact serialization retry** with finite exponential backoff, immutable observations, exact-key preservation, and no replay of outcome-unknown connections;
 - a genuine `SERIALIZABLE` test forcing **three consecutive `40001` aborts** before the fourth exact-key attempt creates exactly one acceptance and replacement.
 
+## Database recovery observability
+
+**Database recovery observability** now provides **privacy-preserving process metrics** for sanitized HTTP operational errors and explicit bounded retry behavior.
+
+- Labels are restricted to three stable error codes and SQLSTATE buckets `40001`, `40P01`, `57014`, `55P03`, `08xxx`, and `unknown`.
+- Snapshots expose operational errors, transaction aborts, outcome-unknown events, nonretryable errors, invalidated connections, retry observations, scheduled retries, successful convergence, exhausted budgets, outcome-unknown utility exits, and total/maximum delay.
+- Snapshot mappings are immutable and counters are protected by a re-entrant lock.
+- SQL, parameters, exception messages, idempotency keys, household/user/proposal/schedule IDs, food data, and request payloads are never recorded.
+- Alert evaluation emits process-local critical/warning values for outcome unknown, retry exhaustion, transaction-abort volume, and invalidated connections.
+- Tests prove sanitization, immutable snapshots, exact handler/retry integration, deterministic alerts, invalid-input atomicity, and 1,600 concurrent updates.
+- No public metrics HTTP endpoint is exposed.
+
+This is an adapter foundation, not production monitoring. Time windows, persistence, **cross-replica aggregation**, dashboards, paging, deduplication, ownership, runbooks, and SLOs remain.
+
 ## PostgreSQL concurrency evidence
 
 Configured PostgreSQL-only coverage includes duplicate/competing acceptance, acceptance versus rejection/invalidation/source execution, plan cancellation and calendar supersession races, repaired approval races, final-task versus schedule completion, repeatable-read support export, lost responses, statement timeout, deadlock, post-commit backend termination, checked-out pool invalidation, repeated serialization retry, populated migration rehearsal, and exact migration/dialect assertions with retained JUnit/JSON evidence.
@@ -90,11 +104,12 @@ The exact latest hosted executions and artifacts have not been observed in this 
 ## Remaining P0/P1 work
 
 - Observe and repair exact current hosted workflows and artifacts.
-- Test connection loss while COMMIT acknowledgement itself is in flight, multi-node failover, pool exhaustion under sustained load, and operational SQLSTATE/retry/lock metrics.
+- Test connection loss while COMMIT acknowledgement itself is in flight, multi-node failover, and pool exhaustion under sustained load.
+- Connect process metrics to authenticated production monitoring with cross-replica rates, dashboards, alerts, paging, SLOs, and runbooks.
 - Add production-snapshot or production-scale migration rehearsal, backup/restore, and point-in-time recovery.
 - Implement authenticated PostgreSQL-backed Playwright, axe, keyboard/reflow/contrast evidence, signed/redacted support packages, retention, and audit linkage.
 - Implement execution-aware repair and joint meal/inventory/reservation/shopping/leftover/preparation repair.
 
 ## Non-claims
 
-NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, COMMIT-acknowledgement-in-flight recovery, multi-node failover recovery, signed/export-retention guarantees, or current hosted green-build status.
+NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, COMMIT-acknowledgement-in-flight recovery, multi-node failover recovery, signed/export-retention guarantees, production monitoring completeness, or current hosted green-build status.
