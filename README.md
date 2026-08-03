@@ -58,7 +58,9 @@ The viewer-authorized **Preparation schedule support export** endpoint, operator
 - The HTTP server always reports `automatic_retry_performed=false`.
 - Explicit bounded retry preserves the exact idempotency key and never automatically replays ambiguous connection outcomes.
 
-Real PostgreSQL evidence covers statement timeout, deadlock, lost response, post-commit connection termination, checked-out connection invalidation, repeated serialization aborts, and controlled `QueuePool(pool_size=1, max_overflow=0, pool_timeout=0.1)` exhaustion with zero pre-recovery mutation.
+Real PostgreSQL evidence covers statement timeout, deadlock, lost response, **post-commit connection-loss recovery**, **checked-out pool connection recovery**, repeated serialization aborts, and controlled pool exhaustion.
+
+The controlled sustained pool pressure corpus occupies a two-connection pool and runs three synchronized waves with eight callers per wave. All **24 checkout timeouts** produce zero lifecycle mutation, preserve `no_transaction_started=true`, and recover after capacity returns through the same exact idempotency key. The pool proves `checkedout() == 0` before and after recovery. This is not representative production capacity.
 
 ## Database recovery observability
 
@@ -78,13 +80,13 @@ Protected interfaces cover plan review, occurrence confirmation, calendars, sche
 
 Catalog `2026-08-01.3` defines 37 task contracts, 30 dataset families, 75 model or algorithm families, 29 experiment contracts, and 39 feature contracts. Catalog registration does not imply readiness.
 
-Configured direct-`main` workflows cover SQLite/PostgreSQL migrations, backend/static/OpenAPI contracts, frontend typecheck/Vitest, lifecycle races, migration rehearsal, support snapshot concurrency, timeout/deadlock recovery, connection termination, pool invalidation, serialization retry, controlled pool exhaustion, observability, and retained benchmark/JUnit/JSON evidence.
+Configured direct-`main` workflows cover SQLite/PostgreSQL migrations, backend/static/OpenAPI contracts, frontend typecheck/Vitest, lifecycle races, migration rehearsal, support snapshot concurrency, timeout/deadlock recovery, connection termination, pool invalidation, serialization retry, controlled single-checkout exhaustion, controlled sustained pool pressure, observability, and retained benchmark/JUnit/JSON evidence.
 
 The exact latest hosted workflows and artifacts must be inspected before the current commit is described as green.
 
 ## Deliberately incomplete
 
-- COMMIT-acknowledgement-in-flight loss, multi-node failover, sustained representative-load pool behavior, and production-scale migration rehearsal.
+- COMMIT-acknowledgement-in-flight loss, multi-node failover, representative production capacity, and production-scale migration rehearsal.
 - Authenticated production metrics aggregation and SLO operations.
 - PostgreSQL-backed Playwright and complete accessibility evidence.
 - Signed/encrypted/redacted support packages and retention/audit tooling.
@@ -120,6 +122,7 @@ PostgreSQL is recommended for concurrent or hosted deployments.
 - [Repair Execution Boundary](docs/PREPARATION_REPAIR_EXECUTION_BOUNDARY.md)
 - [Pool Invalidation Recovery](docs/PREPARATION_REPAIR_POOL_INVALIDATION.md)
 - [Pool Exhaustion Recovery](docs/PREPARATION_REPAIR_POOL_EXHAUSTION.md)
+- [Controlled Sustained Pool Pressure](docs/PREPARATION_REPAIR_POOL_PRESSURE.md)
 - [Bounded Serialization Retry](docs/PREPARATION_REPAIR_SERIALIZATION_RETRY.md)
 - [Database Recovery Observability](docs/DATABASE_RECOVERY_OBSERVABILITY.md)
 - [Schedule Derivation Evidence](docs/PREPARATION_SCHEDULE_DERIVATION.md)
