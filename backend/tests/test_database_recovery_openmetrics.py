@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
 
 import pytest
@@ -123,6 +124,25 @@ def test_openmetrics_rejects_unbounded_sqlstate_label():
     with pytest.raises(ValueError, match="unbounded SQLSTATE labels"):
         render_database_recovery_openmetrics(
             _snapshot(sqlstate_counts={"23505": 1})
+        )
+
+
+def test_openmetrics_rejects_negative_or_nonfinite_values():
+    with pytest.raises(ValueError, match="operational_error_total"):
+        render_database_recovery_openmetrics(
+            replace(_snapshot(), operational_error_total=-1)
+        )
+    with pytest.raises(ValueError, match="retry_delay_seconds_max"):
+        render_database_recovery_openmetrics(
+            replace(_snapshot(), retry_delay_seconds_max=float("nan"))
+        )
+    with pytest.raises(ValueError, match="code_counts"):
+        render_database_recovery_openmetrics(
+            _snapshot(code_counts={"database_operation_failed": -1})
+        )
+    with pytest.raises(ValueError, match="sqlstate_counts"):
+        render_database_recovery_openmetrics(
+            _snapshot(sqlstate_counts={"40001": True})  # type: ignore[dict-item]
         )
 
 
