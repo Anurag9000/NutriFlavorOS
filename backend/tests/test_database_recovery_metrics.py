@@ -251,7 +251,7 @@ def test_metrics_registry_is_thread_safe_and_monotonic():
 
 def test_invalid_metric_combinations_fail_before_counter_mutation():
     metrics = DatabaseRecoveryMetrics()
-    with pytest.raises(ValueError, match="retry_safe"):
+    with pytest.raises(ValueError, match="code does not match"):
         metrics.record_operational_error(
             code="database_transaction_retry_required",
             sqlstate="40001",
@@ -274,3 +274,78 @@ def test_invalid_metric_combinations_fail_before_counter_mutation():
     snapshot = metrics.snapshot()
     assert snapshot.operational_error_total == 0
     assert snapshot.retry_observation_total == 0
+
+
+def test_classification_code_and_flags_must_match_before_counter_mutation():
+    metrics = DatabaseRecoveryMetrics()
+
+    invalid_operational = (
+        {
+            "code": "database_operation_failed",
+            "sqlstate": "40001",
+            "transaction_aborted": True,
+            "outcome_unknown": False,
+            "retryable": True,
+            "retry_safe": True,
+            "connection_invalidated": False,
+        },
+        {
+            "code": "database_commit_outcome_unknown",
+            "sqlstate": "08006",
+            "transaction_aborted": False,
+            "outcome_unknown": False,
+            "retryable": False,
+            "retry_safe": False,
+            "connection_invalidated": True,
+        },
+        {
+            "code": "database_pool_timeout",
+            "sqlstate": None,
+            "transaction_aborted": False,
+            "outcome_unknown": False,
+            "retryable": True,
+            "retry_safe": True,
+            "connection_invalidated": False,
+            "no_transaction_started": False,
+        },
+    )
+    for payload in invalid_operational:
+        with pytest.raises(ValueError):
+            metrics.record_operational_error(**payload)
+
+    invalid_observations = (
+        {
+            "code": "database_operation_failed",
+            "sqlstate": None,
+            "retry_safe": True,
+            "outcome_unknown": False,
+            "will_retry": True,
+            "delay_seconds": 0,
+        },
+        {
+            "code": "database_transaction_retry_required",
+            "sqlstate": "40001",
+            "retry_safe": False,
+            "outcome_unknown": True,
+            "will_retry": False,
+            "delay_seconds": 0,
+        },
+        {
+            "code": "database_pool_timeout",
+            "sqlstate": None,
+            "retry_safe": True,
+            "outcome_unknown": False,
+            "will_retry": False,
+            "delay_seconds": 0,
+            "no_transaction_started": False,
+        },
+    )
+    for payload in invalid_observations:
+        with pytest.raises(ValueError):
+            metrics.record_retry_observation(**payload)
+
+    snapshot = metrics.snapshot()
+    assert snapshot.operational_error_total == 0
+    assert snapshot.retry_observation_total == 0
+    assert dict(snapshot.code_counts) == {}
+    assert dict(snapshot.sqlstate_counts) == {}
