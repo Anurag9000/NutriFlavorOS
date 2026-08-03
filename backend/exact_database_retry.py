@@ -1,12 +1,13 @@
-"""Bounded client-side retry for proven-aborted database transactions.
+"""Bounded client-side retry for exact idempotent database requests.
 
-This module is not imported by the FastAPI mutation handlers. It is an explicit
-client/operator utility for repeating one exact idempotent request after
-PostgreSQL proves that the previous transaction aborted.
+This module is not imported by FastAPI mutation handlers. It is an explicit
+client/operator utility for repeating one exact request after PostgreSQL proves
+that a transaction aborted or SQLAlchemy proves that pool checkout failed
+before any connection or transaction was acquired.
 
 Connection failures with an unknown commit outcome are never retried here.
 Their recovery remains an explicit caller decision using the same idempotency
-key and the authoritative service idempotency record.
+key and authoritative persisted evidence.
 """
 
 from __future__ import annotations
@@ -15,13 +16,14 @@ import time
 from dataclasses import dataclass
 from typing import Callable, Generic, Optional, TypeVar
 
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, TimeoutError as SQLAlchemyTimeoutError
 
-from backend.api.database_error_handlers import classify_operational_error
+from backend.api.database_error_handlers import classify_database_error
 from backend.database_recovery_metrics import DATABASE_RECOVERY_METRICS
 
 
 T = TypeVar("T")
+DatabaseHandledError = OperationalError | SQLAlchemyTimeoutError
 ExactOperation = Callable[[str, int], T]
 RetryObserver = Callable[["DatabaseRetryObservation"], None]
 SleepFunction = Callable[[float], None]
@@ -68,19 +70,20 @@ class DatabaseRetryObservation:
     retryable: bool
     retry_safe: bool
     outcome_unknown: bool
+    no_transaction_started: bool
     will_retry: bool
     delay_seconds: float
 
 
 class DatabaseRetryExhausted(RuntimeError, Generic[T]):
-    """Raised after the final retry-safe attempt still aborts."""
+    """Raised after the final retry-safe attempt still cannot proceed."""
 
     def __init__(
         self,
         *,
         idempotency_key: str,
         observations: tuple[DatabaseRetryObservation, ...],
-        original_error: OperationalError,
+        original_error: DatabaseHandledError,
     ) -> None:
         super().__init__(
             "Database retry attempts exhausted for the exact idempotent request"
@@ -116,13 +119,12 @@ def execute_exact_idempotent_database_request(
     observer: Optional[RetryObserver] = None,
     sleep: SleepFunction = time.sleep,
 ) -> T:
-    """Execute one exact request with bounded retry-safe transaction retries.
+    """Execute one exact request with bounded proof-aware retries.
 
-    ``operation`` receives the unchanged idempotency key and the one-based
-    attempt number. Only failures classified as ``transaction_aborted`` and
-    ``retry_safe`` are retried. Outcome-unknown connections raise
-    ``DatabaseOutcomeUnknown`` immediately. No server-side mutation handler is
-    called automatically outside the caller-supplied operation.
+    ``operation`` receives the unchanged idempotency key and one-based attempt
+    number. Retry occurs only when ``retry_safe=true``: either a transaction was
+    proven aborted, or pool checkout failed before a transaction started.
+    Outcome-unknown connections raise ``DatabaseOutcomeUnknown`` immediately.
     """
 
     normalized_key = idempotency_key.strip()
@@ -138,10 +140,13 @@ def execute_exact_idempotent_database_request(
             if attempt > 1:
                 DATABASE_RECOVERY_METRICS.record_retry_succeeded_after_retry()
             return result
-        except OperationalError as exc:
-            detail = classify_operational_error(exc)
+        except (OperationalError, SQLAlchemyTimeoutError) as exc:
+            detail = classify_database_error(exc)
             retry_safe = bool(detail["retry_safe"])
             outcome_unknown = bool(detail["outcome_unknown"])
+            no_transaction_started = bool(
+                detail.get("no_transaction_started", False)
+            )
             will_retry = retry_safe and attempt < policy.max_attempts
             delay_seconds = (
                 policy.delay_for_failed_attempt(attempt) if will_retry else 0.0
@@ -158,6 +163,7 @@ def execute_exact_idempotent_database_request(
                 retryable=bool(detail["retryable"]),
                 retry_safe=retry_safe,
                 outcome_unknown=outcome_unknown,
+                no_transaction_started=no_transaction_started,
                 will_retry=will_retry,
                 delay_seconds=delay_seconds,
             )
@@ -169,12 +175,17 @@ def execute_exact_idempotent_database_request(
                 outcome_unknown=observation.outcome_unknown,
                 will_retry=observation.will_retry,
                 delay_seconds=observation.delay_seconds,
+                no_transaction_started=observation.no_transaction_started,
             )
             if observer is not None:
                 observer(observation)
 
             if outcome_unknown:
                 DATABASE_RECOVERY_METRICS.record_utility_outcome_unknown()
+                if not isinstance(exc, OperationalError):
+                    raise AssertionError(
+                        "pool checkout timeout cannot produce outcome_unknown"
+                    ) from exc
                 raise DatabaseOutcomeUnknown(
                     idempotency_key=normalized_key,
                     observation=observation,
