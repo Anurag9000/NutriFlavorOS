@@ -14,6 +14,7 @@ FILES = {
     "page": "frontend/src/pages/PreparationScheduleSupportExport.tsx",
     "page_tests": "frontend/src/pages/PreparationScheduleSupportExport.test.tsx",
     "app": "frontend/src/App.tsx",
+    "layout": "frontend/src/components/AppLayout.tsx",
     "sidebar": "frontend/src/components/AppSidebar.tsx",
     "workflow": ".github/workflows/preparation-repair.yml",
     "docs": "docs/PREPARATION_SCHEDULE_SUPPORT_EXPORT.md",
@@ -67,6 +68,7 @@ def validate_contract() -> dict:
             "Actual execution verified: false",
             "Food safety verified: false",
             "Nothing is generated automatically",
+            "<AppLayout>",
         },
         "page_tests": {
             "does not generate evidence until the user explicitly requests it",
@@ -74,11 +76,18 @@ def validate_contract() -> dict:
             "downloads the complete JSON under a hash-addressed filename",
             "clears stale evidence when schedule scope changes",
             "surfaces fail-closed server errors without creating a download",
+            "Object.defineProperty(URL, \"createObjectURL\"",
+            "originalCreateObjectURL",
+            "Reflect.deleteProperty(URL, \"createObjectURL\")",
         },
         "app": {
             "PreparationScheduleSupportExport",
             'path="/preparation/operations/support-export"',
             "<ProtectedRoute>",
+        },
+        "layout": {
+            '<main id="main-content"',
+            "{children}</main>",
         },
         "sidebar": {
             'title: "Support Evidence Export"',
@@ -93,6 +102,7 @@ def validate_contract() -> dict:
         "docs": {
             "Viewer-authorized API",
             "Operational CLI",
+            "Protected browser workspace",
             "mutation_performed=false",
         },
     }
@@ -115,6 +125,13 @@ def validate_contract() -> dict:
         if fragment in combined:
             errors.append(f"support export frontend contains forbidden authority: {fragment}")
 
+    for forbidden_landmark in {"<main", 'id="main-content"'}:
+        if forbidden_landmark in sources["page"]:
+            errors.append(
+                "support export page duplicates the AppLayout main landmark: "
+                f"{forbidden_landmark}"
+            )
+
     return {
         "valid": not errors,
         "route": "/preparation/operations/support-export",
@@ -122,6 +139,7 @@ def validate_contract() -> dict:
         "client_methods": ["get"],
         "browser_storage_used": False,
         "server_evidence_hash_preserved": True,
+        "main_landmark_owner": "AppLayout",
         "mutation_performed": False,
         "errors": errors,
     }
