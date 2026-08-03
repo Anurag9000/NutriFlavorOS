@@ -18,6 +18,7 @@ from typing import Callable, Generic, Optional, TypeVar
 from sqlalchemy.exc import OperationalError
 
 from backend.api.database_error_handlers import classify_operational_error
+from backend.database_recovery_metrics import DATABASE_RECOVERY_METRICS
 
 
 T = TypeVar("T")
@@ -133,7 +134,10 @@ def execute_exact_idempotent_database_request(
     observations: list[DatabaseRetryObservation] = []
     for attempt in range(1, policy.max_attempts + 1):
         try:
-            return operation(normalized_key, attempt)
+            result = operation(normalized_key, attempt)
+            if attempt > 1:
+                DATABASE_RECOVERY_METRICS.record_retry_succeeded_after_retry()
+            return result
         except OperationalError as exc:
             detail = classify_operational_error(exc)
             retry_safe = bool(detail["retry_safe"])
@@ -142,15 +146,14 @@ def execute_exact_idempotent_database_request(
             delay_seconds = (
                 policy.delay_for_failed_attempt(attempt) if will_retry else 0.0
             )
+            sqlstate_value = detail["sqlstate"]
             observation = DatabaseRetryObservation(
                 attempt=attempt,
                 max_attempts=policy.max_attempts,
                 idempotency_key=normalized_key,
                 code=str(detail["code"]),
                 sqlstate=(
-                    str(detail["sqlstate"])
-                    if detail["sqlstate"] is not None
-                    else None
+                    str(sqlstate_value) if sqlstate_value is not None else None
                 ),
                 retryable=bool(detail["retryable"]),
                 retry_safe=retry_safe,
@@ -159,10 +162,19 @@ def execute_exact_idempotent_database_request(
                 delay_seconds=delay_seconds,
             )
             observations.append(observation)
+            DATABASE_RECOVERY_METRICS.record_retry_observation(
+                code=observation.code,
+                sqlstate=observation.sqlstate,
+                retry_safe=observation.retry_safe,
+                outcome_unknown=observation.outcome_unknown,
+                will_retry=observation.will_retry,
+                delay_seconds=observation.delay_seconds,
+            )
             if observer is not None:
                 observer(observation)
 
             if outcome_unknown:
+                DATABASE_RECOVERY_METRICS.record_utility_outcome_unknown()
                 raise DatabaseOutcomeUnknown(
                     idempotency_key=normalized_key,
                     observation=observation,
@@ -171,6 +183,7 @@ def execute_exact_idempotent_database_request(
             if not retry_safe:
                 raise
             if not will_retry:
+                DATABASE_RECOVERY_METRICS.record_retry_exhausted()
                 raise DatabaseRetryExhausted(
                     idempotency_key=normalized_key,
                     observations=tuple(observations),
