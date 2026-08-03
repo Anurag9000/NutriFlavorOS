@@ -54,19 +54,24 @@ The viewer-authorized **Preparation schedule support export** endpoint, operator
 
 - SQLSTATEs `40001`, `40P01`, `57014`, and `55P03` return `database_transaction_retry_required`.
 - Connection exceptions and invalidated connections return `database_commit_outcome_unknown` with `retry_safe=false`.
+- Connection ambiguity dominates nominal abort SQLSTATEs; an invalidated `40001` is outcome-unknown, not retry-safe.
 - Pool checkout exhaustion returns `database_pool_timeout`, `no_transaction_started=true`, `retry_safe=true`, `outcome_unknown=false`, and `failure_stage=connection_checkout`.
 - The HTTP server always reports `automatic_retry_performed=false`.
 - Explicit bounded retry preserves the exact idempotency key and never automatically replays ambiguous connection outcomes.
 
 Real PostgreSQL evidence covers statement timeout, deadlock, lost response, **post-commit connection-loss recovery**, **checked-out pool connection recovery**, repeated serialization aborts, and controlled pool exhaustion.
 
-The controlled sustained pool pressure corpus occupies a two-connection pool and runs three synchronized waves with eight callers per wave. All **24 checkout timeouts** produce zero lifecycle mutation, preserve `no_transaction_started=true`, and recover after capacity returns through the same exact idempotency key. The pool proves `checkedout() == 0` before and after recovery. This is not representative production capacity.
+The **controlled sustained pool pressure** corpus occupies a two-connection pool and runs three synchronized waves with eight callers per wave. All **24 checkout timeouts** produce zero lifecycle mutation, preserve `no_transaction_started=true`, and recover after capacity returns through the same exact idempotency key. The pool proves `checkedout() == 0` before and after recovery. This is not representative production capacity.
+
+The **controlled application-worker recycle** boundary runs an old subprocess with a fully occupied one-connection pool. It publishes a stable worker-instance identity and live PostgreSQL backend PID, times out before transaction start with zero lifecycle mutation, receives an orderly stdin recycle request, closes its pool, and exits. The parent proves the old PostgreSQL backend disappears. A **fresh worker process** publishes a different worker-instance identity and backend PID, performs the same exact-key acceptance once, and closes without a pool leak. This is not ungraceful crash recovery or multi-node failover.
 
 ## Database recovery observability
 
 The **database recovery observability** foundation records privacy-preserving process metrics and deterministic OpenMetrics text using bounded error-code and SQLSTATE labels.
 
 - SQL, parameters, exception messages, idempotency keys, domain IDs, food data, and request payloads are excluded.
+- **Exact classification integrity** requires code and proof flags to agree before counters change.
+- Negative, boolean, nonnumeric, `NaN`, and infinite retry timing is rejected atomically; alert thresholds must be positive integers.
 - Thread-safe snapshots expose retry, exhaustion, ambiguity, invalidation, pool-timeout, convergence, and delay evidence.
 - Alert evaluation covers outcome unknown, retry exhaustion, transaction-abort volume, invalidated connections, and pool checkout timeout.
 - Unbounded labels and malformed metric values fail closed.
@@ -80,13 +85,13 @@ Protected interfaces cover plan review, occurrence confirmation, calendars, sche
 
 Catalog `2026-08-01.3` defines 37 task contracts, 30 dataset families, 75 model or algorithm families, 29 experiment contracts, and 39 feature contracts. Catalog registration does not imply readiness.
 
-Configured direct-`main` workflows cover SQLite/PostgreSQL migrations, backend/static/OpenAPI contracts, frontend typecheck/Vitest, lifecycle races, migration rehearsal, support snapshot concurrency, timeout/deadlock recovery, connection termination, pool invalidation, serialization retry, controlled single-checkout exhaustion, controlled sustained pool pressure, observability, and retained benchmark/JUnit/JSON evidence.
+Configured direct-`main` workflows cover SQLite/PostgreSQL migrations, backend/static/OpenAPI contracts, frontend typecheck/Vitest, lifecycle races, migration rehearsal, support snapshot concurrency, timeout/deadlock recovery, connection termination, pool invalidation, serialization retry, controlled single-checkout exhaustion, controlled sustained pool pressure, controlled application-worker recycle, observability, and retained benchmark/JUnit/JSON evidence.
 
 The exact latest hosted workflows and artifacts must be inspected before the current commit is described as green.
 
 ## Deliberately incomplete
 
-- COMMIT-acknowledgement-in-flight loss, multi-node failover, representative production capacity, and production-scale migration rehearsal.
+- COMMIT-acknowledgement-in-flight loss, ungraceful crash recovery, multi-node failover, representative production capacity, and production-scale migration rehearsal.
 - Authenticated production metrics aggregation and SLO operations.
 - PostgreSQL-backed Playwright and complete accessibility evidence.
 - Signed/encrypted/redacted support packages and retention/audit tooling.
@@ -123,6 +128,7 @@ PostgreSQL is recommended for concurrent or hosted deployments.
 - [Pool Invalidation Recovery](docs/PREPARATION_REPAIR_POOL_INVALIDATION.md)
 - [Pool Exhaustion Recovery](docs/PREPARATION_REPAIR_POOL_EXHAUSTION.md)
 - [Controlled Sustained Pool Pressure](docs/PREPARATION_REPAIR_POOL_PRESSURE.md)
+- [Controlled Worker Recycle](docs/PREPARATION_REPAIR_WORKER_RECYCLE.md)
 - [Bounded Serialization Retry](docs/PREPARATION_REPAIR_SERIALIZATION_RETRY.md)
 - [Database Recovery Observability](docs/DATABASE_RECOVERY_OBSERVABILITY.md)
 - [Schedule Derivation Evidence](docs/PREPARATION_SCHEDULE_DERIVATION.md)
