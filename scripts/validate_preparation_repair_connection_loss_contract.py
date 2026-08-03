@@ -61,8 +61,9 @@ def validate_contract() -> dict:
     required = {
         "handler": {
             "database_commit_outcome_unknown",
-            '"outcome_unknown": True',
-            '"retry_safe": False',
+            '"outcome_unknown": outcome_unknown',
+            "retry_safe = transaction_aborted and not outcome_unknown",
+            '"retry_safe": retry_safe',
             '"automatic_retry_performed": False',
             'sqlstate.startswith("08")',
             "connection_invalidated",
@@ -75,6 +76,7 @@ def validate_contract() -> dict:
             "except OperationalError as exc",
             'classification["code"] == "database_commit_outcome_unknown"',
             'classification["outcome_unknown"] is True',
+            'classification["retry_safe"] is False',
             'classification["automatic_retry_performed"] is False',
             '"acceptances": 1',
             '"replacement_schedules": 1',
@@ -148,6 +150,7 @@ def validate_contract() -> dict:
         "failure_injection": "pg_terminate_backend_after_commit_before_refresh",
         "structured_code": "database_commit_outcome_unknown",
         "same_key_retry_required": True,
+        "retry_safe": False,
         "automatic_retry_performed": False,
         "acceptance_count_after_retry": 1,
         "replacement_count_after_retry": 1,
