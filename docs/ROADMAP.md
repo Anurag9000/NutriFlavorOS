@@ -70,7 +70,7 @@ This proves controlled checkout-timeout recovery, not production pool sizing or 
 
 ### C14 — Controlled sustained PostgreSQL pool pressure
 
-**Controlled sustained pool pressure** is implemented as a deterministic extension of C13.
+**Controlled sustained pool pressure** is implemented as a deterministic extension of C13. The controlled sustained pool pressure corpus is deliberately bounded and reproducible.
 
 - A constrained `QueuePool` uses two connections, no overflow, a 0.12-second checkout timeout, and pre-ping.
 - Both connections are deliberately occupied before each pressure corpus begins.
