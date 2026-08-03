@@ -8,6 +8,8 @@ monitoring integration.
 
 from __future__ import annotations
 
+from math import isfinite
+
 from backend.database_recovery_metrics import DatabaseRecoveryMetricsSnapshot
 
 
@@ -21,6 +23,22 @@ _ALLOWED_CODES = frozenset(
 )
 _ALLOWED_SQLSTATES = frozenset(
     {"40001", "40P01", "57014", "55P03", "08xxx", "unknown"}
+)
+_COUNT_FIELDS = (
+    "operational_error_total",
+    "transaction_abort_total",
+    "outcome_unknown_total",
+    "nonretryable_error_total",
+    "retry_observation_total",
+    "retry_scheduled_total",
+    "retry_success_after_retry_total",
+    "retry_exhausted_total",
+    "utility_outcome_unknown_total",
+    "invalidated_connection_total",
+)
+_DELAY_FIELDS = (
+    "retry_delay_seconds_total",
+    "retry_delay_seconds_max",
 )
 
 
@@ -67,12 +85,43 @@ def _validate_bounded_labels(snapshot: DatabaseRecoveryMetricsSnapshot) -> None:
         )
 
 
+def _validate_values(snapshot: DatabaseRecoveryMetricsSnapshot) -> None:
+    for field_name in _COUNT_FIELDS:
+        value = getattr(snapshot, field_name)
+        if type(value) is not int or value < 0:
+            raise ValueError(
+                f"database recovery count {field_name} must be a nonnegative integer"
+            )
+    for field_name in _DELAY_FIELDS:
+        value = getattr(snapshot, field_name)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(
+                f"database recovery delay {field_name} must be a finite nonnegative number"
+            )
+        numeric = float(value)
+        if not isfinite(numeric) or numeric < 0:
+            raise ValueError(
+                f"database recovery delay {field_name} must be a finite nonnegative number"
+            )
+    for mapping_name, mapping in (
+        ("code_counts", snapshot.code_counts),
+        ("sqlstate_counts", snapshot.sqlstate_counts),
+    ):
+        for label, value in mapping.items():
+            if type(value) is not int or value < 0:
+                raise ValueError(
+                    f"database recovery series {mapping_name}[{label!r}] "
+                    "must be a nonnegative integer"
+                )
+
+
 def render_database_recovery_openmetrics(
     snapshot: DatabaseRecoveryMetricsSnapshot,
 ) -> str:
     """Render one sanitized immutable snapshot as deterministic OpenMetrics text."""
 
     _validate_bounded_labels(snapshot)
+    _validate_values(snapshot)
     lines: list[str] = []
     scalar_counters = (
         (
