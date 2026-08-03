@@ -55,14 +55,20 @@ jobs:
           backend/exact_database_retry.py
           backend/services/preparation_repair_source_acceptance_guard_service.py
           backend/tests/postgres_preparation_fixture.py
-          backend/tests/test_database_pool_timeout_boundary.py
+          backend/tests/test_database_operational_error_handler.py
+          backend/tests/test_database_recovery_metrics.py
           backend/tests/test_database_recovery_metric_integrity.py
+          backend/tests/test_database_recovery_openmetrics.py
+          backend/tests/test_database_pool_timeout_boundary.py
+          backend/tests/test_exact_database_retry.py
           backend/tests/test_preparation_repair_pool_exhaustion_postgres.py
           backend/tests/test_preparation_repair_pool_pressure_postgres.py
           scripts/validate_database_recovery_metric_integrity.py
           scripts/validate_preparation_repair_pool_exhaustion_contract.py
           scripts/validate_preparation_repair_pool_pressure_contract.py
           scripts/validate_database_recovery_observability.py
+          scripts/validate_database_transient_failure_boundary.py
+          scripts/validate_preparation_repair_serialization_retry_contract.py
           scripts/validate_repair_release_identity.py
 
       - name: Upgrade PostgreSQL to reviewed head 0018
@@ -77,6 +83,10 @@ jobs:
           verify_runtime_schema()
           PY
 
+      - name: Validate database transient-failure boundary
+        run: python scripts/validate_database_transient_failure_boundary.py
+      - name: Validate bounded serialization retry contract
+        run: python scripts/validate_preparation_repair_serialization_retry_contract.py
       - name: Validate single pool exhaustion recovery contract
         run: python scripts/validate_preparation_repair_pool_exhaustion_contract.py
       - name: Validate controlled sustained pool pressure contract
@@ -88,11 +98,15 @@ jobs:
       - name: Validate synchronized repair release identity
         run: python scripts/validate_repair_release_identity.py
 
-      - name: Run pool timeout, metric integrity, and real PostgreSQL pressure evidence
+      - name: Run complete retry, metrics, pool timeout, and PostgreSQL pressure evidence
         run: >-
           pytest -q
-          backend/tests/test_database_pool_timeout_boundary.py
+          backend/tests/test_database_operational_error_handler.py
+          backend/tests/test_database_recovery_metrics.py
           backend/tests/test_database_recovery_metric_integrity.py
+          backend/tests/test_database_recovery_openmetrics.py
+          backend/tests/test_database_pool_timeout_boundary.py
+          backend/tests/test_exact_database_retry.py
           backend/tests/test_preparation_repair_pool_exhaustion_postgres.py
           backend/tests/test_preparation_repair_pool_pressure_postgres.py
           --junitxml=reports/preparation-repair-pool-exhaustion.xml
