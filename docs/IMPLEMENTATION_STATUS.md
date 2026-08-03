@@ -69,6 +69,7 @@ The viewer-authorized **Preparation schedule support export** endpoint, operator
 - `retryable=true` prescribes repeating the exact idempotent request.
 - Proven-aborted SQLSTATEs `40001`, `40P01`, `57014`, and `55P03` report `retry_safe=true`.
 - Connection exceptions and invalidated connections report `database_commit_outcome_unknown` and `retry_safe=false`.
+- Connection ambiguity dominates a nominal retry SQLSTATE; an invalidated `40001` remains outcome-unknown and not retry-safe.
 - SQLAlchemy pool exhaustion before checkout reports `database_pool_timeout`, `no_transaction_started=true`, `retry_safe=true`, and `outcome_unknown=false`.
 - The HTTP handler always reports `automatic_retry_performed=false`.
 
@@ -83,6 +84,19 @@ Implemented real PostgreSQL evidence includes:
 - a genuine `SERIALIZABLE` test forcing **three consecutive `40001` aborts** before the fourth exact-key attempt creates exactly one acceptance and replacement;
 - controlled **pool exhaustion** using `QueuePool(pool_size=1, max_overflow=0, pool_timeout=0.1)`, zero acceptance/schedule/event mutation before checkout recovery, and exact-key convergence to one accepted replacement;
 - **controlled sustained pool pressure** using a two-connection pool, three synchronized waves, and eight callers per wave. All **24 checkout timeouts** preserve `no_transaction_started=true`, produce **zero lifecycle mutation**, exhaust only the caller’s single-attempt budget, release to `checkedout() == 0`, and then converge through the same idempotency key to one immutable accepted replacement.
+
+### Controlled application-worker recycle
+
+A **controlled application-worker recycle** now exercises a separate subprocess while its one-connection pool is fully occupied.
+
+- The old worker publishes a stable 32-character worker-instance identity and a live PostgreSQL backend PID.
+- Its guarded acceptance receives one real `database_pool_timeout` and creates zero acceptance, schedule, or lifecycle-event rows.
+- The parent requests an orderly recycle through stdin; the worker closes its held connection, reports `pool_checked_out_after_close=0`, disposes its engine, and exits successfully.
+- The parent proves the **old PostgreSQL backend disappears** from `pg_stat_activity`.
+- A **fresh worker process** publishes a different worker-instance identity and backend PID, accepts the same exact request once, and closes with zero checked-out connections.
+- A later parent-session retry returns the same acceptance and schedule identities.
+
+This is orderly recycle evidence, not ungraceful crash recovery, container/node failure, or multi-node failover.
 
 ## Database recovery observability
 
@@ -103,14 +117,14 @@ This is an adapter foundation, not production monitoring. Time windows, persiste
 
 ## PostgreSQL concurrency evidence
 
-Configured PostgreSQL-only coverage includes duplicate/competing acceptance, acceptance versus rejection/invalidation/source execution, plan cancellation and calendar supersession races, repaired approval races, final-task versus schedule completion, repeatable-read support export, lost responses, statement timeout, deadlock, post-commit backend termination, checked-out pool invalidation, repeated serialization retry, controlled single-checkout exhaustion, controlled sustained pool pressure, populated migration rehearsal, and exact migration/dialect assertions with retained JUnit/JSON evidence.
+Configured PostgreSQL-only coverage includes duplicate/competing acceptance, acceptance versus rejection/invalidation/source execution, plan cancellation and calendar supersession races, repaired approval races, final-task versus schedule completion, repeatable-read support export, lost responses, statement timeout, deadlock, post-commit backend termination, checked-out pool invalidation, repeated serialization retry, controlled single-checkout exhaustion, controlled sustained pool pressure, controlled application-worker recycle, populated migration rehearsal, and exact migration/dialect assertions with retained JUnit/JSON evidence.
 
 The exact latest hosted executions and artifacts have not been observed in this context. Configured tests are not reported green until inspected.
 
 ## Remaining P0/P1 work
 
 - Observe and repair exact current hosted workflows and artifacts.
-- Test connection loss while COMMIT acknowledgement itself is in flight and multi-node failover.
+- Test connection loss while COMMIT acknowledgement itself is in flight, ungraceful worker/process crash recovery, and multi-node failover.
 - Establish representative production capacity under realistic concurrent traffic, queueing, latency, pool sizing, process counts, and duration; the 24-timeout controlled pressure corpus is not representative production capacity.
 - Connect process metrics to authenticated production monitoring with cross-replica rates, dashboards, alerts, paging, SLOs, and runbooks.
 - Add production-snapshot or production-scale migration rehearsal, backup/restore, and point-in-time recovery.
@@ -119,4 +133,4 @@ The exact latest hosted executions and artifacts have not been observed in this 
 
 ## Non-claims
 
-NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, COMMIT-acknowledgement-in-flight recovery, multi-node failover recovery, representative production capacity, production pool sizing or sustained-load capacity, signed/export-retention guarantees, production monitoring completeness, or current hosted green-build status.
+NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, COMMIT-acknowledgement-in-flight recovery, ungraceful crash recovery, multi-node failover recovery, representative production capacity, production pool sizing or sustained-load capacity, signed/export-retention guarantees, production monitoring completeness, or current hosted green-build status.
