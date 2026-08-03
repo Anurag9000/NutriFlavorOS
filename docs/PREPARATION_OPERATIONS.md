@@ -5,8 +5,8 @@ NutriFlavorOS persists reviewed resource calendars, deterministic preparation sc
 ## Current boundary
 
 - Alembic head: `20260802_0018`
-- API: `0.15.3`
-- OpenAPI contract: `2026-08-03.1`
+- API: `0.15.4`
+- OpenAPI contract: `2026-08-03.2`
 - Preparation frontend binding: `2026-08-02.4`
 - Household-plan frontend binding: `2026-08-02.4`
 
@@ -103,29 +103,21 @@ Viewer-authorized endpoint:
 
 `GET /api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/support-export`
 
-The strict export includes:
-
-- persisted schedule and lifecycle events;
-- derivation evidence;
-- task-execution eligibility;
-- deterministic task state and append-only task events;
-- every proposal using the selected schedule as source;
-- the source proposal when the selected schedule is a replacement;
-- acceptance records and complete proposal event chains;
-- one canonical SHA-256 evidence hash;
-- explicit `mutation_performed=false`, `actual_execution_verified=false`, and `food_safety_verified=false`.
+The strict export includes persisted schedule and lifecycle events; derivation evidence; task-execution eligibility; deterministic task state and append-only task events; every proposal using the selected schedule as source; the source proposal when the selected schedule is a replacement; acceptance records and complete proposal event chains; one canonical SHA-256 evidence hash; and explicit `mutation_performed=false`, `actual_execution_verified=false`, and `food_safety_verified=false`.
 
 PostgreSQL uses a dedicated `REPEATABLE READ`, `SET TRANSACTION READ ONLY` transaction and records `txid_current_snapshot()`. Hashing excludes snapshot timestamps and transaction metadata, so it represents domain evidence rather than export timing.
 
-A concurrent-acceptance probe pauses an export after the snapshot is established, commits proposal acceptance elsewhere, and then requires the original export to retain proposed/eligible/no-acceptance evidence while a fresh export sees accepted/blocked/replacement evidence and a different hash.
+The request session requires viewer access and preserves `404` non-disclosure. PostgreSQL repeats viewer authorization inside the exact read-only snapshot, using only the server-derived authenticated user ID. The operator CLI remains a separate privileged path.
 
-The operator CLI writes the same package atomically. The API requires authentication and household viewer access with `404` non-disclosure.
+A concurrent-acceptance probe pauses an export after the snapshot is established, commits acceptance elsewhere, and requires the original export to retain proposed/eligible/no-acceptance evidence while a fresh export sees accepted/blocked/replacement evidence and a different hash.
 
 ## Database operational failures
 
 Transaction-abort SQLSTATEs `40001`, `40P01`, `57014`, and `55P03` return sanitized `503` responses with `database_transaction_retry_required`, `Retry-After: 1`, and same-idempotency-key guidance. Connection exceptions and invalidated connections return `database_commit_outcome_unknown`.
 
-No automatic server mutation retry occurs. Real PostgreSQL probes cover statement timeout, genuine deadlock, and discarded-response exact retry convergence.
+`retryable=true` means an exact client retry is prescribed. `retry_safe=true` is limited to transaction-abort evidence proving rollback. Connection ambiguity remains `retry_safe=false`. No automatic server mutation retry occurs.
+
+Real PostgreSQL probes cover statement timeout, genuine deadlock, discarded-response convergence, post-commit backend termination with exact recovery, and checked-out pool connection invalidation before mutation. The pool probe requires `connection_invalidated=true`, zero mutation before retry, a different fresh backend PID, exactly one accepted replacement afterward, and an exact second retry returning the same evidence.
 
 ## Frontend routes
 
@@ -137,6 +129,7 @@ No automatic server mutation retry occurs. Real PostgreSQL probes cover statemen
 - `/preparation/operations/repair-proposals/invalidation` — owner-only withdrawal;
 - `/preparation/operations/execution` — explicit task execution and completion;
 - `/preparation/operations/derivation` — derivation evidence and coverage;
+- `/preparation/operations/support-export` — explicit read-only evidence generation and download;
 - `/preparation/operations/calendars/new` — reviewed calendar builder;
 - `/preparation/operations/coverage` — provenance and execution denominators.
 
@@ -144,7 +137,7 @@ Nothing is persisted, accepted, approved, executed, completed, or invalidated me
 
 ## PostgreSQL evidence matrix
 
-Configured real PostgreSQL probes cover duplicate/competing acceptance, acceptance/rejection, acceptance/invalidation, rejection/invalidation, source execution onset, plan cancellation, calendar supersession, repaired approval, final-task completion, repeatable-read support export, discarded responses, statement timeout, deadlock, populated migration rehearsal, and exact migration/dialect assertions.
+Configured real PostgreSQL probes cover duplicate/competing acceptance, acceptance/rejection, acceptance/invalidation, rejection/invalidation, source execution onset, plan cancellation, calendar supersession, repaired approval, final-task completion, repeatable-read support export, discarded responses, post-commit connection loss, checked-out pool invalidation, statement timeout, deadlock, populated migration rehearsal, and exact migration/dialect assertions.
 
 ## Deliberate limitations
 
@@ -154,6 +147,6 @@ Configured real PostgreSQL probes cover duplicate/competing acceptance, acceptan
 - Temperature, contamination, equipment condition, and safe food state are not verified.
 - Ordinary repair abstains after source task history begins.
 - Joint meal/inventory/shopping/leftover/reservation/preparation repair remains future work.
-- Signed/encrypted support packages, retention, download audit, and production load evidence remain incomplete.
+- COMMIT-acknowledgement-in-flight recovery, multi-node failover, sustained pool-load recovery, signed/encrypted support packages, retention, download audit, and production load evidence remain incomplete.
 - Authenticated PostgreSQL-backed browser and automated accessibility evidence remain incomplete.
 - Hosted workflow runs must be inspected before the current `main` commit is described as green.
