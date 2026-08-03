@@ -18,6 +18,7 @@ _ALLOWED_CODES = frozenset(
     {
         "database_transaction_retry_required",
         "database_commit_outcome_unknown",
+        "database_pool_timeout",
         "database_operation_failed",
     }
 )
@@ -126,7 +127,7 @@ def render_database_recovery_openmetrics(
     scalar_counters = (
         (
             "operational_errors_total",
-            "Handled operational database errors.",
+            "Handled operational database errors and pool checkout timeouts.",
             snapshot.operational_error_total,
         ),
         (
