@@ -31,7 +31,7 @@ jobs:
       - run: pip install -r backend/requirements.txt
       - run: pip check
 
-      - name: Compile complete repair, derivation, execution, support, and database authority
+      - name: Compile complete repair, derivation, execution, support, retry, and observability authority
         run: >-
           python -m compileall -q
           backend/main.py
@@ -41,6 +41,7 @@ jobs:
           backend/api/preparation_operations_routes.py
           backend/api/preparation_schedule_derivation_routes.py
           backend/api/preparation_task_execution_eligibility_routes.py
+          backend/database_recovery_metrics.py
           backend/exact_database_retry.py
           backend/domain/preparation_repair.py
           backend/domain/preparation_repair_proposals.py
@@ -71,6 +72,7 @@ jobs:
           backend/services/preparation_task_execution_replacement_guard_service.py
           backend/services/preparation_task_completion_service.py
           backend/tests/test_database_operational_error_handler.py
+          backend/tests/test_database_recovery_metrics.py
           backend/tests/test_exact_database_retry.py
           backend/tests/test_preparation_operations_service.py
           backend/tests/preparation_operations_service_cases.py
@@ -84,6 +86,7 @@ jobs:
           scripts/benchmark_preparation_repair.py
           scripts/export_preparation_schedule_support_snapshot.py
           scripts/repair_preparation_schedule.py
+          scripts/validate_database_recovery_observability.py
           scripts/validate_database_transient_failure_boundary.py
           scripts/validate_preparation_schedule_support_export.py
           scripts/validate_preparation_schedule_support_export_frontend.py
@@ -123,6 +126,8 @@ jobs:
         run: python scripts/validate_repair_release_identity.py
       - name: Validate generated OpenAPI release contract
         run: python scripts/validate_openapi_contracts.py
+      - name: Validate database recovery observability
+        run: python scripts/validate_database_recovery_observability.py
       - name: Validate structured database transient-failure boundary
         run: python scripts/validate_database_transient_failure_boundary.py
       - name: Validate post-commit connection-loss recovery contract
@@ -168,10 +173,11 @@ jobs:
       - name: Validate task execution eligibility frontend
         run: python scripts/validate_preparation_task_execution_eligibility_frontend.py
 
-      - name: Run complete repair, execution, support, and retry authority backend tests
+      - name: Run complete repair, execution, support, retry, and observability backend tests
         run: >-
           pytest -q
           backend/tests/test_database_operational_error_handler.py
+          backend/tests/test_database_recovery_metrics.py
           backend/tests/test_exact_database_retry.py
           backend/tests/test_preparation_operations_service.py
           backend/tests/test_preparation_task_execution_service.py
