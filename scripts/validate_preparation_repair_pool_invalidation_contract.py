@@ -80,7 +80,7 @@ def validate_contract() -> dict:
             "pool_pre_ping=True",
             "connection_invalidated=true",
             "retry_safe=false",
-            "recovery_backend_pid",
+            "fresh session and require its backend PID",
             "same idempotency key",
         },
         "status": {
