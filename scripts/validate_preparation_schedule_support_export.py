@@ -175,8 +175,8 @@ def validate_contract() -> dict:
             "validate_preparation_schedule_support_export.py",
         },
         "openapi": {
-            '"contract_version": "2026-08-03.1"',
-            '"api_version": "0.15.3"',
+            '"contract_version": "2026-08-03.2"',
+            '"api_version": "0.15.4"',
             '"/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/support-export"',
             '"PreparationScheduleSupportExport"',
         },
