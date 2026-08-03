@@ -76,6 +76,11 @@ def _validated_config(
     return database_url, household_id, proposal_id, actor_user_id, payload
 
 
+def _enum_or_string(value: object) -> str:
+    enum_value = getattr(value, "value", None)
+    return str(enum_value if enum_value is not None else value)
+
+
 def _pressure(config: dict[str, Any], report_path: Path) -> int:
     (
         database_url,
@@ -93,7 +98,7 @@ def _pressure(config: dict[str, Any], report_path: Path) -> int:
     )
     holder = engine.connect()
     holder_backend_pid = int(
-        holder.execute(text("SELECT pg_backend_pid()" )).scalar_one()
+        holder.execute(text("SELECT pg_backend_pid()")) .scalar_one()
     )
 
     def operation(exact_key: str, attempt: int):
@@ -181,7 +186,7 @@ def _recover(config: dict[str, Any], report_path: Path) -> int:
     db = Session()
     try:
         recovery_backend_pid = int(
-            db.execute(text("SELECT pg_backend_pid()" )).scalar_one()
+            db.execute(text("SELECT pg_backend_pid()")) .scalar_one()
         )
         accepted = accept_repair_proposal_with_source_guard(
             db,
@@ -193,7 +198,9 @@ def _recover(config: dict[str, Any], report_path: Path) -> int:
         acceptance_id = int(accepted.acceptance.id)
         schedule_id = int(accepted.acceptance.created_schedule_id)
         schedule_version = int(accepted.acceptance.created_schedule_version)
-        schedule_status = str(accepted.acceptance.created_schedule_status)
+        schedule_status = _enum_or_string(
+            accepted.acceptance.created_schedule_status
+        )
     finally:
         db.close()
     checked_out_after_close = engine.pool.checkedout()
