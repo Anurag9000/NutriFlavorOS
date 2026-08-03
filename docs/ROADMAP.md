@@ -46,15 +46,17 @@ A viewer-authorized endpoint, operator CLI, typed GET-only client, and protected
 
 ### C12 — Database recovery observability foundation
 
-The **database recovery observability** foundation is implemented as privacy-preserving process-local metrics.
+The **database recovery observability** foundation is implemented as privacy-preserving process-local metrics plus a sanitized OpenMetrics adapter.
 
-- Only bounded error codes and SQLSTATE buckets are recorded.
+- Only bounded error codes and SQLSTATE buckets are recorded or rendered.
 - SQL, parameters, exception messages, idempotency keys, domain IDs, food data, and request payloads are excluded.
 - Immutable snapshots expose error, retry, convergence, exhaustion, ambiguity, invalidated-connection, and delay counters.
 - Thread-safe aggregation and deterministic alert evaluation are covered by focused tests, including 1,600 concurrent updates.
+- OpenMetrics output uses prefix `nutriflavor_database_recovery`, deterministic HELP/TYPE blocks, sorted bounded labels, and one EOF marker.
+- Unreviewed labels, negative/non-integer counters, and negative/non-finite delay values fail closed.
 - No public metrics HTTP endpoint exists.
 
-This closes the core instrumentation boundary, not production monitoring. Persistent time windows, **cross-replica aggregation**, dashboards, paging, deduplication, ownership, runbooks, and SLOs remain.
+This closes the core instrumentation and rendering boundary, not production monitoring. Authenticated publication, persistent time windows, **cross-replica aggregation**, dashboards, paging, deduplication, ownership, runbooks, and SLOs remain.
 
 ## P0 — Observe and repair exact hosted verification
 
@@ -70,7 +72,7 @@ This closes the core instrumentation boundary, not production monitoring. Persis
 - PostgreSQL primary loss, replica promotion, DNS/service-discovery changes, and multi-node failover.
 - Sustained pool exhaustion, timeout, recycle/lifetime behavior, process restart, and concurrent-load recovery.
 - Production-snapshot or production-scale migration rehearsal beyond the 64-lifecycle corpus.
-- Connect process-local metrics to authenticated production monitoring with rates, cross-replica aggregation, dashboards, alerts, paging, SLOs, and runbooks.
+- Connect process-local metrics/OpenMetrics to authenticated production monitoring with rates, cross-replica aggregation, dashboards, alerts, paging, SLOs, and runbooks.
 
 The HTTP server must never perform automatic mutation retries. Explicit callers may use bounded retry only when `retry_safe=true`; connection ambiguity remains `retry_safe=false` and requires authoritative same-key outcome recovery.
 
@@ -106,7 +108,7 @@ Clinical nutrition, medication decisions, allergy-safety guarantees, contaminati
 - Support export is read-only, hash-addressed, snapshot-authorized, and never upgrades user-entered evidence into execution or safety verification.
 - `retry_safe=true` is reserved for proven transaction aborts; connection ambiguity remains `retry_safe=false`.
 - The server always reports `automatic_retry_performed=false`.
-- Database recovery metrics never store SQL, request contents, idempotency keys, or domain identifiers.
+- Database recovery metrics and OpenMetrics never store or render SQL, request contents, idempotency keys, or domain identifiers.
 - Frontend preflight never replaces server authority.
 - No clinical, food-safety, global-optimality, model-readiness, or green-build claim without exact supporting evidence.
 - No force push, history rewrite, feature branch, or feature PR.
