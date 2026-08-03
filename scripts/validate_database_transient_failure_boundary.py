@@ -42,6 +42,9 @@ def validate_contract() -> dict:
             '"57014"',
             '"55P03"',
             'CONNECTION_EXCEPTION_PREFIX: Final[str] = "08"',
+            "raw_transaction_aborted = sqlstate in TRANSACTION_RETRY_SQLSTATES",
+            "transaction_aborted = raw_transaction_aborted and not outcome_unknown",
+            "Connection ambiguity dominates a nominal retry SQLSTATE",
             "database_transaction_retry_required",
             "database_commit_outcome_unknown",
             "retry_safe = transaction_aborted and not outcome_unknown",
@@ -60,9 +63,12 @@ def validate_contract() -> dict:
             "test_statement_timeout_uses_same_exact_retry_boundary",
             "test_connection_exception_marks_commit_outcome_unknown",
             "test_invalidated_connection_without_sqlstate_is_ambiguous",
+            "test_invalidated_connection_dominates_retryable_sqlstate",
             "test_nonretryable_operational_error_is_sanitized_500",
-            '"retry_safe": True',
-            'assert detail["retry_safe"] is False',
+            'detail["sqlstate"] == "40001"',
+            'detail["transaction_aborted"] is False',
+            'detail["outcome_unknown"] is True',
+            'detail["retry_safe"] is False',
             'assert "driver details" not in response.text',
         },
         "postgres_tests": {
@@ -95,7 +101,9 @@ def validate_contract() -> dict:
     for label, fragments in required.items():
         for fragment in sorted(fragments):
             if fragment not in sources[label]:
-                errors.append(f"{FILES[label]} lacks transient-failure fragment: {fragment}")
+                errors.append(
+                    f"{FILES[label]} lacks transient-failure fragment: {fragment}"
+                )
 
     forbidden_handler = {
         "time.sleep(",
@@ -106,7 +114,9 @@ def validate_contract() -> dict:
     }
     for fragment in sorted(forbidden_handler):
         if fragment in sources["handler"]:
-            errors.append(f"database error handler performs forbidden retry action: {fragment}")
+            errors.append(
+                f"database error handler performs forbidden retry action: {fragment}"
+            )
 
     return {
         "valid": not errors,
@@ -114,6 +124,7 @@ def validate_contract() -> dict:
         "ambiguous_connection_prefix": "08",
         "transaction_abort_retry_safe": True,
         "connection_outcome_retry_safe": False,
+        "connection_ambiguity_dominates_abort_sqlstate": True,
         "automatic_retry_performed": False,
         "exact_same_key_retry_required": True,
         "real_postgres_statement_timeout": True,
