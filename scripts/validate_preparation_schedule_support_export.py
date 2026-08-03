@@ -40,6 +40,14 @@ def _read(relative: str, errors: list[str]) -> str:
     return source
 
 
+def _normalized(value: str) -> str:
+    return " ".join(value.split())
+
+
+def _contains(source: str, fragment: str) -> bool:
+    return fragment in source or _normalized(fragment) in _normalized(source)
+
+
 def validate_contract() -> dict:
     errors: list[str] = []
     sources = {name: _read(path, errors) for name, path in FILES.items()}
@@ -77,7 +85,7 @@ def validate_contract() -> dict:
         },
         "service": {
             "def export_preparation_schedule_support_snapshot",
-            "isolation_level=\"REPEATABLE READ\"",
+            'isolation_level="REPEATABLE READ"',
             'text("SET TRANSACTION READ ONLY")',
             'text("SELECT txid_current_snapshot()")',
             "get_schedule_derivation_evidence(",
@@ -118,7 +126,7 @@ def validate_contract() -> dict:
             "snapshot_started",
             "continue_export",
             'historical.snapshot_isolation == "repeatable_read"',
-            'value.status.value for value in historical.related_repair_proposals',
+            "value.status.value for value in historical.related_repair_proposals",
             '== ["proposed"]',
             '== ["accepted"]',
             "current.evidence_hash != historical.evidence_hash",
@@ -151,7 +159,7 @@ def validate_contract() -> dict:
     }
     for label, fragments in required.items():
         for fragment in sorted(fragments):
-            if fragment not in sources[label]:
+            if not _contains(sources[label], fragment):
                 errors.append(f"{FILES[label]} lacks support export fragment: {fragment}")
 
     forbidden_service = {
@@ -179,6 +187,7 @@ def validate_contract() -> dict:
         "postgres_isolation": "repeatable_read",
         "postgres_read_only": True,
         "canonical_hash": "sha256",
+        "source_formatting_normalized": True,
         "mutation_performed": False,
         "actual_execution_verified": False,
         "food_safety_verified": False,
