@@ -74,6 +74,8 @@ def validate_contract() -> dict:
     required = {
         "helper": {
             "Subprocess helper for controlled preparation-repair worker recycling",
+            "from uuid import uuid4",
+            "WORKER_INSTANCE_ID = uuid4().hex",
             "PreparationRepairProposalAcceptRequest.model_validate",
             "accept_repair_proposal_with_source_guard(",
             "execute_exact_idempotent_database_request(",
@@ -86,6 +88,7 @@ def validate_contract() -> dict:
             "sys.stdin.readline()",
             "holder.close()",
             "engine.dispose()",
+            '"worker_instance_id": WORKER_INSTANCE_ID',
             '"waiting_for_orderly_recycle": True',
             '"recycle_completed": True',
             '"pool_checked_out_after_close": checked_out_after_close',
@@ -99,12 +102,15 @@ def validate_contract() -> dict:
             "stdin=subprocess.PIPE",
             "pressure_process.stdin.close()",
             "pressure_process.wait(timeout=15) == 0",
-            "test_postgres_worker_recycle",
             "_backend_exists(db, old_backend_pid) is True",
             "_wait_for_backend_absence(db, old_backend_pid)",
             "subprocess.run(",
             "stdin=subprocess.DEVNULL",
-            "recovery_report[\"worker_pid\"] != pressure_process.pid",
+            'old_worker_instance_id = str(pressure_report["worker_instance_id"])',
+            "len(old_worker_instance_id) == 32",
+            'new_worker_instance_id = str(recovery_report["worker_instance_id"])',
+            "len(new_worker_instance_id) == 32",
+            "new_worker_instance_id != old_worker_instance_id",
             "recovery_report[\"recovery_backend_pid\"] != old_backend_pid",
             "recovery_report[\"created_schedule_status\"] == \"draft\"",
             "recovery_report[\"pool_checked_out_after_close\"] == 0",
@@ -146,6 +152,7 @@ def validate_contract() -> dict:
         "docs": {
             "Controlled PostgreSQL Application-Worker Recycle",
             "old worker",
+            "worker-instance",
             "PostgreSQL backend PID",
             "orderly recycle",
             "exactly zero lifecycle mutation",
@@ -180,7 +187,7 @@ def validate_contract() -> dict:
 
     helper_calls = _called_attributes(sources["helper"])
     test_calls = _called_attributes(sources["test"])
-    for required_call in {"replace", "readline", "close", "dispose"}:
+    for required_call in {"replace", "readline", "close", "dispose", "uuid4"}:
         if required_call not in helper_calls:
             errors.append(f"worker recycle helper lacks call: {required_call}")
     for required_call in {"Popen", "run", "wait", "close"}:
@@ -218,11 +225,13 @@ def validate_contract() -> dict:
         "database": "postgresql",
         "old_worker_pool_size": 1,
         "old_worker_pool_exhausted": True,
+        "stable_worker_instance_identity": True,
         "old_backend_observed_active": True,
         "zero_mutation_before_recycle": True,
         "orderly_recycle_requested_through_stdin": True,
         "old_backend_absence_verified": True,
         "fresh_worker_process": True,
+        "fresh_worker_instance_identity": True,
         "fresh_backend_pid": True,
         "same_key_recovery": True,
         "final_acceptance_count": 1,
