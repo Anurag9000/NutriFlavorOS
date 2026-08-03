@@ -43,6 +43,28 @@ def _contains(source: str, fragment: str) -> bool:
     return fragment in source or _normalized(fragment) in _normalized(source)
 
 
+def _integer_expression(node: ast.expr, values: dict[str, int]) -> int | None:
+    if isinstance(node, ast.Constant) and type(node.value) is int:
+        return node.value
+    if isinstance(node, ast.Name):
+        return values.get(node.id)
+    if not isinstance(node, ast.BinOp):
+        return None
+    left = _integer_expression(node.left, values)
+    right = _integer_expression(node.right, values)
+    if left is None or right is None:
+        return None
+    if isinstance(node.op, ast.Mult):
+        return left * right
+    if isinstance(node.op, ast.Add):
+        return left + right
+    if isinstance(node.op, ast.Sub):
+        return left - right
+    if isinstance(node.op, ast.FloorDiv) and right != 0:
+        return left // right
+    return None
+
+
 def _top_level_integer_constants(source: str) -> dict[str, int]:
     tree = ast.parse(source)
     values: dict[str, int] = {}
@@ -52,8 +74,9 @@ def _top_level_integer_constants(source: str) -> dict[str, int]:
         target = node.targets[0]
         if not isinstance(target, ast.Name):
             continue
-        if isinstance(node.value, ast.Constant) and type(node.value.value) is int:
-            values[target.id] = node.value.value
+        value = _integer_expression(node.value, values)
+        if value is not None:
+            values[target.id] = value
     return values
 
 
@@ -81,6 +104,7 @@ def validate_contract() -> dict:
             "max_overflow=0",
             "pool_timeout=POOL_TIMEOUT_SECONDS",
             "pool_pre_ping=True",
+            "EXPECTED_TIMEOUTS = WORKERS_PER_WAVE * PRESSURE_WAVES",
             "holders = [constrained_engine.connect() for _ in range(POOL_SIZE)]",
             'holder.execute(text("SELECT 1"))',
             "for wave in range(PRESSURE_WAVES)",
@@ -213,6 +237,7 @@ def validate_contract() -> dict:
         "pressure_waves": 3,
         "workers_per_wave": 8,
         "expected_checkout_timeouts": 24,
+        "derived_constant_evaluation": True,
         "no_transaction_started": True,
         "zero_mutation_before_recovery": True,
         "same_key_recovery": True,
