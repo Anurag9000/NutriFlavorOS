@@ -19,18 +19,21 @@ from types import MappingProxyType
 from typing import Mapping
 
 
+_TRANSACTION_ABORT_CODE = "database_transaction_retry_required"
+_OUTCOME_UNKNOWN_CODE = "database_commit_outcome_unknown"
+_POOL_TIMEOUT_CODE = "database_pool_timeout"
+_OPERATION_FAILED_CODE = "database_operation_failed"
 _ALLOWED_CODES = frozenset(
     {
-        "database_transaction_retry_required",
-        "database_commit_outcome_unknown",
-        "database_pool_timeout",
-        "database_operation_failed",
+        _TRANSACTION_ABORT_CODE,
+        _OUTCOME_UNKNOWN_CODE,
+        _POOL_TIMEOUT_CODE,
+        _OPERATION_FAILED_CODE,
     }
 )
 _ALLOWED_SQLSTATES = frozenset({"40001", "40P01", "57014", "55P03"})
 _UNKNOWN_SQLSTATE = "unknown"
 _CONNECTION_SQLSTATE_CLASS = "08xxx"
-_POOL_TIMEOUT_CODE = "database_pool_timeout"
 
 
 def utcnow() -> datetime:
@@ -38,7 +41,7 @@ def utcnow() -> datetime:
 
 
 def _safe_code(value: str) -> str:
-    return value if value in _ALLOWED_CODES else "database_operation_failed"
+    return value if value in _ALLOWED_CODES else _OPERATION_FAILED_CODE
 
 
 def _safe_sqlstate(value: str | None) -> str:
@@ -50,6 +53,105 @@ def _safe_sqlstate(value: str | None) -> str:
     if len(normalized) == 5 and normalized.startswith("08"):
         return _CONNECTION_SQLSTATE_CLASS
     return _UNKNOWN_SQLSTATE
+
+
+def _expected_code_for_operational_error(
+    *,
+    transaction_aborted: bool,
+    outcome_unknown: bool,
+    no_transaction_started: bool,
+) -> str:
+    proof_count = sum(
+        (transaction_aborted, outcome_unknown, no_transaction_started)
+    )
+    if proof_count > 1:
+        raise ValueError(
+            "transaction abort, outcome unknown, and no transaction started "
+            "are mutually exclusive"
+        )
+    if transaction_aborted:
+        return _TRANSACTION_ABORT_CODE
+    if outcome_unknown:
+        return _OUTCOME_UNKNOWN_CODE
+    if no_transaction_started:
+        return _POOL_TIMEOUT_CODE
+    return _OPERATION_FAILED_CODE
+
+
+def _validate_operational_classification(
+    *,
+    safe_code: str,
+    transaction_aborted: bool,
+    outcome_unknown: bool,
+    retryable: bool,
+    retry_safe: bool,
+    connection_invalidated: bool,
+    no_transaction_started: bool,
+) -> None:
+    expected_code = _expected_code_for_operational_error(
+        transaction_aborted=transaction_aborted,
+        outcome_unknown=outcome_unknown,
+        no_transaction_started=no_transaction_started,
+    )
+    if safe_code != expected_code:
+        raise ValueError(
+            "database recovery code does not match its operational proof flags"
+        )
+    expected_retryable = (
+        transaction_aborted or outcome_unknown or no_transaction_started
+    )
+    if retryable != expected_retryable:
+        raise ValueError(
+            "retryable must match abort, ambiguity, or pre-transaction proof"
+        )
+    expected_retry_safe = transaction_aborted or no_transaction_started
+    if retry_safe != expected_retry_safe:
+        raise ValueError(
+            "retry_safe requires a proven abort or no started transaction"
+        )
+    if connection_invalidated and not outcome_unknown:
+        raise ValueError(
+            "an invalidated connection must be classified outcome unknown"
+        )
+
+
+def _validate_retry_observation_classification(
+    *,
+    safe_code: str,
+    retry_safe: bool,
+    outcome_unknown: bool,
+    no_transaction_started: bool,
+    will_retry: bool,
+) -> None:
+    if no_transaction_started:
+        expected_code = _POOL_TIMEOUT_CODE
+        expected_retry_safe = True
+        expected_outcome_unknown = False
+    elif outcome_unknown:
+        expected_code = _OUTCOME_UNKNOWN_CODE
+        expected_retry_safe = False
+        expected_outcome_unknown = True
+    elif retry_safe:
+        expected_code = _TRANSACTION_ABORT_CODE
+        expected_retry_safe = True
+        expected_outcome_unknown = False
+    else:
+        expected_code = _OPERATION_FAILED_CODE
+        expected_retry_safe = False
+        expected_outcome_unknown = False
+
+    if safe_code != expected_code:
+        raise ValueError(
+            "database recovery code does not match retry observation proof flags"
+        )
+    if retry_safe != expected_retry_safe:
+        raise ValueError("retry observation retry_safe proof drifted")
+    if outcome_unknown != expected_outcome_unknown:
+        raise ValueError("retry observation outcome_unknown proof drifted")
+    if will_retry and not retry_safe:
+        raise ValueError("will_retry requires retry_safe")
+    if outcome_unknown and will_retry:
+        raise ValueError("outcome_unknown cannot be automatically retried")
 
 
 @dataclass(frozen=True)
@@ -137,23 +239,16 @@ class DatabaseRecoveryMetrics:
         connection_invalidated: bool,
         no_transaction_started: bool = False,
     ) -> None:
-        if transaction_aborted and no_transaction_started:
-            raise ValueError(
-                "transaction_aborted and no_transaction_started are mutually exclusive"
-            )
-        if retry_safe and not (transaction_aborted or no_transaction_started):
-            raise ValueError(
-                "retry_safe requires a proven abort or no started transaction"
-            )
-        if outcome_unknown and retry_safe:
-            raise ValueError("outcome_unknown cannot be retry_safe")
-        if outcome_unknown and no_transaction_started:
-            raise ValueError("outcome_unknown cannot assert no transaction started")
         safe_code = _safe_code(code)
-        if no_transaction_started != (safe_code == _POOL_TIMEOUT_CODE):
-            raise ValueError(
-                "no_transaction_started must identify only database_pool_timeout"
-            )
+        _validate_operational_classification(
+            safe_code=safe_code,
+            transaction_aborted=transaction_aborted,
+            outcome_unknown=outcome_unknown,
+            retryable=retryable,
+            retry_safe=retry_safe,
+            connection_invalidated=connection_invalidated,
+            no_transaction_started=no_transaction_started,
+        )
         safe_sqlstate = _safe_sqlstate(sqlstate)
         with self._lock:
             self._operational_error_total += 1
@@ -181,17 +276,14 @@ class DatabaseRecoveryMetrics:
     ) -> None:
         if delay_seconds < 0:
             raise ValueError("delay_seconds cannot be negative")
-        if will_retry and not retry_safe:
-            raise ValueError("will_retry requires retry_safe")
-        if outcome_unknown and will_retry:
-            raise ValueError("outcome_unknown cannot be automatically retried")
-        if outcome_unknown and no_transaction_started:
-            raise ValueError("outcome_unknown cannot assert no transaction started")
         safe_code = _safe_code(code)
-        if no_transaction_started != (safe_code == _POOL_TIMEOUT_CODE):
-            raise ValueError(
-                "no_transaction_started must identify only database_pool_timeout"
-            )
+        _validate_retry_observation_classification(
+            safe_code=safe_code,
+            retry_safe=retry_safe,
+            outcome_unknown=outcome_unknown,
+            no_transaction_started=no_transaction_started,
+            will_retry=will_retry,
+        )
         safe_sqlstate = _safe_sqlstate(sqlstate)
         with self._lock:
             self._retry_observation_total += 1
