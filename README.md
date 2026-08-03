@@ -93,25 +93,28 @@ The viewer-authorized **Preparation schedule support export** endpoint returns o
 
 - SQLSTATEs `40001`, `40P01`, `57014`, and `55P03` return `database_transaction_retry_required`, HTTP 503, `Retry-After: 1`, and exact same-key guidance.
 - Connection exceptions and invalidated connections return `database_commit_outcome_unknown`.
+- SQLAlchemy connection-pool checkout exhaustion returns `database_pool_timeout`, `no_transaction_started=true`, and `failure_stage=connection_checkout`.
 - `retryable=true` means the caller should repeat the exact idempotent request.
-- `retry_safe=true` is reserved for proven transaction aborts.
+- `retry_safe=true` is reserved for proven transaction aborts or proof that no transaction started.
 - Connection ambiguity reports `retry_safe=false`.
 - The HTTP handler always reports `automatic_retry_performed=false`.
 
-Real PostgreSQL evidence covers statement timeout, genuine deadlock, discarded committed responses, post-commit backend termination, checked-out pool invalidation, and three genuine serializable `40001` aborts followed by a fourth exact-key attempt that creates one acceptance and replacement.
+Real PostgreSQL evidence covers statement timeout, genuine deadlock, discarded committed responses, post-commit backend termination, checked-out pool invalidation, repeated serialization aborts, and controlled pool exhaustion.
+
+The pool-exhaustion probe holds the only connection in `QueuePool(pool_size=1, max_overflow=0, pool_timeout=0.1)`, proves zero acceptance/schedule/event mutation before checkout recovery, releases the holder, and converges through the exact same key to one accepted replacement.
 
 The bounded retry utility preserves one normalized idempotency key, applies finite exponential backoff, emits immutable attempt observations, raises at the exact bound, and never automatically replays `database_commit_outcome_unknown`.
 
 ## Database recovery observability
 
-The **database recovery observability** foundation records privacy-preserving process metrics for sanitized HTTP operational errors and explicit bounded retries.
+The **database recovery observability** foundation records privacy-preserving process metrics for sanitized HTTP failures and explicit bounded retries.
 
-- Only bounded error codes and SQLSTATE buckets are retained.
-- Immutable snapshots expose transaction-abort, outcome-unknown, invalidated-connection, scheduled-retry, successful-convergence, exhaustion, and delay counters.
+- Bounded codes are `database_transaction_retry_required`, `database_commit_outcome_unknown`, `database_pool_timeout`, and `database_operation_failed`.
+- Immutable snapshots expose transaction-abort, outcome-unknown, invalidated-connection, pool-timeout, scheduled-retry, successful-convergence, exhaustion, and delay counters.
 - Thread-safe tests prove exact aggregation under 1,600 concurrent updates.
 - SQL, parameters, exception messages, idempotency keys, household/user/proposal/schedule IDs, food data, and request payloads are never recorded.
-- Process-local alert evaluation covers ambiguous outcomes, exhausted retry budgets, transaction-abort volume, and invalidated connections.
-- No public metrics HTTP endpoint is exposed.
+- Process-local alert evaluation covers ambiguous outcomes, exhausted retry budgets, transaction-abort volume, invalidated connections, and pool checkout timeouts.
+- Deterministic OpenMetrics rendering rejects unbounded labels and malformed values and exposes no public metrics HTTP endpoint.
 
 Persistent time windows, cross-replica aggregation, dashboards, paging, ownership, runbooks, and SLOs remain deployment work.
 
@@ -127,13 +130,13 @@ Catalog `2026-08-01.3` defines 37 task contracts, 30 dataset families, 75 model 
 
 ## Validation matrix
 
-Configured direct-`main` workflows cover fresh SQLite/PostgreSQL migrations, OpenAPI/release identity, backend/static contracts, frontend typecheck/Vitest, repair/proposal/acceptance/invalidation/approval/derivation/execution tests, PostgreSQL lifecycle and dependency races, support snapshot concurrency, migration rehearsal, timeout/deadlock recovery, connection termination, pool invalidation, repeated serialization retry, recovery observability, and retained benchmark/JUnit/JSON evidence.
+Configured direct-`main` workflows cover fresh SQLite/PostgreSQL migrations, OpenAPI/release identity, backend/static contracts, frontend typecheck/Vitest, repair/proposal/acceptance/invalidation/approval/derivation/execution tests, PostgreSQL lifecycle and dependency races, support snapshot concurrency, migration rehearsal, timeout/deadlock recovery, connection termination, pool invalidation, repeated serialization retry, controlled pool exhaustion, recovery observability, and retained benchmark/JUnit/JSON evidence.
 
 The exact latest hosted workflows and artifacts must be inspected before the current commit is described as green.
 
 ## Deliberately incomplete
 
-- COMMIT-acknowledgement-in-flight connection loss, multi-node failover, sustained pool exhaustion/recovery, and production-scale migration rehearsal.
+- COMMIT-acknowledgement-in-flight connection loss, multi-node failover, sustained representative-load pool exhaustion/recovery, and production-scale migration rehearsal.
 - Authenticated production metrics aggregation, persistence, dashboards, paging, SLOs, and runbooks.
 - Authenticated PostgreSQL-backed Playwright and complete accessibility evidence.
 - Signed/encrypted/redacted support packages, retention, storage, support-case linkage, and audit events.
@@ -168,6 +171,7 @@ PostgreSQL is recommended for concurrent or hosted deployments.
 - [Repair Acceptance](docs/PREPARATION_REPAIR_ACCEPTANCE.md)
 - [Repair Execution Boundary](docs/PREPARATION_REPAIR_EXECUTION_BOUNDARY.md)
 - [Pool Invalidation Recovery](docs/PREPARATION_REPAIR_POOL_INVALIDATION.md)
+- [Pool Exhaustion Recovery](docs/PREPARATION_REPAIR_POOL_EXHAUSTION.md)
 - [Bounded Serialization Retry](docs/PREPARATION_REPAIR_SERIALIZATION_RETRY.md)
 - [Database Recovery Observability](docs/DATABASE_RECOVERY_OBSERVABILITY.md)
 - [Schedule Derivation Evidence](docs/PREPARATION_SCHEDULE_DERIVATION.md)
