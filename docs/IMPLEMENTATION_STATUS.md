@@ -165,7 +165,7 @@ Authenticated PostgreSQL-backed browser evidence and execution-aware repair.
 
 ### Implemented
 
-The viewer-authorized `Preparation schedule support export` endpoint and operator CLI produce one strict, hash-addressed, read-only schedule evidence package.
+The viewer-authorized `Preparation schedule support export` endpoint, operator CLI, typed GET-only client, and protected browser workspace produce one strict, hash-addressed, read-only schedule evidence package.
 
 - Includes schedule provenance, lifecycle events, derivation, execution eligibility, deterministic task state/history, related proposals, acceptances, and proposal events.
 - PostgreSQL uses `REPEATABLE READ`, `SET TRANSACTION READ ONLY`, and retains `txid_current_snapshot()`.
@@ -173,7 +173,10 @@ The viewer-authorized `Preparation schedule support export` endpoint and operato
 - Explicit fields remain `mutation_performed=false`, `actual_execution_verified=false`, and `food_safety_verified=false`.
 - Authentication and household viewer access are required; cross-household access preserves `404` non-disclosure.
 - CLI output uses atomic temporary-file replacement and structured failures.
+- The browser requires explicit generation, clears stale evidence after household/schedule changes, displays server hash/isolation/counts/non-claims, downloads the complete response under a hash-addressed filename, revokes temporary object URLs, and uses no browser storage or mutation method.
+- `AppLayout` owns the sole main landmark; the export page creates no duplicate `<main>` or `main-content` ID.
 - SQLite/API regressions prove complete evidence chains and no export-created rows.
+- Focused frontend tests prove explicit generation, fail-closed errors, complete JSON download, scope reset, URL-constructor preservation, and accessible live feedback.
 - A real PostgreSQL concurrent-acceptance race proves an existing export retains the pre-acceptance snapshot while a fresh export sees the accepted replacement and a different evidence hash.
 
 ### Remaining
@@ -209,11 +212,11 @@ Alerting/SLOs, household-level signed evidence bundles, and support dashboards.
 
 ### Implemented
 
-Protected plan review, occurrence confirmation, profiles/calendars, schedule persistence/approval, advisory repair, repair proposals, owner invalidation administration, accepted-draft review, schedule derivation, provenance coverage, and task execution with proactive eligibility gating. Typed clients and focused Vitest/static contracts exist for repair, acceptance, invalidation, derivation, and eligibility.
+Protected plan review, occurrence confirmation, profiles/calendars, schedule persistence/approval, advisory repair, repair proposals, owner invalidation administration, accepted-draft review, schedule derivation, provenance coverage, task execution with proactive eligibility gating, and explicit support-evidence generation/download. Typed clients and focused Vitest/static contracts exist for repair, acceptance, invalidation, derivation, eligibility, and support export.
 
 ### Remaining
 
-Authenticated PostgreSQL-backed Playwright, axe, keyboard/focus/reflow/contrast evidence, a browser support-export download workspace, and full generated-client parity.
+Authenticated PostgreSQL-backed Playwright, axe, keyboard/focus/reflow/contrast evidence, signed/redacted support download verification, and full generated-client parity.
 
 ## PostgreSQL concurrency evidence
 
