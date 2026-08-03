@@ -1,6 +1,6 @@
 {
-  "contract_version": "2026-08-03.1",
-  "api_version": "0.15.3",
+  "contract_version": "2026-08-03.2",
+  "api_version": "0.15.4",
   "paths": {
     "/api/v1/food-evidence/history/conversions": {"methods": ["get"], "authenticated": true},
     "/api/v1/food-evidence/history/convert-reviewed": {"methods": ["post"], "authenticated": true},
