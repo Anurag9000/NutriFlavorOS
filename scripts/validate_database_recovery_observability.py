@@ -16,9 +16,13 @@ FILES = {
     "retry": "backend/exact_database_retry.py",
     "tests": "backend/tests/test_database_recovery_metrics.py",
     "renderer_tests": "backend/tests/test_database_recovery_openmetrics.py",
+    "pool_tests": "backend/tests/test_database_pool_timeout_boundary.py",
+    "pressure_test": "backend/tests/test_preparation_repair_pool_pressure_postgres.py",
     "repair_workflow": ".github/workflows/preparation-repair.yml",
     "postgres_workflow": ".github/workflows/preparation-repair-postgres.yml",
+    "pool_workflow": ".github/workflows/preparation-repair-pool-exhaustion.yml",
     "docs": "docs/DATABASE_RECOVERY_OBSERVABILITY.md",
+    "pressure_docs": "docs/PREPARATION_REPAIR_POOL_PRESSURE.md",
     "status": "docs/IMPLEMENTATION_STATUS.md",
     "roadmap": "docs/ROADMAP.md",
     "main": "backend/main.py",
@@ -40,6 +44,20 @@ EXPECTED_SNAPSHOT_FIELDS = {
     "retry_delay_seconds_max",
     "code_counts",
     "sqlstate_counts",
+}
+EXPECTED_CODES = {
+    "database_transaction_retry_required",
+    "database_commit_outcome_unknown",
+    "database_pool_timeout",
+    "database_operation_failed",
+}
+EXPECTED_SQLSTATE_BUCKETS = {
+    "40001",
+    "40P01",
+    "57014",
+    "55P03",
+    "08xxx",
+    "unknown",
 }
 FORBIDDEN_SENSITIVE_NAMES = {
     "sql_text",
@@ -133,8 +151,12 @@ def validate_contract() -> dict:
             "def evaluate_database_recovery_alerts",
             "MappingProxyType(dict(self._code_counts))",
             "MappingProxyType(dict(self._sqlstate_counts))",
+            '"database_pool_timeout"',
             '"08xxx"',
             '"unknown"',
+            "pool_timeout_warning_threshold",
+            "database_pool_checkout_timeout",
+            "no_transaction_started: bool = False",
             "record_retry_succeeded_after_retry",
             "record_retry_exhausted",
             "record_utility_outcome_unknown",
@@ -147,6 +169,7 @@ def validate_contract() -> dict:
             "_validate_values(snapshot)",
             '"database_transaction_retry_required"',
             '"database_commit_outcome_unknown"',
+            '"database_pool_timeout"',
             '"database_operation_failed"',
             '"40001"',
             '"40P01"',
@@ -159,13 +182,21 @@ def validate_contract() -> dict:
         },
         "handler": {
             "from backend.database_recovery_metrics import DATABASE_RECOVERY_METRICS",
+            "def classify_pool_timeout",
+            "def classify_database_error",
+            "database_pool_timeout_handler",
+            '"code": "database_pool_timeout"',
+            '"no_transaction_started": True',
             "DATABASE_RECOVERY_METRICS.record_operational_error(",
-            "connection_invalidated=bool(exc.connection_invalidated)",
             '"automatic_retry_performed": False',
         },
         "retry": {
             "from backend.database_recovery_metrics import DATABASE_RECOVERY_METRICS",
+            "TimeoutError as SQLAlchemyTimeoutError",
+            "classify_database_error",
+            "except (OperationalError, SQLAlchemyTimeoutError) as exc",
             "DATABASE_RECOVERY_METRICS.record_retry_observation(",
+            "no_transaction_started=observation.no_transaction_started",
             "DATABASE_RECOVERY_METRICS.record_retry_succeeded_after_retry()",
             "DATABASE_RECOVERY_METRICS.record_retry_exhausted()",
             "DATABASE_RECOVERY_METRICS.record_utility_outcome_unknown()",
@@ -191,6 +222,25 @@ def validate_contract() -> dict:
             'assert rendered.count("# EOF") == 1',
             'assert "idempotency"',
         },
+        "pool_tests": {
+            "test_pool_timeout_returns_retry_safe_structured_503",
+            "test_bounded_utility_retries_pool_timeout_with_same_key",
+            "test_pool_timeout_exhaustion_is_bounded_and_observable",
+            "test_pool_timeout_alert_and_openmetrics_are_bounded",
+            '"database_pool_timeout"',
+            '"no_transaction_started": True',
+        },
+        "pressure_test": {
+            "test_postgres_sustained_pool_pressure_times_out_cleanly_then_recovers",
+            "EXPECTED_TIMEOUTS = WORKERS_PER_WAVE * PRESSURE_WAVES",
+            "snapshot.code_counts == {",
+            '"database_pool_timeout": EXPECTED_TIMEOUTS',
+            "snapshot.retry_observation_total == EXPECTED_TIMEOUTS",
+            "snapshot.retry_exhausted_total == EXPECTED_TIMEOUTS",
+            "snapshot.retry_scheduled_total == 0",
+            "snapshot.outcome_unknown_total == 0",
+            "snapshot.invalidated_connection_total == 0",
+        },
         "repair_workflow": {
             "backend/database_recovery_metrics.py",
             "backend/database_recovery_openmetrics.py",
@@ -205,23 +255,44 @@ def validate_contract() -> dict:
             "backend/tests/test_database_recovery_openmetrics.py",
             "validate_database_recovery_observability.py",
         },
+        "pool_workflow": {
+            "backend/database_recovery_metrics.py",
+            "backend/database_recovery_openmetrics.py",
+            "test_database_pool_timeout_boundary.py",
+            "test_preparation_repair_pool_pressure_postgres.py",
+            "validate_database_recovery_observability.py",
+            "validate_preparation_repair_pool_pressure_contract.py",
+        },
         "docs": {
             "Database Recovery Observability",
             "never receives or stores SQL text",
             "retry_success_after_retry_total",
+            "database_pool_timeout",
             "Sanitized OpenMetrics adapter",
             "nutriflavor_database_recovery",
-            "unreviewed code or SQLSTATE labels",
+            "four reviewed error codes",
+            "Controlled sustained pressure aggregation",
+            "24 checkout timeouts",
             "1,600 concurrent updates",
             "no unauthenticated HTTP metrics endpoint",
+        },
+        "pressure_docs": {
+            "Controlled Sustained PostgreSQL Pool Pressure",
+            "24 checkout timeouts",
+            "exactly zero lifecycle mutation",
+            "not representative production capacity",
         },
         "status": {
             "database recovery observability",
             "privacy-preserving process metrics",
+            "controlled sustained pool pressure",
+            "24 checkout timeouts",
         },
         "roadmap": {
             "database recovery observability",
             "cross-replica aggregation",
+            "controlled sustained pool pressure",
+            "representative production capacity",
         },
     }
     for label, fragments in required.items():
@@ -277,6 +348,21 @@ def validate_contract() -> dict:
     ):
         errors.append(f"database recovery OpenMetrics test is missing: {name}")
 
+    expected_pool_tests = {
+        "test_pool_timeout_returns_retry_safe_structured_503",
+        "test_bounded_utility_retries_pool_timeout_with_same_key",
+        "test_pool_timeout_exhaustion_is_bounded_and_observable",
+        "test_pool_timeout_alert_and_openmetrics_are_bounded",
+    }
+    for name in sorted(expected_pool_tests - _test_names(sources["pool_tests"])):
+        errors.append(f"database pool-timeout test is missing: {name}")
+
+    pressure_name = (
+        "test_postgres_sustained_pool_pressure_times_out_cleanly_then_recovers"
+    )
+    if pressure_name not in _test_names(sources["pressure_test"]):
+        errors.append("sustained PostgreSQL pool-pressure metrics test is missing")
+
     forbidden_main = {
         "database-recovery-metrics",
         "DATABASE_RECOVERY_METRICS.snapshot",
@@ -311,6 +397,13 @@ def validate_contract() -> dict:
                     f"{fragment}"
                 )
 
+    for code in sorted(EXPECTED_CODES):
+        if code not in sources["metrics"] or code not in sources["renderer"]:
+            errors.append(f"reviewed observability code is not shared: {code}")
+    for bucket in sorted(EXPECTED_SQLSTATE_BUCKETS):
+        if bucket not in sources["renderer"]:
+            errors.append(f"reviewed SQLSTATE bucket is missing: {bucket}")
+
     return {
         "valid": not errors,
         "scope": "process_local",
@@ -318,6 +411,11 @@ def validate_contract() -> dict:
         "snapshot_immutable": True,
         "bounded_code_labels": True,
         "bounded_sqlstate_labels": True,
+        "reviewed_code_count": 4,
+        "pool_timeout_code": "database_pool_timeout",
+        "controlled_pressure_timeout_count": 24,
+        "controlled_pressure_zero_mutation": True,
+        "controlled_pressure_representative_capacity": False,
         "openmetrics_renderer": True,
         "openmetrics_prefix": "nutriflavor_database_recovery",
         "malformed_values_rejected": True,
