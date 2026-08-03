@@ -56,6 +56,7 @@ jobs:
           backend/services/preparation_repair_source_acceptance_guard_service.py
           backend/tests/postgres_preparation_fixture.py
           backend/tests/test_database_pool_timeout_boundary.py
+          backend/tests/test_database_recovery_metric_integrity.py
           backend/tests/test_preparation_repair_pool_exhaustion_postgres.py
           backend/tests/test_preparation_repair_pool_pressure_postgres.py
           scripts/validate_preparation_repair_pool_exhaustion_contract.py
@@ -84,10 +85,11 @@ jobs:
       - name: Validate synchronized repair release identity
         run: python scripts/validate_repair_release_identity.py
 
-      - name: Run pool timeout and real PostgreSQL exhaustion and pressure evidence
+      - name: Run pool timeout, metric integrity, and real PostgreSQL pressure evidence
         run: >-
           pytest -q
           backend/tests/test_database_pool_timeout_boundary.py
+          backend/tests/test_database_recovery_metric_integrity.py
           backend/tests/test_preparation_repair_pool_exhaustion_postgres.py
           backend/tests/test_preparation_repair_pool_pressure_postgres.py
           --junitxml=reports/preparation-repair-pool-exhaustion.xml
