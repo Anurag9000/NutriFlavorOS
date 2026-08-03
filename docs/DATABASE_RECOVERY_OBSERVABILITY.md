@@ -2,7 +2,7 @@
 
 ## Purpose
 
-NutriFlavorOS records privacy-preserving process metrics for operational database failures and explicit bounded retry behavior.
+NutriFlavorOS records privacy-preserving process metrics for operational database failures, connection-pool checkout timeouts, and explicit bounded retry behavior.
 
 The observability core **never receives or stores SQL text**, SQL parameters, exception messages, idempotency keys, household IDs, user IDs, proposal IDs, schedule IDs, food data, or request payloads.
 
@@ -10,13 +10,17 @@ It exposes **no unauthenticated HTTP metrics endpoint**. Deployments may adapt t
 
 ## Metric sources
 
-### HTTP operational-error boundary
+### HTTP database-failure boundary
 
-Every handled SQLAlchemy `OperationalError` records only one bounded code, one bounded SQLSTATE bucket, transaction-abort/outcome-unknown/retry flags, and whether SQLAlchemy invalidated the connection. The public response remains sanitized and reports `automatic_retry_performed=false`.
+Handled SQLAlchemy `OperationalError` values record one bounded code, one bounded SQLSTATE bucket, transaction-abort/outcome-unknown/retry flags, and whether SQLAlchemy invalidated the connection.
+
+Handled SQLAlchemy `TimeoutError` values use bounded code `database_pool_timeout`, SQLSTATE bucket `unknown`, `no_transaction_started=true`, `retry_safe=true`, and `outcome_unknown=false`. The handler records no exception message or pool internals.
+
+Every public response remains sanitized and reports `automatic_retry_performed=false`.
 
 ### Explicit bounded retry utility
 
-Every failed bounded-retry attempt records bounded code/SQLSTATE, `retry_safe`, `outcome_unknown`, whether another attempt was scheduled, and the selected delay. Separate counters record successful convergence, exhaustion, and ambiguous utility exits.
+Every failed bounded-retry attempt records bounded code/SQLSTATE, `retry_safe`, `outcome_unknown`, `no_transaction_started`, whether another attempt was scheduled, and the selected delay. Separate counters record successful convergence, exhaustion, and ambiguous utility exits.
 
 The registry never receives the idempotency key carried by `DatabaseRetryObservation`.
 
@@ -40,6 +44,8 @@ The registry never receives the idempotency key carried by `DatabaseRetryObserva
 - immutable `code_counts`;
 - immutable `sqlstate_counts`.
 
+Pool checkout timeouts are represented through bounded `code_counts["database_pool_timeout"]`; no tenant-specific or pool-instance label is introduced.
+
 Counters are monotonic until process restart. `reset_for_tests()` exists only for deterministic tests and must not be called by production code.
 
 ## Sanitized OpenMetrics adapter
@@ -49,7 +55,7 @@ Counters are monotonic until process restart. `reset_for_tests()` exists only fo
 The renderer provides:
 
 - HELP and TYPE declarations for every scalar counter and delay gauge;
-- sorted `code` series restricted to the three reviewed error codes;
+- sorted `code` series restricted to four reviewed error codes: `database_transaction_retry_required`, `database_commit_outcome_unknown`, `database_pool_timeout`, and `database_operation_failed`;
 - sorted `sqlstate` series restricted to `40001`, `40P01`, `57014`, `55P03`, `08xxx`, and `unknown`;
 - deterministic output ending in one `# EOF` marker;
 - no timestamp, request, tenant, household, user, proposal, schedule, food, or idempotency label;
@@ -71,7 +77,8 @@ The renderer is an in-process adapter only. A deployment must choose an authenti
 - **outcome-unknown events: critical**;
 - exhausted retry budgets: warning;
 - transaction-abort volume: warning;
-- invalidated checked-out connections: warning.
+- invalidated checked-out connections: warning;
+- connection-pool checkout timeout: warning.
 
 `evaluate_database_recovery_alerts` returns immutable sanitized alert values. These are adapter inputs, not a complete production alerting system. Deployments still need time windows, rates, **cross-replica aggregation**, persistence, dashboards, paging, deduplication, ownership, runbooks, and SLOs.
 
@@ -79,7 +86,14 @@ The renderer is an in-process adapter only. A deployment must choose an authenti
 
 The registry uses a re-entrant lock. Concurrent updates are monotonic, and snapshots copy counters into immutable mappings.
 
-Invalid metric combinations fail before counters change. Outcome-unknown observations cannot schedule automatic retries, and retry delay cannot be negative.
+Invalid metric combinations fail before counters change:
+
+- `retry_safe=true` requires a proven transaction abort or proof that no transaction started;
+- `transaction_aborted` and `no_transaction_started` are mutually exclusive;
+- outcome-unknown evidence cannot be retry-safe or claim that no transaction started;
+- `no_transaction_started=true` is reserved for `database_pool_timeout`;
+- outcome-unknown observations cannot schedule automatic retries;
+- retry delay cannot be negative.
 
 ## Verification
 
@@ -90,6 +104,7 @@ Focused tests prove:
 - SQL, parameters, exception messages, idempotency keys, and domain IDs do not appear in snapshots or OpenMetrics text;
 - snapshots are immutable;
 - HTTP errors and bounded retries update exact counters;
+- pool checkout timeout produces one bounded alert and OpenMetrics series;
 - alert thresholds produce deterministic severity and counts;
 - **1,600 concurrent updates** remain exact;
 - OpenMetrics ordering and output are deterministic;
@@ -106,5 +121,6 @@ This implementation does not provide:
 - cross-replica aggregation;
 - time-windowed rates or histograms;
 - production dashboards, paging, or incident automation;
+- production pool sizing or sustained-load capacity;
 - automatic mutation retries;
 - proof of hosted green workflows without observed exact runs and artifacts.
