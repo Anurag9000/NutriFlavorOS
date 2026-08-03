@@ -36,7 +36,7 @@ Immutable server-recomputed proposals, exact changed-task acknowledgement, one-n
 
 Configured evidence includes lifecycle/dependency races, the populated `0017 → 0018` migration rehearsal, statement-timeout and deadlock recovery, discarded-response recovery, **post-commit connection-loss recovery**, **checked-out pool connection recovery**, and **bounded exact serialization retry**.
 
-A genuine `SERIALIZABLE` probe forces **three consecutive `40001` aborts** before the fourth exact-key attempt creates one acceptance and replacement. The HTTP server reports `automatic_retry_performed=false`.
+A genuine `SERIALIZABLE` probe forces **three consecutive `40001` aborts** before the fourth exact-key attempt creates one acceptance and replacement. Connection ambiguity dominates nominal abort SQLSTATEs, and the HTTP server reports `automatic_retry_performed=false`.
 
 ### C11 — Read-only support evidence export
 
@@ -48,6 +48,7 @@ The **database recovery observability** foundation is implemented as privacy-pre
 
 - Only bounded error codes and SQLSTATE buckets are recorded.
 - SQL, parameters, exception messages, idempotency keys, domain IDs, food data, and request payloads are excluded.
+- Exact code/proof classification and finite numeric values are enforced before counters change.
 - Immutable snapshots expose error, retry, convergence, exhaustion, ambiguity, invalidated-connection, pool-timeout, and delay counters.
 - Thread-safe aggregation and deterministic alert evaluation include 1,600 concurrent updates.
 - OpenMetrics output rejects unreviewed labels and malformed values and exposes no HTTP endpoint.
@@ -73,14 +74,27 @@ This proves controlled checkout-timeout recovery, not production pool sizing or 
 **Controlled sustained pool pressure** is implemented as a deterministic extension of C13. The controlled sustained pool pressure corpus is deliberately bounded and reproducible.
 
 - A constrained `QueuePool` uses two connections, no overflow, a 0.12-second checkout timeout, and pre-ping.
-- Both connections are deliberately occupied before each pressure corpus begins.
 - Three synchronized waves run eight callers per wave against the same exact idempotent acceptance request.
 - All **24 checkout timeouts** prove `no_transaction_started=true`, `retry_safe=true`, and `outcome_unknown=false`.
-- Independent reads after every wave prove zero acceptance, replacement-schedule, proposal-accepted-event, and replacement-created-event mutation.
+- Independent reads after every wave prove zero lifecycle mutation.
 - Metrics prove exactly 24 retry observations and exhausted single-attempt budgets, with no scheduled retries, ambiguity, or invalidated connections.
 - After releasing capacity, `checkedout() == 0`, one exact-key request creates one replacement, a later retry returns the same identities, and the pool returns to zero checked-out connections.
 
 This closes controlled repeated pressure and leak-free recovery. It does not establish **representative production capacity**, safe deployment sizing, real-traffic latency, fairness, or indefinite pressure handling.
+
+### C15 — Controlled application-worker recycle
+
+A **controlled application-worker recycle** is implemented under active pool exhaustion.
+
+- The old subprocess owns a one-connection pool and publishes a stable worker-instance identity plus a live PostgreSQL backend PID.
+- Guarded acceptance times out before transaction start and leaves exactly zero lifecycle mutation.
+- The parent requests an orderly recycle through stdin.
+- The old worker closes its connection, reports zero checked-out connections, disposes its engine, and exits successfully.
+- The parent proves the old PostgreSQL backend disappears from `pg_stat_activity`.
+- A fresh worker process publishes a different worker-instance identity and backend PID, performs the same exact-key acceptance once, and closes without a pool leak.
+- A final retry returns the same acceptance and schedule identities.
+
+This closes orderly process-recycle recovery only. **Crash recovery**, container/node failure, cross-replica coordination, and **multi-node failover** remain open.
 
 ## P0 — Observe and repair exact hosted verification
 
@@ -89,9 +103,10 @@ Inspect exact latest `main` workflow runs and artifacts, record exact commit/run
 ## P0 — Remaining PostgreSQL operational recovery
 
 - Connection loss while COMMIT acknowledgement itself is in flight.
+- Ungraceful crash recovery while a transaction or checkout is active.
 - PostgreSQL primary loss, replica promotion, DNS/service-discovery changes, and multi-node failover.
+- Cross-replica retry coordination and process replacement across multiple application instances.
 - Representative production capacity under realistic concurrent traffic, queueing, latency, process counts, pool sizing, connection lifetime/recycle behavior, and duration beyond the controlled 24-timeout corpus.
-- Process restart while pressure is active and recovery across multiple application replicas.
 - Production-snapshot or production-scale migration rehearsal beyond the 64-lifecycle corpus.
 - Authenticated production monitoring with rates, cross-replica aggregation, dashboards, alerts, paging, SLOs, and runbooks.
 
@@ -123,5 +138,5 @@ Continue reviewed evidence, forecasting, constrained ranking, backup/PITR, relea
 - The server always reports `automatic_retry_performed=false`.
 - Database recovery metrics never store SQL, request contents, idempotency keys, or domain identifiers.
 - Frontend preflight never replaces server authority.
-- No clinical, food-safety, global-optimality, model-readiness, representative-capacity, or green-build claim without exact supporting evidence.
+- No clinical, food-safety, global-optimality, model-readiness, representative-capacity, crash-recovery, failover, or green-build claim without exact supporting evidence.
 - No force push, history rewrite, feature branch, or feature PR.
