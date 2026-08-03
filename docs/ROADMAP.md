@@ -3,8 +3,8 @@
 **Roadmap date:** 2026-08-03  
 **Execution rule:** implement directly on `main` in coherent commits; keep code, tests, migrations, contracts, frontend clients, CI, and documentation synchronized; never rewrite history.  
 **Current migration head:** `20260802_0018`  
-**Current API:** `0.15.2`  
-**Current OpenAPI contract:** `2026-08-02.12`
+**Current API:** `0.15.3`  
+**Current OpenAPI contract:** `2026-08-03.1`
 
 Current catalog boundary: 37 task contracts, 30 dataset families, 75 model or algorithm families, 29 experiment contracts, and 39 feature contracts.
 
@@ -78,6 +78,19 @@ The configured real-database evidence now includes:
 
 Configured workflows retain JUnit and migration JSON evidence. None is represented as hosted green evidence until the exact current runs and artifacts are observed.
 
+### C11 — Read-only support evidence export
+
+A viewer-authorized and operator-CLI preparation schedule support export is implemented.
+
+- Captures schedule provenance, lifecycle events, derivation, task-execution eligibility, deterministic task history, related repair proposals, acceptances, and proposal events.
+- PostgreSQL uses a dedicated `REPEATABLE READ`, `SET TRANSACTION READ ONLY` snapshot and records `txid_current_snapshot()`.
+- A canonical SHA-256 binds domain evidence and explicit non-claims while excluding transaction timestamps/snapshot metadata.
+- The export reports `mutation_performed=false`, `actual_execution_verified=false`, and `food_safety_verified=false`.
+- Authentication plus household viewer access and `404` non-disclosure are enforced by the API.
+- The CLI writes atomically and returns structured database/resource errors.
+- SQLite regressions verify original and accepted-repair chains, source/replacement perspectives, hashes, and no mutation.
+- A real PostgreSQL acceptance race proves an existing export retains its pre-acceptance snapshot while a fresh export sees the accepted replacement and a different evidence hash.
+
 ## P0 — Observe and repair exact hosted verification
 
 1. Inspect exact latest `main` runs for SQLite, PostgreSQL, backend, frontend, OpenAPI, container, and focused repair workflows.
@@ -89,12 +102,12 @@ Configured workflows retain JUnit and migration JSON evidence. None is represent
 
 ## P0 — Complete execution eligibility evidence
 
-Backend and frontend eligibility are implemented. Remaining:
+Backend, frontend, and support-export eligibility evidence are implemented. Remaining:
 
 - authenticated PostgreSQL-backed browser scenarios;
 - replacement selection across draft/approved/invalidated/cancelled/completed/missing states;
 - accessibility evidence for blocked-state alerts and disabled controls;
-- eligibility in exports/support tooling and operational metrics;
+- operational metrics and support dashboards;
 - continued server-side mutation authority against stale clients and races.
 
 ## P0 — Finish PostgreSQL operational recovery evidence
@@ -105,14 +118,25 @@ Remaining real-database work:
 - PostgreSQL failover and pool-invalidated connection recovery;
 - repeated serialization failures and a bounded, observable client retry policy;
 - production-snapshot or production-scale migration rehearsal beyond the 64-lifecycle synthetic corpus;
-- concurrent export/support reads during lifecycle mutation;
 - SQLSTATE, retry, ambiguous-outcome, pool, and lock-wait metrics/alerts.
 
 Each probe must retain final proposal, acceptance, schedule, event, version, hash, SQLSTATE, structured error, and retry identity evidence. The HTTP exception boundary must never perform automatic mutation retries.
 
+## P0 — Harden support evidence packaging
+
+The read-only snapshot and viewer endpoint are implemented. Remaining:
+
+- configurable field-level redaction and least-privilege support roles;
+- signed/encrypted packages and verification tooling;
+- secure object storage, retention, revocation, and deletion policies;
+- support-case linkage and download audit events;
+- pagination/streaming/size limits for large execution histories;
+- household-level multi-schedule evidence bundles;
+- production load, memory, and latency evidence.
+
 ## P1 — Authenticated browser and accessibility evidence
 
-PostgreSQL-backed Playwright should cover signup/login/profile completion, household roles, plan review/approval/cancellation, occurrence confirmation, reviewed calendars, schedule persistence/approval, task execution/completion, advisory repair, proposal creation, acceptance, invalidation, method-aware approval, replacement eligibility, stale versions, tamper, and `404` non-disclosure.
+PostgreSQL-backed Playwright should cover signup/login/profile completion, household roles, plan review/approval/cancellation, occurrence confirmation, reviewed calendars, schedule persistence/approval, task execution/completion, advisory repair, proposal creation, acceptance, invalidation, method-aware approval, replacement eligibility, support-export download, stale versions, tamper, and `404` non-disclosure.
 
 Accessibility evidence must include axe, keyboard-only operation, focus restoration, error summaries, live regions, labels, table semantics, reduced motion, zoom/reflow, and contrast.
 
@@ -184,6 +208,7 @@ Clinical nutrition, medication decisions, allergy-safety guarantees, microbial/c
 - Repair-derived approval requires exact acceptance evidence and method-aware replay.
 - Replaced sources remain readable but cannot receive new execution events.
 - Every new schedule completion transition requires explicit terminal task evidence at the lowest exported authority.
+- Support export is read-only, hash-addressed, and never upgrades user-entered evidence into execution or safety verification.
 - Retryable or ambiguous database failures never trigger an automatic server-side mutation retry; clients repeat the exact request with the same idempotency key.
 - Frontend preflight never replaces server authority.
 - No global-optimality or model-readiness claim from greedy/truncated search, catalog registration, importability, or synthetic tests.
