@@ -15,7 +15,7 @@ concurrency:
 jobs:
   pool-exhaustion-recovery:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:16
@@ -45,7 +45,7 @@ jobs:
       - run: pip install -r backend/requirements.txt
       - run: pip check
 
-      - name: Compile pool timeout, retry, metrics, and PostgreSQL evidence
+      - name: Compile pool timeout, sustained pressure, retry, metrics, and PostgreSQL evidence
         run: >-
           python -m compileall -q
           backend/main.py
@@ -57,7 +57,9 @@ jobs:
           backend/tests/postgres_preparation_fixture.py
           backend/tests/test_database_pool_timeout_boundary.py
           backend/tests/test_preparation_repair_pool_exhaustion_postgres.py
+          backend/tests/test_preparation_repair_pool_pressure_postgres.py
           scripts/validate_preparation_repair_pool_exhaustion_contract.py
+          scripts/validate_preparation_repair_pool_pressure_contract.py
           scripts/validate_database_recovery_observability.py
           scripts/validate_repair_release_identity.py
 
@@ -73,18 +75,21 @@ jobs:
           verify_runtime_schema()
           PY
 
-      - name: Validate pool exhaustion recovery contract
+      - name: Validate single pool exhaustion recovery contract
         run: python scripts/validate_preparation_repair_pool_exhaustion_contract.py
+      - name: Validate controlled sustained pool pressure contract
+        run: python scripts/validate_preparation_repair_pool_pressure_contract.py
       - name: Validate database recovery observability
         run: python scripts/validate_database_recovery_observability.py
       - name: Validate synchronized repair release identity
         run: python scripts/validate_repair_release_identity.py
 
-      - name: Run pool timeout and real PostgreSQL exhaustion evidence
+      - name: Run pool timeout and real PostgreSQL exhaustion and pressure evidence
         run: >-
           pytest -q
           backend/tests/test_database_pool_timeout_boundary.py
           backend/tests/test_preparation_repair_pool_exhaustion_postgres.py
+          backend/tests/test_preparation_repair_pool_pressure_postgres.py
           --junitxml=reports/preparation-repair-pool-exhaustion.xml
 
       - uses: actions/upload-artifact@v7
