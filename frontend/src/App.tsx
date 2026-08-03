@@ -34,6 +34,9 @@ const PreparationTaskExecution = lazy(
 const PreparationScheduleDerivation = lazy(
   () => import("./pages/PreparationScheduleDerivation"),
 );
+const PreparationScheduleSupportExport = lazy(
+  () => import("./pages/PreparationScheduleSupportExport"),
+);
 const PreparationCalendarBuilder = lazy(
   () => import("./pages/PreparationCalendarBuilder"),
 );
@@ -133,6 +136,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <PageTransition><PreparationScheduleDerivation /></PageTransition>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/preparation/operations/support-export"
+            element={
+              <ProtectedRoute>
+                <PageTransition><PreparationScheduleSupportExport /></PageTransition>
               </ProtectedRoute>
             }
           />
