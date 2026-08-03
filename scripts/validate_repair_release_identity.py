@@ -134,6 +134,7 @@ def validate_identity() -> dict:
             "explicit support-evidence generation/download",
             "statement-timeout evidence",
             "deadlock evidence",
+            "post-commit connection-loss evidence",
             "64 valid accepted lifecycles",
         },
         "docs/ROADMAP.md": {
@@ -141,12 +142,13 @@ def validate_identity() -> dict:
             f"**Current API:** `{EXPECTED_API}`",
             f"**Current OpenAPI contract:** `{EXPECTED_OPENAPI_CONTRACT}`",
             "one-replacement-per-source invariant is implemented",
-            "task-execution eligibility is implemented",
-            "schedule derivation evidence is implemented",
+            "Task-execution eligibility is implemented",
+            "Schedule derivation evidence is implemented",
             "Owner-only proposal invalidation is implemented",
             "Lowest-layer task terminality",
             "C10 — PostgreSQL lifecycle, migration, and transient-failure evidence",
             "C11 — Read-only support evidence export",
+            "post-commit connection-loss recovery",
             "automatic_retry_performed=false",
         },
         "docs/PREPARATION_REPAIR_EXECUTION_BOUNDARY.md": {
@@ -159,6 +161,8 @@ def validate_identity() -> dict:
             "Migration rehearsal",
             "64 valid historical acceptances",
             "Statement timeout and deadlock recovery",
+            "Post-commit connection-loss recovery",
+            "pg_terminate_backend",
             "database_transaction_retry_required",
             "database_commit_outcome_unknown",
             "same idempotency key",
@@ -170,6 +174,7 @@ def validate_identity() -> dict:
             "REPEATABLE READ",
             "SET TRANSACTION READ ONLY",
             "Concurrent acceptance proof",
+            "Snapshot-internal authorization",
             "Viewer-authorized API",
             "Protected browser workspace",
             "mutation_performed=false",
@@ -232,7 +237,8 @@ def validate_identity() -> dict:
             '"/schedules/{schedule_id}/support-export"',
             "response_model=PreparationScheduleSupportExport",
             "HouseholdRole.VIEWER",
-            "export_preparation_schedule_support_snapshot(",
+            "export_authorized_preparation_schedule_support_snapshot(",
+            "authorized_user_id=current_user.id",
         },
         errors=errors,
         label="support export route",
@@ -257,6 +263,52 @@ def validate_identity() -> dict:
         label="support export service",
     )
 
+    authorized_support_service = _read(
+        "backend/services/preparation_schedule_support_export_authorized_service.py",
+        errors,
+    )
+    _require_fragments(
+        relative=(
+            "backend/services/"
+            "preparation_schedule_support_export_authorized_service.py"
+        ),
+        source=authorized_support_service,
+        fragments={
+            "def export_authorized_preparation_schedule_support_snapshot",
+            "authorized_user_id: str",
+            "require_household_access(",
+            "HouseholdRole.VIEWER",
+            'text("SET TRANSACTION READ ONLY")',
+            'text("SELECT txid_current_snapshot()")',
+            "_build_snapshot(",
+            "transaction.rollback()",
+        },
+        errors=errors,
+        label="snapshot-authorized support export",
+    )
+
+    support_authorization_tests = _read(
+        "backend/tests/test_preparation_schedule_support_export_authorization.py",
+        errors,
+    )
+    _require_fragments(
+        relative=(
+            "backend/tests/"
+            "test_preparation_schedule_support_export_authorization.py"
+        ),
+        source=support_authorization_tests,
+        fragments={
+            "test_authorized_support_snapshot_revalidates_owner_access",
+            "test_authorized_support_snapshot_fails_closed_for_nonmember",
+            "test_operator_snapshot_remains_explicitly_separate_from_http_authorization",
+            "authorized_user_id=OWNER_ID",
+            "authorized_user_id=outsider_id",
+            "assert exc.value.status_code == 404",
+        },
+        errors=errors,
+        label="snapshot authorization regression",
+    )
+
     support_race = _read(
         "backend/tests/test_preparation_schedule_support_export_postgres.py",
         errors,
@@ -267,7 +319,7 @@ def validate_identity() -> dict:
         fragments={
             "test_postgres_support_export_is_repeatable_read_during_acceptance",
             'historical.snapshot_isolation == "repeatable_read"',
-            'value.status.value for value in historical.related_repair_proposals',
+            "value.status.value for value in historical.related_repair_proposals",
             '== ["proposed"]',
             '== ["accepted"]',
             "current.evidence_hash != historical.evidence_hash",
@@ -322,6 +374,7 @@ def validate_identity() -> dict:
             "Actual execution verified: false",
             "Food safety verified: false",
             "URL.revokeObjectURL(url)",
+            "resultRef.current?.focus()",
             '<p className="text-sm text-muted-foreground" aria-live="polite">',
         },
         errors=errors,
@@ -363,6 +416,78 @@ def validate_identity() -> dict:
         },
         errors=errors,
         label="support export frontend contract",
+    )
+
+    connection_loss_test = _read(
+        "backend/tests/test_preparation_repair_connection_loss_postgres.py",
+        errors,
+    )
+    _require_fragments(
+        relative="backend/tests/test_preparation_repair_connection_loss_postgres.py",
+        source=connection_loss_test,
+        fragments={
+            "test_postgres_connection_loss_after_commit_recovers_by_exact_retry",
+            'text("SELECT pg_backend_pid()")',
+            'text("SELECT pg_terminate_backend(:pid)")',
+            "terminate_before_first_refresh",
+            'classification["code"] == "database_commit_outcome_unknown"',
+            '"acceptances": 1',
+            '"replacement_schedules": 1',
+            '"proposal_accepted_events": 1',
+            '"replacement_created_events": 1',
+        },
+        errors=errors,
+        label="post-commit connection-loss evidence",
+    )
+
+    connection_loss_contract = _read(
+        "scripts/validate_preparation_repair_connection_loss_contract.py",
+        errors,
+    )
+    _require_fragments(
+        relative="scripts/validate_preparation_repair_connection_loss_contract.py",
+        source=connection_loss_contract,
+        fragments={
+            "pg_terminate_backend_after_commit_before_refresh",
+            "database_commit_outcome_unknown",
+            '"same_key_retry_required": True',
+            '"automatic_retry_performed": False',
+            '"ast_validated": True',
+        },
+        errors=errors,
+        label="connection-loss contract",
+    )
+
+    postgres_workflow = _read(
+        ".github/workflows/preparation-repair-postgres.yml",
+        errors,
+    )
+    _require_fragments(
+        relative=".github/workflows/preparation-repair-postgres.yml",
+        source=postgres_workflow,
+        fragments={
+            "preparation_schedule_support_export_authorized_service.py",
+            "test_preparation_repair_connection_loss_postgres.py",
+            "validate_preparation_repair_connection_loss_contract.py",
+        },
+        errors=errors,
+        label="PostgreSQL workflow evidence",
+    )
+
+    repair_workflow = _read(
+        ".github/workflows/preparation-repair.yml",
+        errors,
+    )
+    _require_fragments(
+        relative=".github/workflows/preparation-repair.yml",
+        source=repair_workflow,
+        fragments={
+            "preparation_schedule_support_export_authorized_service.py",
+            "test_preparation_schedule_support_export_authorization.py",
+            "validate_preparation_repair_connection_loss_contract.py",
+        },
+        errors=errors,
+        label="focused repair workflow evidence",
     )
 
     proposal_routes = _read(
@@ -460,8 +585,10 @@ def validate_identity() -> dict:
         "source_formatting_normalized": True,
         "completion_authority": "transition_schedule",
         "database_transient_failure_boundary": True,
+        "post_commit_connection_loss_recovery": True,
         "support_export": True,
         "support_export_frontend": True,
+        "support_export_snapshot_authorization": True,
         "support_export_isolation": "repeatable_read",
         "support_export_mutation_performed": False,
         "automatic_retry_performed": False,
