@@ -142,13 +142,47 @@ def test_nonretryable_failure_is_re_raised_without_sleep():
 
 
 def test_policy_and_idempotency_key_validation():
-    with pytest.raises(ValueError, match="max_attempts"):
-        ExactDatabaseRetryPolicy(max_attempts=0)
+    for invalid_attempts in (0, 21, True, 1.5):
+        with pytest.raises(ValueError, match="max_attempts"):
+            ExactDatabaseRetryPolicy(max_attempts=invalid_attempts)  # type: ignore[arg-type]
+
     with pytest.raises(ValueError, match="max_delay_seconds"):
         ExactDatabaseRetryPolicy(
             base_delay_seconds=1,
             max_delay_seconds=0.5,
         )
+
+    for invalid_base in (
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        -0.1,
+        True,
+        "0.1",
+    ):
+        with pytest.raises(ValueError, match="base_delay_seconds"):
+            ExactDatabaseRetryPolicy(
+                base_delay_seconds=invalid_base,  # type: ignore[arg-type]
+            )
+
+    for invalid_max in (
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        -0.1,
+        False,
+        "1.0",
+    ):
+        with pytest.raises(ValueError, match="max_delay_seconds"):
+            ExactDatabaseRetryPolicy(
+                max_delay_seconds=invalid_max,  # type: ignore[arg-type]
+            )
+
+    policy = ExactDatabaseRetryPolicy()
+    for invalid_attempt in (0, -1, True, 1.5):
+        with pytest.raises(ValueError, match="positive integer"):
+            policy.delay_for_failed_attempt(invalid_attempt)  # type: ignore[arg-type]
+
     with pytest.raises(ValueError, match="blank"):
         execute_exact_idempotent_database_request(
             lambda _key, _attempt: "unused",
