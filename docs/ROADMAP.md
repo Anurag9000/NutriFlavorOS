@@ -34,23 +34,27 @@ Immutable server-recomputed proposals, exact changed-task acknowledgement, one-n
 
 **Lowest-layer task terminality** is implemented in exported `transition_schedule`. Direct completion requires explicit terminal task evidence, lower-level bypass is forbidden, and a PostgreSQL race proves completion cannot commit ahead of the final task event.
 
-### C10 — PostgreSQL lifecycle, migration, and transient-failure evidence
+### C10 — PostgreSQL lifecycle, migration, and recovery evidence
 
-Configured real-database evidence includes:
+Configured real-database evidence includes lifecycle/dependency races; populated `0017 → 0018` migration rehearsal; statement-timeout and deadlock recovery; post-commit connection termination; checked-out pool invalidation; discarded-response recovery; **bounded exact serialization retry**; and a genuine `SERIALIZABLE` probe forcing **three consecutive `40001` aborts** before the fourth exact-key attempt creates one acceptance and replacement.
 
-- lifecycle and dependency races for acceptance, rejection, invalidation, source execution, plan cancellation, calendar supersession, owner approval, and final-task completion;
-- discarded-response exact recovery;
-- populated `0017 → 0018` migration rehearsal with 64 production-service acceptances and bypass rollback;
-- statement-timeout `57014` and genuine deadlock `40P01` recovery;
-- real **post-commit connection-loss recovery** using `pg_terminate_backend` and exact same-key convergence;
-- real **checked-out pool connection recovery** with `connection_invalidated=true`, zero pre-recovery mutation, a different backend PID, exact convergence, and `retry_safe=false`;
-- **bounded exact serialization retry** with finite attempts, exponential backoff, immutable observations, unchanged idempotency key, and no automatic replay of ambiguous connections;
-- a genuine `SERIALIZABLE` probe forcing **three consecutive `40001` aborts** before the fourth exact-key attempt creates exactly one acceptance and replacement;
-- explicit `automatic_retry_performed=false` in the HTTP boundary.
+The HTTP server keeps `automatic_retry_performed=false`. `retry_safe=true` is reserved for proven transaction aborts; connection ambiguity remains `retry_safe=false`.
 
 ### C11 — Read-only support evidence export
 
 A viewer-authorized endpoint, operator CLI, typed GET-only client, and protected workspace provide hash-addressed schedule evidence. PostgreSQL uses `REPEATABLE READ`, `SET TRANSACTION READ ONLY`, snapshot-internal viewer authorization, and canonical hashing. A real concurrent-acceptance race proves snapshot consistency.
+
+### C12 — Database recovery observability foundation
+
+The **database recovery observability** foundation is implemented as privacy-preserving process-local metrics.
+
+- Only bounded error codes and SQLSTATE buckets are recorded.
+- SQL, parameters, exception messages, idempotency keys, domain IDs, food data, and request payloads are excluded.
+- Immutable snapshots expose error, retry, convergence, exhaustion, ambiguity, invalidated-connection, and delay counters.
+- Thread-safe aggregation and deterministic alert evaluation are covered by focused tests, including 1,600 concurrent updates.
+- No public metrics HTTP endpoint exists.
+
+This closes the core instrumentation boundary, not production monitoring. Persistent time windows, **cross-replica aggregation**, dashboards, paging, deduplication, ownership, runbooks, and SLOs remain.
 
 ## P0 — Observe and repair exact hosted verification
 
@@ -66,7 +70,7 @@ A viewer-authorized endpoint, operator CLI, typed GET-only client, and protected
 - PostgreSQL primary loss, replica promotion, DNS/service-discovery changes, and multi-node failover.
 - Sustained pool exhaustion, timeout, recycle/lifetime behavior, process restart, and concurrent-load recovery.
 - Production-snapshot or production-scale migration rehearsal beyond the 64-lifecycle corpus.
-- SQLSTATE, retry, outcome-unknown, pool, and lock-wait metrics and alerts.
+- Connect process-local metrics to authenticated production monitoring with rates, cross-replica aggregation, dashboards, alerts, paging, SLOs, and runbooks.
 
 The HTTP server must never perform automatic mutation retries. Explicit callers may use bounded retry only when `retry_safe=true`; connection ambiguity remains `retry_safe=false` and requires authoritative same-key outcome recovery.
 
@@ -102,6 +106,7 @@ Clinical nutrition, medication decisions, allergy-safety guarantees, contaminati
 - Support export is read-only, hash-addressed, snapshot-authorized, and never upgrades user-entered evidence into execution or safety verification.
 - `retry_safe=true` is reserved for proven transaction aborts; connection ambiguity remains `retry_safe=false`.
 - The server always reports `automatic_retry_performed=false`.
+- Database recovery metrics never store SQL, request contents, idempotency keys, or domain identifiers.
 - Frontend preflight never replaces server authority.
 - No clinical, food-safety, global-optimality, model-readiness, or green-build claim without exact supporting evidence.
 - No force push, history rewrite, feature branch, or feature PR.
