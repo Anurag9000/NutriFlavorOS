@@ -30,9 +30,11 @@ def _read(relative: str, errors: list[str]) -> str:
 
 
 def _normalized(value: str) -> str:
-    """Collapse formatting-only whitespace while preserving command order."""
+    """Collapse YAML whitespace and shell continuation formatting."""
 
-    return " ".join(value.split())
+    without_continuations = value.replace("\\\r\n", " ").replace("\\\n", " ")
+    without_standalone_backslashes = without_continuations.replace("\\", " ")
+    return " ".join(without_standalone_backslashes.split())
 
 
 def validate_contract() -> dict:
@@ -121,6 +123,7 @@ def validate_contract() -> dict:
         "exact_hash_preservation": True,
         "database_constraint_bypass_probe": True,
         "workflow_whitespace_normalized": True,
+        "workflow_shell_continuations_normalized": True,
         "errors": errors,
     }
 
