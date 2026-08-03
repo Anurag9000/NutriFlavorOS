@@ -5,8 +5,8 @@ from scripts.validate_openapi_contracts import validate_openapi_contract
 
 def test_generated_openapi_matches_required_product_contract():
     report = validate_openapi_contract()
-    assert report["contract_version"] == "2026-08-02.12"
-    assert report["api_version"] == "0.15.2"
+    assert report["contract_version"] == "2026-08-03.2"
+    assert report["api_version"] == "0.15.4"
     assert "OAuth2PasswordBearer" in report["security_schemes"]
     assert {
         "IngredientConversionVersionView",
@@ -21,6 +21,7 @@ def test_generated_openapi_matches_required_product_contract():
         "PreparationScheduleDerivationCoverageView",
         "PreparationScheduleEventView",
         "PreparationTaskExecutionEligibilityView",
+        "PreparationScheduleSupportExport",
         "PreparationRepairProposalCreateRequest",
         "PreparationRepairProposalRejectRequest",
         "PreparationRepairProposalInvalidateRequest",
@@ -36,6 +37,7 @@ def test_generated_openapi_matches_required_product_contract():
         "/api/v1/households/{household_id}/preparation-operations/schedules",
         "/api/v1/households/{household_id}/preparation-operations/schedule-derivation-coverage",
         "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/derivation",
+        "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/support-export",
         "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/task-execution-eligibility",
         "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/approve",
         "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/events",
