@@ -108,6 +108,7 @@ def test_openmetrics_render_contains_no_domain_or_request_identifiers():
         "request_payload",
         "food",
     }
+    assert "idempotency" in forbidden
     for value in forbidden:
         assert value not in rendered
     assert METRIC_PREFIX == "nutriflavor_database_recovery"
