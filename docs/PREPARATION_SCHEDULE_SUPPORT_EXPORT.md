@@ -88,11 +88,35 @@ The support endpoint is:
 
 It requires authentication and household viewer access. Cross-household and unauthorized reads retain `404` non-disclosure through the standard household access boundary.
 
+## Protected browser workspace
+
+The protected route is:
+
+`/preparation/operations/support-export`
+
+The workspace:
+
+- loads only household and persisted-schedule selectors initially;
+- does not request or download evidence until the user activates **Generate read-only snapshot**;
+- uses the typed GET-only support-export client and exposes no create/update/delete method;
+- clears previously generated evidence whenever household or schedule scope changes;
+- displays the server evidence hash, database dialect, snapshot isolation, read-only flag, derivation method, execution-eligibility reason, and evidence counts;
+- preserves the complete server response object when serializing JSON;
+- creates a filesystem-safe filename containing household, schedule ID, and evidence-hash prefix;
+- revokes the temporary browser object URL after download;
+- reports generation and download outcomes through an `aria-live` region;
+- repeats the explicit no-mutation, no-execution-verification, and no-food-safety-verification boundary;
+- uses the sole main landmark provided by `AppLayout` and does not create a duplicate `<main>` or `main-content` ID;
+- uses no `localStorage`, `sessionStorage`, IndexedDB, or browser-side authority cache.
+
+Focused Vitest coverage proves explicit generation, server identity/non-claims, complete hash-addressed download, stale-scope clearing, fail-closed errors, and URL-constructor preservation while mocking blob methods.
+
 ## Failure and non-claim boundary
 
 - Missing or inaccessible resources return controlled HTTP errors.
 - Contradictory derivation, acceptance, replacement, or task-history evidence fails closed rather than exporting a misleading package.
 - Retryable database aborts and ambiguous connections use the common structured database failure boundary.
 - The export does not sign, encrypt, upload, email, or retain a file on the server.
+- The browser download is local user action and is not a server-side retention or support-case record.
 - The export is not proof of task performance, human presence, appliance state, temperature, contamination status, food safety, clinical validity, or global optimization quality.
 - Configured tests and workflows are not represented as hosted green evidence until the exact run and artifacts are observed.
