@@ -83,7 +83,7 @@ Implemented real PostgreSQL evidence includes:
 
 ## Database recovery observability
 
-**Database recovery observability** now provides **privacy-preserving process metrics** for sanitized HTTP operational errors and explicit bounded retry behavior.
+The **database recovery observability** foundation now provides **privacy-preserving process metrics** for sanitized HTTP operational errors and explicit bounded retry behavior.
 
 - Labels are restricted to three stable error codes and SQLSTATE buckets `40001`, `40P01`, `57014`, `55P03`, `08xxx`, and `unknown`.
 - Snapshots expose operational errors, transaction aborts, outcome-unknown events, nonretryable errors, invalidated connections, retry observations, scheduled retries, successful convergence, exhausted budgets, outcome-unknown utility exits, and total/maximum delay.
