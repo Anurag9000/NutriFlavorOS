@@ -98,17 +98,22 @@ The viewer-authorized **Preparation schedule support export** endpoint returns o
 - Connection ambiguity reports `retry_safe=false`.
 - The HTTP handler always reports `automatic_retry_performed=false`.
 
-Real PostgreSQL evidence covers:
+Real PostgreSQL evidence covers statement timeout, genuine deadlock, discarded committed responses, post-commit backend termination, checked-out pool invalidation, and three genuine serializable `40001` aborts followed by a fourth exact-key attempt that creates one acceptance and replacement.
 
-- statement timeout `57014` and exact recovery;
-- genuine deadlock `40P01` and exact convergence;
-- discarded committed responses for acceptance, invalidation, and completion;
-- post-commit backend termination with independent committed-state proof and same-key recovery;
-- **checked-out pool connection invalidation evidence** with zero pre-recovery mutation, a different replacement backend PID, and exact convergence;
-- bounded exact client/operator retry for proven-aborted transactions;
-- three genuine serializable `40001` aborts followed by a fourth exact-key attempt that creates one acceptance and replacement.
+The bounded retry utility preserves one normalized idempotency key, applies finite exponential backoff, emits immutable attempt observations, raises at the exact bound, and never automatically replays `database_commit_outcome_unknown`.
 
-The bounded utility preserves one normalized idempotency key, applies finite exponential backoff, emits immutable attempt observations, raises at the exact bound, and never automatically replays `database_commit_outcome_unknown`.
+## Database recovery observability
+
+The **database recovery observability** foundation records privacy-preserving process metrics for sanitized HTTP operational errors and explicit bounded retries.
+
+- Only bounded error codes and SQLSTATE buckets are retained.
+- Immutable snapshots expose transaction-abort, outcome-unknown, invalidated-connection, scheduled-retry, successful-convergence, exhaustion, and delay counters.
+- Thread-safe tests prove exact aggregation under 1,600 concurrent updates.
+- SQL, parameters, exception messages, idempotency keys, household/user/proposal/schedule IDs, food data, and request payloads are never recorded.
+- Process-local alert evaluation covers ambiguous outcomes, exhausted retry budgets, transaction-abort volume, and invalidated connections.
+- No public metrics HTTP endpoint is exposed.
+
+Persistent time windows, cross-replica aggregation, dashboards, paging, ownership, runbooks, and SLOs remain deployment work.
 
 ## Frontend and evidence
 
@@ -122,13 +127,14 @@ Catalog `2026-08-01.3` defines 37 task contracts, 30 dataset families, 75 model 
 
 ## Validation matrix
 
-Configured direct-`main` workflows cover fresh SQLite/PostgreSQL migrations, OpenAPI/release identity, backend/static contracts, frontend typecheck/Vitest, repair/proposal/acceptance/invalidation/approval/derivation/execution tests, PostgreSQL lifecycle and dependency races, support snapshot concurrency, migration rehearsal, timeout/deadlock recovery, connection termination, pool invalidation, repeated serialization retry, and retained benchmark/JUnit/JSON evidence.
+Configured direct-`main` workflows cover fresh SQLite/PostgreSQL migrations, OpenAPI/release identity, backend/static contracts, frontend typecheck/Vitest, repair/proposal/acceptance/invalidation/approval/derivation/execution tests, PostgreSQL lifecycle and dependency races, support snapshot concurrency, migration rehearsal, timeout/deadlock recovery, connection termination, pool invalidation, repeated serialization retry, recovery observability, and retained benchmark/JUnit/JSON evidence.
 
 The exact latest hosted workflows and artifacts must be inspected before the current commit is described as green.
 
 ## Deliberately incomplete
 
 - COMMIT-acknowledgement-in-flight connection loss, multi-node failover, sustained pool exhaustion/recovery, and production-scale migration rehearsal.
+- Authenticated production metrics aggregation, persistence, dashboards, paging, SLOs, and runbooks.
 - Authenticated PostgreSQL-backed Playwright and complete accessibility evidence.
 - Signed/encrypted/redacted support packages, retention, storage, support-case linkage, and audit events.
 - Execution-aware repair and joint meal/inventory/reservation/shopping/leftover/preparation repair.
@@ -163,6 +169,7 @@ PostgreSQL is recommended for concurrent or hosted deployments.
 - [Repair Execution Boundary](docs/PREPARATION_REPAIR_EXECUTION_BOUNDARY.md)
 - [Pool Invalidation Recovery](docs/PREPARATION_REPAIR_POOL_INVALIDATION.md)
 - [Bounded Serialization Retry](docs/PREPARATION_REPAIR_SERIALIZATION_RETRY.md)
+- [Database Recovery Observability](docs/DATABASE_RECOVERY_OBSERVABILITY.md)
 - [Schedule Derivation Evidence](docs/PREPARATION_SCHEDULE_DERIVATION.md)
 - [Preparation Schedule Support Export](docs/PREPARATION_SCHEDULE_SUPPORT_EXPORT.md)
 - [Preparation Operations](docs/PREPARATION_OPERATIONS.md)
