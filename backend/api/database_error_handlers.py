@@ -49,11 +49,15 @@ def classify_operational_error(exc: OperationalError) -> dict[str, object]:
     """Classify retry action and proof strength for an operational failure."""
 
     sqlstate = operational_error_sqlstate(exc)
-    transaction_aborted = sqlstate in TRANSACTION_RETRY_SQLSTATES
+    raw_transaction_aborted = sqlstate in TRANSACTION_RETRY_SQLSTATES
     outcome_unknown = bool(
         exc.connection_invalidated
         or (sqlstate is not None and sqlstate.startswith(CONNECTION_EXCEPTION_PREFIX))
     )
+    # Connection ambiguity dominates a nominal retry SQLSTATE. Once the
+    # connection is invalidated, the caller no longer has sufficient proof that
+    # the transaction outcome is safely known.
+    transaction_aborted = raw_transaction_aborted and not outcome_unknown
     retryable = transaction_aborted or outcome_unknown
     retry_safe = transaction_aborted and not outcome_unknown
 
