@@ -3,6 +3,11 @@
 The application never retries state-changing operations inside this handler.
 Callers must repeat the exact request with the same idempotency key after a
 retryable transaction abort or an ambiguous connection failure.
+
+``retryable`` means an exact client retry is the prescribed recovery action.
+``retry_safe`` is narrower: it is true only when PostgreSQL proved the original
+transaction aborted. Connection failures remain outcome-unknown and therefore
+are not safe to reinterpret as an uncommitted mutation.
 """
 
 from __future__ import annotations
@@ -38,7 +43,7 @@ def operational_error_sqlstate(exc: OperationalError) -> str | None:
 
 
 def classify_operational_error(exc: OperationalError) -> dict[str, object]:
-    """Classify retry safety while preserving ambiguous commit outcomes."""
+    """Classify retry action and proof strength for an operational failure."""
 
     sqlstate = operational_error_sqlstate(exc)
     transaction_aborted = sqlstate in TRANSACTION_RETRY_SQLSTATES
@@ -47,6 +52,7 @@ def classify_operational_error(exc: OperationalError) -> dict[str, object]:
         or (sqlstate is not None and sqlstate.startswith(CONNECTION_EXCEPTION_PREFIX))
     )
     retryable = transaction_aborted or outcome_unknown
+    retry_safe = transaction_aborted and not outcome_unknown
 
     if outcome_unknown:
         code = "database_commit_outcome_unknown"
@@ -69,6 +75,7 @@ def classify_operational_error(exc: OperationalError) -> dict[str, object]:
         "message": message,
         "sqlstate": sqlstate,
         "retryable": retryable,
+        "retry_safe": retry_safe,
         "transaction_aborted": transaction_aborted,
         "outcome_unknown": outcome_unknown,
         "retry_same_idempotency_key": retryable,
