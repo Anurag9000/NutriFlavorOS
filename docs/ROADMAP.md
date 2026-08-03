@@ -22,7 +22,7 @@ Deterministic horizon planning, hard restrictions, household target aggregation,
 
 ### C3 — Human-reviewed plan lifecycle
 
-Draft/approved/cancelled states, owner approval, editor/owner cancellation, append-only events, stale-version/contradictory-key rejection, reservation release, dependent schedule invalidation, protected review, and exact approved source-plan references.
+Draft/approved/cancelled states, owner approval, editor/owner cancellation, append-only events, stale-version and contradictory-key rejection, reservation release, dependent schedule invalidation, protected review, and exact approved source-plan references.
 
 ### C4 — Reviewed preparation operations
 
@@ -36,17 +36,17 @@ Deterministic greedy repair, bounded exact comparator, immutable anchors, predec
 
 Immutable server-recomputed proposals, exact changed-task acknowledgements, one-new-draft-only acceptance, source immutability, separate method-aware owner approval, tamper/staleness checks, and append-only proposal/schedule evidence.
 
-The one-replacement-per-source invariant is implemented through migration `20260802_0018`.
+The **one-replacement-per-source invariant is implemented** through migration `20260802_0018`.
 
 ### C7 — Derivation and execution authority
 
-Schedule derivation evidence is implemented through per-schedule and household-coverage endpoints plus a protected inspector.
+**Schedule derivation evidence is implemented** through per-schedule and household-coverage endpoints plus a protected inspector.
 
-Task-execution eligibility is implemented through a viewer-authorized endpoint and proactive frontend gate. Replaced sources remain readable but cannot receive new task events or completion.
+**Task-execution eligibility is implemented** through a viewer-authorized endpoint and proactive frontend gate. Replaced sources remain readable but cannot receive new task events or completion.
 
 ### C8 — Proposal invalidation authority and administration
 
-Owner-only proposal invalidation is implemented through an authenticated API, strict request contract, append-only event, server-observed stale reasons, exact idempotency, optimistic versioning, typed frontend client, protected owner administration workspace, editor/viewer read-only behavior, static contracts, Vitest coverage, and real PostgreSQL acceptance-versus-invalidation plus rejection-versus-invalidation races.
+**Owner-only proposal invalidation is implemented** through an authenticated API, strict request contract, append-only event, server-observed stale reasons, exact idempotency, optimistic versioning, typed frontend client, protected owner administration workspace, editor/viewer read-only behavior, static contracts, Vitest coverage, and real PostgreSQL acceptance-versus-invalidation plus rejection-versus-invalidation races.
 
 Invalidation cannot accept, persist, approve, execute, complete, or mutate a source schedule. It permanently closes only a `proposed` review record.
 
@@ -54,25 +54,22 @@ Invalidation cannot accept, persist, approve, execute, complete, or mutate a sou
 
 **Lowest-layer task terminality** is implemented in the exported `transition_schedule` service.
 
-- Direct low-level `COMPLETED` calls require all deterministic tasks to be explicitly completed or skipped.
-- The public authority facade preserves the established operations implementation and existing error precedence.
-- The named completion service is a delegate, not a second proof/commit path.
+- Direct low-level completion requires all deterministic tasks to be completed or skipped.
+- Existing error precedence and exact retries are preserved.
 - Static validation forbids product code from importing the preserved implementation directly.
-- The complete historical operations test corpus is retained, with the obsolete implicit-completion case replaced by explicit terminality evidence.
 - A real PostgreSQL final-task-versus-schedule-completion race proves completion cannot commit ahead of the last task event.
 
 ### C10 — PostgreSQL lifecycle, migration, and transient-failure evidence
 
-The configured real-database evidence now includes:
+Configured real-database evidence includes:
 
-- acceptance versus rejection, acceptance versus invalidation, and rejection versus invalidation;
-- source-plan cancellation versus acceptance and repaired owner approval;
-- calendar supersession versus acceptance and repaired owner approval;
+- acceptance versus rejection, invalidation, source execution, source-plan cancellation, calendar supersession, and owner approval;
 - final task completion versus schedule completion;
 - discarded committed-response exact retry for acceptance, invalidation, and completion;
 - a populated `0017 → 0018` migration rehearsal with 64 production-service acceptances, exact identity/hash preservation, catalog constraint verification, and lower-level bypass rollback;
 - a real `statement_timeout` abort with SQLSTATE `57014` followed by successful same-key retry;
-- a genuine PostgreSQL row-lock/advisory-lock deadlock with exactly one SQLSTATE `40P01` victim and one accepted replacement after exact retry;
+- a genuine PostgreSQL deadlock with one SQLSTATE `40P01` victim and one accepted replacement after exact retry;
+- real **post-commit connection-loss recovery**: `pg_terminate_backend()` terminates the service backend after the acceptance transaction commits but before the first refresh/response; the failure maps to `database_commit_outcome_unknown`, independent reads prove one committed lifecycle, and the exact same-key retry returns it without duplication;
 - a sanitized API boundary for retryable transaction SQLSTATEs and ambiguous connection outcomes;
 - explicit `automatic_retry_performed=false` so the server never conceals duplicate or unknown commit outcomes.
 
@@ -84,11 +81,11 @@ A viewer-authorized and operator-CLI preparation schedule support export is impl
 
 - Captures schedule provenance, lifecycle events, derivation, task-execution eligibility, deterministic task history, related repair proposals, acceptances, and proposal events.
 - PostgreSQL uses a dedicated `REPEATABLE READ`, `SET TRANSACTION READ ONLY` snapshot and records `txid_current_snapshot()`.
-- A canonical SHA-256 binds domain evidence and explicit non-claims while excluding transaction timestamps/snapshot metadata.
-- The export reports `mutation_performed=false`, `actual_execution_verified=false`, and `food_safety_verified=false`.
-- Authentication plus household viewer access and `404` non-disclosure are enforced by the API.
-- The CLI writes atomically and returns structured database/resource errors.
-- SQLite regressions verify original and accepted-repair chains, source/replacement perspectives, hashes, and no mutation.
+- A canonical SHA-256 binds domain evidence and explicit non-claims while excluding transaction timestamps and snapshot metadata.
+- The request session enforces viewer access and `404` non-disclosure; PostgreSQL repeats viewer authorization inside the exact export snapshot.
+- The authenticated user ID is server-derived, while the operator CLI remains a separate privileged path.
+- The protected browser requires explicit generation, clears stale scope, restores focus to generated evidence, and downloads the complete hash-addressed JSON without browser storage.
+- SQLite/API regressions prove owner success, nonmember `404`, operator separation, complete evidence chains, and no mutation.
 - A real PostgreSQL acceptance race proves an existing export retains its pre-acceptance snapshot while a fresh export sees the accepted replacement and a different evidence hash.
 
 ## P0 — Observe and repair exact hosted verification
@@ -100,98 +97,63 @@ A viewer-authorized and operator-CLI preparation schedule support export is impl
 5. Re-run failed jobs and verify the exact replacement run.
 6. Do not report green until the exact current commit and artifacts are observed.
 
-## P0 — Complete execution eligibility evidence
-
-Backend, frontend, and support-export eligibility evidence are implemented. Remaining:
-
-- authenticated PostgreSQL-backed browser scenarios;
-- replacement selection across draft/approved/invalidated/cancelled/completed/missing states;
-- accessibility evidence for blocked-state alerts and disabled controls;
-- operational metrics and support dashboards;
-- continued server-side mutation authority against stale clients and races.
-
 ## P0 — Finish PostgreSQL operational recovery evidence
 
 Remaining real-database work:
 
-- connection loss during or immediately after commit with exact same-key outcome recovery;
-- PostgreSQL failover and pool-invalidated connection recovery;
+- connection loss while COMMIT acknowledgement itself is in flight, where neither client nor server response can safely establish the outcome;
+- PostgreSQL primary loss/failover and pool-invalidated connection recovery;
 - repeated serialization failures and a bounded, observable client retry policy;
 - production-snapshot or production-scale migration rehearsal beyond the 64-lifecycle synthetic corpus;
-- SQLSTATE, retry, ambiguous-outcome, pool, and lock-wait metrics/alerts.
+- SQLSTATE, retry, ambiguous-outcome, pool, and lock-wait metrics and alerts.
 
-Each probe must retain final proposal, acceptance, schedule, event, version, hash, SQLSTATE, structured error, and retry identity evidence. The HTTP exception boundary must never perform automatic mutation retries.
+Each probe must retain proposal, acceptance, schedule, event, version, hash, SQLSTATE, structured error, and retry identity evidence. The HTTP exception boundary must never perform automatic mutation retries.
 
-## P0 — Harden support evidence packaging
+## P0 — Complete authenticated browser and accessibility evidence
 
-The read-only snapshot and viewer endpoint are implemented. Remaining:
-
-- configurable field-level redaction and least-privilege support roles;
-- signed/encrypted packages and verification tooling;
-- secure object storage, retention, revocation, and deletion policies;
-- support-case linkage and download audit events;
-- pagination/streaming/size limits for large execution histories;
-- household-level multi-schedule evidence bundles;
-- production load, memory, and latency evidence.
-
-## P1 — Authenticated browser and accessibility evidence
-
-PostgreSQL-backed Playwright should cover signup/login/profile completion, household roles, plan review/approval/cancellation, occurrence confirmation, reviewed calendars, schedule persistence/approval, task execution/completion, advisory repair, proposal creation, acceptance, invalidation, method-aware approval, replacement eligibility, support-export download, stale versions, tamper, and `404` non-disclosure.
+PostgreSQL-backed Playwright must cover signup/login/profile completion, household roles, plan review/approval/cancellation, occurrence confirmation, reviewed calendars, schedule persistence/approval, task execution/completion, advisory repair, proposal creation, acceptance, invalidation, method-aware approval, replacement eligibility, support-export download, stale versions, tamper, and `404` non-disclosure.
 
 Accessibility evidence must include axe, keyboard-only operation, focus restoration, error summaries, live regions, labels, table semantics, reduced motion, zoom/reflow, and contrast.
 
+## P0 — Harden support evidence packaging
+
+The read-only snapshot, authorization boundary, viewer endpoint, CLI, and protected download workspace are implemented. Remaining:
+
+- configurable field-level redaction and least-privilege support roles;
+- signed/encrypted packages and independent verification tooling;
+- secure object storage, retention, revocation, and deletion policies;
+- support-case linkage and download audit events;
+- pagination, streaming, and size limits for large histories;
+- household-level multi-schedule bundles;
+- production load, memory, and latency evidence.
+
 ## P1 — Execution-aware repair
 
-The current ordinary repair correctly abstains after source task history begins. A future engine must:
-
-- treat all task events as immutable facts;
-- preserve completed/skipped states and confirmed starts;
-- prohibit moving executed work;
-- distinguish historical actual work from remaining planned work;
-- preserve dependency chronology;
-- handle in-progress/passive/supervision states explicitly;
-- replan only remaining work;
-- retain event IDs, versions, actors, timestamps, and fingerprints;
-- create a new draft without rewriting source history;
-- expose structured infeasibility/minimal conflicts;
-- race execution onset against computation, proposal creation, acceptance, and approval.
+A future engine must treat task events as immutable facts, preserve completed/skipped states and confirmed starts, prohibit moving executed work, distinguish historical actual work from remaining planned work, preserve dependency chronology, model in-progress/passive/supervision states, replan only remaining work, retain event identities, create a new draft without rewriting source history, expose structured infeasibility, and race execution onset against computation/proposal/acceptance/approval.
 
 ## P1 — Joint meal, inventory, shopping, and preparation repair
 
-- Jointly repair meals, servings, pantry allocations, reservations, shopping, leftovers, and tasks.
-- Preserve approved-plan/source-schedule history.
-- Release old reservations and create replacements only after explicit acceptance.
-- Add minimum-change objectives across meals, quantities, lots, purchases, and starts.
-- Add partial repair with precise conflicts.
-- Add CP-SAT/MILP lower bounds, LNS, ruin-and-recreate, and decomposition.
+Jointly repair meals, servings, pantry allocations, reservations, shopping, leftovers, and tasks; preserve approved-plan/source history; release old reservations and create replacements only after explicit acceptance; add minimum-change objectives across meals, quantities, lots, purchases, and starts; and add partial repair with precise conflicts and exact/relaxed lower bounds.
 
 ## P1/P2 — Scheduling and optimization frontier
 
-Optional interval-variable CP-SAT, MILP relaxation/infeasibility diagnosis, min-cost flow, LNS, conflict-targeted ruin-and-recreate, logic-based Benders, robust/stochastic durations/attendance/demand/prices, chance constraints, epsilon-constraint Pareto frontiers, unsat cores, and representative latency/memory/gap/failure reports.
+Optional interval-variable CP-SAT, MILP relaxation and infeasibility diagnosis, min-cost flow, LNS, conflict-targeted ruin-and-recreate, logic-based Benders, robust/stochastic durations/attendance/demand/prices, chance constraints, epsilon-constraint Pareto frontiers, unsat cores, and representative latency/memory/gap/failure reports.
 
 ## P2 — Evidence and normalization
 
-Expand reviewed ingredient/conversion/profile/storage-policy coverage, multilingual/Indic normalization with retrieval/reranking/abstention, reviewed parse queues, signed evidence/trust/revocation, micronutrient uncertainty, and explicit blocking of time-temperature/microbial/medication/allergy/clinical conclusions without qualified review and validated instrumentation.
+Expand reviewed ingredient/conversion/profile/storage-policy coverage, multilingual/Indic normalization with retrieval/reranking/abstention, reviewed parse queues, signed evidence/trust/revocation, micronutrient uncertainty, and explicit blocking of time-temperature, microbial, medication, allergy, and clinical conclusions without qualified review and validated instrumentation.
 
-## P2 — Inventory and shopping
+## P2 — Inventory, shopping, and forecasting
 
-Reviewed receipt/barcode OCR, lot split/merge, recall/quarantine, offline reconciliation, pending orders, lead times, delivery windows, substitutions, packs/prices, waste costs, stochastic service levels, and exact lot-allocation explanation.
+Reviewed receipt/barcode OCR, lot split/merge, recall/quarantine, offline reconciliation, pending orders, lead times, delivery windows, substitutions, packs/prices, waste costs, stochastic service levels, exact lot-allocation explanation, classical and neural forecasting, hierarchical reconciliation, conformal calibration, drift/OOD detection, and closed-loop inventory metrics.
 
-## P2 — Forecasting
+## P2 — Ranking, personalization, multimodal, and graph research
 
-Last-value, drift, SBA, ADIDA, IMAPA, Theta, ETS, ARIMA, hierarchical reconciliation, quantile/conformal intervals, DeepAR, N-BEATS/N-HiTS, TFT, PatchTST, change-point/drift/OOD/abstention, temporal splits, intermittent strata, calibration, and closed-loop inventory metrics.
-
-## P2 — Ranking and personalization
-
-BPR, LightFM, two-tower retrieval, SASRec, graph recommenders, calibrated constrained reranking, contextual bandits only after propensity validation, doubly robust off-policy evaluation, safe-policy-improvement gates, and continual/federated personalization only with privacy/deletion/drift/subgroup/rollback evidence.
-
-## P2 — Vision, OCR, multimodal, and graph research
-
-Research-only until licensed data, uncertainty, OOD, subgroup, latency, privacy, monitoring, and rollback gates pass: receipt/layout OCR, label/barcode extraction, food retrieval/segmentation, portion/nutrition estimation, constrained extraction, graph substitutions, and multimodal recipe/ingredient retrieval.
+BPR, LightFM, two-tower retrieval, sequential and graph recommenders, calibrated constrained reranking, contextual bandits only after propensity validation, safe-policy-improvement gates, continual/federated personalization only with privacy/deletion/drift/rollback evidence, and research-only receipt/layout OCR, label/barcode extraction, food retrieval/segmentation, portion estimation, constrained extraction, graph substitutions, and multimodal retrieval.
 
 ## P2 — Security, privacy, operations, and release engineering
 
-Verified email/password reset, MFA, token rotation/revocation, rate limiting, ownership recovery, archive/delete/export, audit retention, secret rotation, backup/PITR, PostgreSQL pooling/failover, logs/metrics/traces/SLOs, SBOM/scans, signed artifacts, canary/kill switches, incident/rollback/postmortems.
+Verified email/password reset, MFA, token rotation/revocation, rate limiting, ownership recovery, archive/delete/export, audit retention, secret rotation, backup/PITR, PostgreSQL pooling/failover, logs/metrics/traces/SLOs, SBOM/scans, signed artifacts, canary/kill switches, incident response, rollback, and postmortems.
 
 ## P3 — High-risk blocked areas
 
@@ -199,18 +161,18 @@ Clinical nutrition, medication decisions, allergy-safety guarantees, microbial/c
 
 ## Non-negotiable release rules
 
-- No clinical, allergy, medication, contamination, temperature, or food-safety claim without qualified evidence/review.
+- No clinical, allergy, medication, contamination, temperature, or food-safety claim without qualified evidence and review.
 - No task execution, presence, appliance, or sensor inference from plans, schedules, or user-entered events.
 - Advisory computation never reports acceptance or persistence.
 - Proposal creation never creates a schedule.
-- Proposal acceptance creates only one new draft and never implies approval/execution/completion.
+- Proposal acceptance creates only one new draft and never implies approval, execution, or completion.
 - Proposal invalidation creates no schedule and permanently prevents later acceptance.
 - Repair-derived approval requires exact acceptance evidence and method-aware replay.
 - Replaced sources remain readable but cannot receive new execution events.
-- Every new schedule completion transition requires explicit terminal task evidence at the lowest exported authority.
-- Support export is read-only, hash-addressed, and never upgrades user-entered evidence into execution or safety verification.
-- Retryable or ambiguous database failures never trigger an automatic server-side mutation retry; clients repeat the exact request with the same idempotency key.
+- Every new completion transition requires explicit terminal task evidence at the lowest exported authority.
+- Support export is read-only, hash-addressed, snapshot-authorized, and never upgrades user-entered evidence into execution or safety verification.
+- Retryable or ambiguous database failures never trigger automatic server-side mutation retry; clients repeat the exact request with the same idempotency key.
 - Frontend preflight never replaces server authority.
 - No global-optimality or model-readiness claim from greedy/truncated search, catalog registration, importability, or synthetic tests.
-- No green-build claim until exact hosted workflows/artifacts are observed.
+- No green-build claim until exact hosted workflows and artifacts are observed.
 - No force push, history rewrite, feature branch, or feature PR.
