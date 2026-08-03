@@ -71,29 +71,22 @@ The viewer-authorized **Preparation schedule support export** endpoint, operator
 - Connection exceptions and invalidated connections report `database_commit_outcome_unknown` and `retry_safe=false`.
 - The HTTP handler always reports `automatic_retry_performed=false`.
 
-Implemented real PostgreSQL evidence includes:
-
-- **statement-timeout evidence** with `57014`, rollback, and successful exact retry;
-- **deadlock evidence** with one `40P01` victim and exact convergence;
-- discarded-response exact recovery for acceptance, invalidation, and completion;
-- **post-commit connection-loss evidence** using `pg_terminate_backend` after commit and exact same-key recovery;
-- **checked-out pool connection invalidation evidence** with `connection_invalidated=true`, `retry_safe=false`, zero pre-recovery mutation, a different fresh backend PID, and one accepted result;
-- **bounded exact serialization retry** with finite exponential backoff, immutable observations, exact-key preservation, and no replay of outcome-unknown connections;
-- a genuine `SERIALIZABLE` test forcing **three consecutive `40001` aborts** before the fourth exact-key attempt creates exactly one acceptance and replacement.
+Implemented real PostgreSQL evidence includes statement timeout, deadlock, discarded responses, post-commit backend termination, checked-out pool invalidation, bounded exact serialization retry, and a genuine `SERIALIZABLE` test forcing **three consecutive `40001` aborts** before the fourth exact-key attempt creates exactly one acceptance and replacement.
 
 ## Database recovery observability
 
 The **database recovery observability** foundation now provides **privacy-preserving process metrics** for sanitized HTTP operational errors and explicit bounded retry behavior.
 
 - Labels are restricted to three stable error codes and SQLSTATE buckets `40001`, `40P01`, `57014`, `55P03`, `08xxx`, and `unknown`.
-- Snapshots expose operational errors, transaction aborts, outcome-unknown events, nonretryable errors, invalidated connections, retry observations, scheduled retries, successful convergence, exhausted budgets, outcome-unknown utility exits, and total/maximum delay.
-- Snapshot mappings are immutable and counters are protected by a re-entrant lock.
+- Immutable thread-safe snapshots expose operational errors, transaction aborts, outcome-unknown events, invalidated connections, retry observations, scheduled retries, successful convergence, exhausted budgets, and total/maximum delay.
 - SQL, parameters, exception messages, idempotency keys, household/user/proposal/schedule IDs, food data, and request payloads are never recorded.
 - Alert evaluation emits process-local critical/warning values for outcome unknown, retry exhaustion, transaction-abort volume, and invalidated connections.
-- Tests prove sanitization, immutable snapshots, exact handler/retry integration, deterministic alerts, invalid-input atomicity, and 1,600 concurrent updates.
+- The deterministic OpenMetrics adapter uses prefix `nutriflavor_database_recovery`, sorted bounded labels, HELP/TYPE declarations, and one `# EOF` marker.
+- OpenMetrics rendering rejects unreviewed labels, negative/non-integer counters, and negative/non-finite delays.
+- Tests prove sanitization, immutable snapshots, exact handler/retry integration, deterministic alerts, 1,600 concurrent updates, deterministic rendering, empty maps, and malformed-value rejection.
 - No public metrics HTTP endpoint is exposed.
 
-This is an adapter foundation, not production monitoring. Time windows, persistence, **cross-replica aggregation**, dashboards, paging, deduplication, ownership, runbooks, and SLOs remain.
+This is an adapter foundation, not production monitoring. Authenticated publication, time windows, persistence, **cross-replica aggregation**, dashboards, paging, deduplication, ownership, runbooks, and SLOs remain.
 
 ## PostgreSQL concurrency evidence
 
@@ -105,7 +98,7 @@ The exact latest hosted executions and artifacts have not been observed in this 
 
 - Observe and repair exact current hosted workflows and artifacts.
 - Test connection loss while COMMIT acknowledgement itself is in flight, multi-node failover, and pool exhaustion under sustained load.
-- Connect process metrics to authenticated production monitoring with cross-replica rates, dashboards, alerts, paging, SLOs, and runbooks.
+- Connect process metrics/OpenMetrics to authenticated production monitoring with cross-replica rates, dashboards, alerts, paging, SLOs, and runbooks.
 - Add production-snapshot or production-scale migration rehearsal, backup/restore, and point-in-time recovery.
 - Implement authenticated PostgreSQL-backed Playwright, axe, keyboard/reflow/contrast evidence, signed/redacted support packages, retention, and audit linkage.
 - Implement execution-aware repair and joint meal/inventory/reservation/shopping/leftover/preparation repair.
