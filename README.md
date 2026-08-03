@@ -20,127 +20,75 @@ Committed implementation and configured workflows are not automatically executed
 
 ## Core platform
 
-- Argon2 passwords, signed JWTs, weak-secret refusal, explicit profile completion, and owner/editor/viewer household roles with `404` non-disclosure.
-- Versioned pantry lots and leftovers, append-only inventory events, FEFO allocation, reservations, shopping reconciliation, optimistic versions, and exact idempotency.
-- Quantity-aware deterministic meal planning, persisted plan lifecycle, owner approval, cancellation consequences, Pareto, optional CP-SAT/MILP, robust scenarios, and exact comparators.
-- Immutable reviewed ingredient-conversion, storage-policy, and preparation-profile evidence with source, reviewer, version, content hash, supersession, and active state.
-- Reviewed resource calendars, canonical occurrence/profile provenance, deterministic scheduling/replay, combined hashes, and persisted schedule lifecycle.
+NutriFlavorOS includes household roles with `404` non-disclosure, versioned pantry and leftovers, append-only inventory events, FEFO allocation, reservations, quantity-aware deterministic meal planning, reviewed evidence, reviewed preparation calendars/profiles, deterministic scheduling and replay, canonical hashes, optimistic versions, and exact idempotency.
 
-## Deterministic preparation repair
+## Deterministic repair and immutable lifecycle
 
-Repair compares a complete previous deterministic schedule with a revised strict request.
+Advisory repair revalidates capacities, continuous windows, deadlines, dependencies, immutable anchors, predecessor closure, and canonical hashes. It always reports `requires_human_acceptance=true`, `accepted=false`, and `persistence_performed=false`.
 
-- `greedy_min_change` preserves compatible placements first.
-- `bounded_exact_min_change` provides a small-instance comparator and deterministic fallback.
-- Immutable anchors, predecessor closure, capacities, continuous windows, deadlines, dependencies, and canonical hashes are revalidated.
-- Outcomes partition preserved, moved, added, removed, and unresolved tasks.
-- Advisory output always reports `requires_human_acceptance=true`, `accepted=false`, and `persistence_performed=false`.
-
-Advisory repair never persists, approves, executes, completes, observes, or declares safety.
-
-## Immutable repair lifecycle
-
-Proposal creation persists server-recomputed review evidence only. It binds exact source schedule/version/hash/request, reviewed target calendar, source plan, occurrence/profile provenance, repair request/result, revised request, repaired response, and changed-task acknowledgement set.
-
-1. Advisory computation remains non-persistent.
-2. Proposal creation creates no schedule.
-3. An editor or owner acknowledges every changed task and accepts.
-4. Acceptance creates exactly one new `draft` and never mutates the source.
-5. An owner separately approves after locked evidence validation and method-aware replay.
-6. Task execution and schedule completion remain separate actions.
+The immutable lifecycle separates computation, proposal creation, human acceptance, owner approval, task execution, and schedule completion. No step implies a later step.
 
 ### One accepted replacement per source schedule version
 
-Migration `20260802_0018` enforces **One accepted replacement per source schedule version**.
-
-- Multiple advisory proposals may exist.
-- Exactly one creates the accepted replacement.
-- Exact retries are idempotent.
-- Competing proposals return `repair_source_already_has_accepted_replacement` and the winning identities.
-- Database uniqueness prevents lower-level bypass.
-- A populated `0017 → 0018` rehearsal creates **64 valid accepted lifecycles**, verifies exact IDs/hashes/events after upgrade, checks the live constraint, and proves bypass rollback.
+Migration `20260802_0018` enforces **One accepted replacement per source schedule version**. Multiple proposals may exist, but exactly one may create the accepted draft replacement. Competing proposals return `repair_source_already_has_accepted_replacement`; exact retries return the original identities; database uniqueness prevents lower-level bypass.
 
 ### Owner-only proposal invalidation
 
-**Owner-only proposal invalidation** closes a `proposed` review record without accepting it or creating a schedule. It requires exact version, reason, historical-only acknowledgement, metadata, and idempotency; records server-observed stale reasons; appends immutable evidence; and leaves editors/viewers read-only.
+**Owner-only proposal invalidation** closes a `proposed` review record without creating a schedule. It requires exact version, historical-only acknowledgement, reason, metadata, and idempotency and appends immutable evidence.
 
-## Method-aware approval, derivation, and execution
-
-Original drafts replay through `deterministic_dependency_aware_resource_scheduler_v2`. Accepted repair drafts replay through `deterministic_minimal_change_preparation_repair_v1` and require exact proposal, acceptance, source, plan, calendar, provenance, acknowledgement, and hash evidence.
+## Derivation and execution authority
 
 **Schedule derivation evidence** exposes original-versus-repair provenance through per-schedule and household coverage endpoints plus a protected inspector.
 
 **Lowest-layer task terminality** is enforced by exported `transition_schedule`; direct completion cannot bypass explicit completed/skipped task evidence.
 
-**Task-execution eligibility** returns `eligible`, `schedule_not_approved`, or `source_schedule_has_accepted_replacement`. Replaced sources remain readable but cannot receive task events or completion. Server guards remain authoritative.
-
-User-entered task events are claims, not observed execution or food-safety evidence.
+**Task-execution eligibility** returns `eligible`, `schedule_not_approved`, or `source_schedule_has_accepted_replacement`. Replaced sources remain readable but cannot receive new task events or completion.
 
 ## Preparation schedule support export
 
-The viewer-authorized **Preparation schedule support export** endpoint returns one strict, hash-addressed, read-only evidence package containing schedule provenance, lifecycle events, derivation, eligibility, deterministic task history, related proposals, acceptances, and proposal events.
-
-- PostgreSQL uses `REPEATABLE READ`, `SET TRANSACTION READ ONLY`, and `txid_current_snapshot()`.
-- Viewer authorization is checked in the request session and repeated inside the exact evidence snapshot.
-- The user identity is server-derived; the operator CLI is a separate privileged path.
-- Canonical SHA-256 binds domain evidence and explicit non-claims.
-- The browser supports explicit generation and complete JSON download without browser storage or mutation methods.
-- A concurrent-acceptance PostgreSQL test proves stable historical and fresh snapshots.
+The viewer-authorized **Preparation schedule support export** endpoint, operator CLI, typed GET-only client, and protected browser workspace produce one strict, hash-addressed, read-only evidence package. PostgreSQL uses `REPEATABLE READ`, `SET TRANSACTION READ ONLY`, and snapshot-internal viewer authorization. Export fields explicitly deny mutation, actual-execution verification, and food-safety verification.
 
 ## Database transient failures and exact recovery
 
 **Database transient failures and exact recovery** distinguish prescribed recovery from proof that automatic retry is safe.
 
-- SQLSTATEs `40001`, `40P01`, `57014`, and `55P03` return `database_transaction_retry_required`, HTTP 503, `Retry-After: 1`, and exact same-key guidance.
-- Connection exceptions and invalidated connections return `database_commit_outcome_unknown`.
-- SQLAlchemy connection-pool checkout exhaustion returns `database_pool_timeout`, `no_transaction_started=true`, and `failure_stage=connection_checkout`.
-- `retryable=true` means the caller should repeat the exact idempotent request.
-- `retry_safe=true` is reserved for proven transaction aborts or proof that no transaction started.
-- Connection ambiguity reports `retry_safe=false`.
-- The HTTP handler always reports `automatic_retry_performed=false`.
+- SQLSTATEs `40001`, `40P01`, `57014`, and `55P03` return `database_transaction_retry_required`.
+- Connection exceptions and invalidated connections return `database_commit_outcome_unknown` with `retry_safe=false`.
+- Pool checkout exhaustion returns `database_pool_timeout`, `no_transaction_started=true`, `retry_safe=true`, `outcome_unknown=false`, and `failure_stage=connection_checkout`.
+- The HTTP server always reports `automatic_retry_performed=false`.
+- Explicit bounded retry preserves the exact idempotency key and never automatically replays ambiguous connection outcomes.
 
-Real PostgreSQL evidence covers statement timeout, genuine deadlock, discarded committed responses, post-commit backend termination, checked-out pool invalidation, repeated serialization aborts, and controlled pool exhaustion.
-
-The pool-exhaustion probe holds the only connection in `QueuePool(pool_size=1, max_overflow=0, pool_timeout=0.1)`, proves zero acceptance/schedule/event mutation before checkout recovery, releases the holder, and converges through the exact same key to one accepted replacement.
-
-The bounded retry utility preserves one normalized idempotency key, applies finite exponential backoff, emits immutable attempt observations, raises at the exact bound, and never automatically replays `database_commit_outcome_unknown`.
+Real PostgreSQL evidence covers statement timeout, deadlock, lost response, post-commit connection termination, checked-out connection invalidation, repeated serialization aborts, and controlled `QueuePool(pool_size=1, max_overflow=0, pool_timeout=0.1)` exhaustion with zero pre-recovery mutation.
 
 ## Database recovery observability
 
-The **database recovery observability** foundation records privacy-preserving process metrics for sanitized HTTP failures and explicit bounded retries.
+The **database recovery observability** foundation records privacy-preserving process metrics and deterministic OpenMetrics text using bounded error-code and SQLSTATE labels.
 
-- Bounded codes are `database_transaction_retry_required`, `database_commit_outcome_unknown`, `database_pool_timeout`, and `database_operation_failed`.
-- Immutable snapshots expose transaction-abort, outcome-unknown, invalidated-connection, pool-timeout, scheduled-retry, successful-convergence, exhaustion, and delay counters.
-- Thread-safe tests prove exact aggregation under 1,600 concurrent updates.
-- SQL, parameters, exception messages, idempotency keys, household/user/proposal/schedule IDs, food data, and request payloads are never recorded.
-- Process-local alert evaluation covers ambiguous outcomes, exhausted retry budgets, transaction-abort volume, invalidated connections, and pool checkout timeouts.
-- Deterministic OpenMetrics rendering rejects unbounded labels and malformed values and exposes no public metrics HTTP endpoint.
+- SQL, parameters, exception messages, idempotency keys, domain IDs, food data, and request payloads are excluded.
+- Thread-safe snapshots expose retry, exhaustion, ambiguity, invalidation, pool-timeout, convergence, and delay evidence.
+- Alert evaluation covers outcome unknown, retry exhaustion, transaction-abort volume, invalidated connections, and pool checkout timeout.
+- Unbounded labels and malformed metric values fail closed.
+- **No public metrics HTTP endpoint** is exposed.
 
-Persistent time windows, cross-replica aggregation, dashboards, paging, ownership, runbooks, and SLOs remain deployment work.
+Cross-replica aggregation, persistence, dashboards, paging, ownership, runbooks, and SLOs remain deployment work.
 
-## Frontend and evidence
+## Frontend, research, and validation
 
-Protected interfaces cover plan review, occurrence confirmation, calendars, schedule persistence/approval, advisory repair, proposal lifecycle, owner invalidation, accepted-draft review, derivation coverage, execution eligibility, task execution, and support evidence export.
+Protected interfaces cover plan review, occurrence confirmation, calendars, schedule persistence/approval, advisory repair, proposal lifecycle, invalidation, accepted-draft review, derivation coverage, execution eligibility, task execution, and support export.
 
-Typed clients and focused tests do not use browser storage to bypass server authority.
+Catalog `2026-08-01.3` defines 37 task contracts, 30 dataset families, 75 model or algorithm families, 29 experiment contracts, and 39 feature contracts. Catalog registration does not imply readiness.
 
-## Governed research platform
-
-Catalog `2026-08-01.3` defines 37 task contracts, 30 dataset families, 75 model or algorithm families, 29 experiment contracts, and 39 feature contracts. Offline executable families include retrieval/ranking, forecasting, uncertainty, robust/Pareto planning, exact comparators, minimal-change repair, FEFO replay, and closed-loop inventory evaluation. Catalog registration does not imply promotion or readiness.
-
-## Validation matrix
-
-Configured direct-`main` workflows cover fresh SQLite/PostgreSQL migrations, OpenAPI/release identity, backend/static contracts, frontend typecheck/Vitest, repair/proposal/acceptance/invalidation/approval/derivation/execution tests, PostgreSQL lifecycle and dependency races, support snapshot concurrency, migration rehearsal, timeout/deadlock recovery, connection termination, pool invalidation, repeated serialization retry, controlled pool exhaustion, recovery observability, and retained benchmark/JUnit/JSON evidence.
+Configured direct-`main` workflows cover SQLite/PostgreSQL migrations, backend/static/OpenAPI contracts, frontend typecheck/Vitest, lifecycle races, migration rehearsal, support snapshot concurrency, timeout/deadlock recovery, connection termination, pool invalidation, serialization retry, controlled pool exhaustion, observability, and retained benchmark/JUnit/JSON evidence.
 
 The exact latest hosted workflows and artifacts must be inspected before the current commit is described as green.
 
 ## Deliberately incomplete
 
-- COMMIT-acknowledgement-in-flight connection loss, multi-node failover, sustained representative-load pool exhaustion/recovery, and production-scale migration rehearsal.
-- Authenticated production metrics aggregation, persistence, dashboards, paging, SLOs, and runbooks.
-- Authenticated PostgreSQL-backed Playwright and complete accessibility evidence.
-- Signed/encrypted/redacted support packages, retention, storage, support-case linkage, and audit events.
-- Execution-aware repair and joint meal/inventory/reservation/shopping/leftover/preparation repair.
+- COMMIT-acknowledgement-in-flight loss, multi-node failover, sustained representative-load pool behavior, and production-scale migration rehearsal.
+- Authenticated production metrics aggregation and SLO operations.
+- PostgreSQL-backed Playwright and complete accessibility evidence.
+- Signed/encrypted/redacted support packages and retention/audit tooling.
+- Execution-aware and joint meal/inventory/preparation repair.
 - Clinical, allergy, medication, contamination, temperature, food-safety, actual-execution, human-presence, appliance, global-optimality, and deployment-readiness claims.
 
 ## Local setup
