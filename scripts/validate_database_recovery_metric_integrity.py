@@ -105,8 +105,10 @@ def validate_contract() -> dict:
             'float("nan")',
             'float("inf")',
             'float("-inf")',
-            "invalid_attempts in (0, 21, True, 1.5)",
-            "invalid_attempt in (0, -1, True, 1.5)",
+            "for invalid_attempts in (",
+            "0, 21, True, 1.5",
+            "for invalid_attempt in (",
+            "0, -1, True, 1.5",
         },
         "workflow": {
             "backend/tests/test_database_recovery_metric_integrity.py",
@@ -182,6 +184,7 @@ def validate_contract() -> dict:
         "alert_thresholds_positive_integers": True,
         "atomic_failure_before_counter_mutation": True,
         "dynamic_field_name_validation": True,
+        "multiline_test_formatting_normalized": True,
         "errors": errors,
     }
 
