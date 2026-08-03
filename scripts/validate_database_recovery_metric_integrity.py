@@ -73,8 +73,9 @@ def validate_contract() -> dict:
         "retry": {
             "from math import isfinite",
             "def _finite_nonnegative_policy_value",
-            "base_delay_seconds must be a finite nonnegative number",
-            "max_delay_seconds must be a finite nonnegative number",
+            "must be a finite nonnegative number",
+            '_finite_nonnegative_policy_value(\n            "base_delay_seconds"',
+            '_finite_nonnegative_policy_value(\n            "max_delay_seconds"',
             "type(self.max_attempts) is not int",
             "object.__setattr__(self, \"base_delay_seconds\", base_delay)",
             "object.__setattr__(self, \"max_delay_seconds\", max_delay)",
@@ -126,8 +127,8 @@ def validate_contract() -> dict:
             "infinity",
         },
         "status": {
-            "exact classification integrity",
-            "nonfinite retry timing",
+            "Exact classification integrity",
+            "Nonfinite retry timing",
         },
     }
     for label, fragments in required.items():
@@ -180,6 +181,7 @@ def validate_contract() -> dict:
         "nonfinite_metric_delays_rejected": True,
         "alert_thresholds_positive_integers": True,
         "atomic_failure_before_counter_mutation": True,
+        "dynamic_field_name_validation": True,
         "errors": errors,
     }
 
