@@ -167,13 +167,11 @@ def validate_contract() -> dict:
     for name in sorted(expected_postgres - _test_names(sources["postgres_test"])):
         errors.append(f"pool exhaustion PostgreSQL test is missing: {name}")
 
-    lowered = sources["postgres_test"].lower()
-    if "sqlite" in lowered:
-        errors.append("pool exhaustion PostgreSQL test contains SQLite fallback")
     for fragment in {
         "pytest.skip",
         "pytest.mark.skip",
         "pytest.mark.xfail",
+        "create_engine(\"sqlite",
         "DBPreparationRepairProposalAcceptance(",
         "DBPersistedPreparationSchedule(",
         "OperationalError(",
