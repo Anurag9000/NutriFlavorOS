@@ -6,27 +6,17 @@ NutriFlavorOS records privacy-preserving process metrics for operational databas
 
 The observability core **never receives or stores SQL text**, SQL parameters, exception messages, idempotency keys, household IDs, user IDs, proposal IDs, schedule IDs, food data, or request payloads.
 
-It exposes **no unauthenticated HTTP metrics endpoint**. Deployments may adapt the in-process snapshot to their authenticated monitoring stack.
+It exposes **no unauthenticated HTTP metrics endpoint**. Deployments may adapt the in-process snapshot or sanitized OpenMetrics rendering to their authenticated monitoring stack.
 
 ## Metric sources
 
 ### HTTP operational-error boundary
 
-Every handled SQLAlchemy `OperationalError` records only:
-
-- one bounded code: `database_transaction_retry_required`, `database_commit_outcome_unknown`, or `database_operation_failed`;
-- one bounded SQLSTATE bucket: `40001`, `40P01`, `57014`, `55P03`, `08xxx`, or `unknown`;
-- `transaction_aborted`;
-- `outcome_unknown`;
-- `retryable`;
-- `retry_safe`;
-- whether SQLAlchemy marked the connection invalidated.
-
-The public error response remains sanitized and reports `automatic_retry_performed=false`.
+Every handled SQLAlchemy `OperationalError` records only one bounded code, one bounded SQLSTATE bucket, transaction-abort/outcome-unknown/retry flags, and whether SQLAlchemy invalidated the connection. The public response remains sanitized and reports `automatic_retry_performed=false`.
 
 ### Explicit bounded retry utility
 
-Every failed bounded-retry attempt records bounded code/SQLSTATE, `retry_safe`, `outcome_unknown`, whether another attempt was scheduled, and the selected delay.
+Every failed bounded-retry attempt records bounded code/SQLSTATE, `retry_safe`, `outcome_unknown`, whether another attempt was scheduled, and the selected delay. Separate counters record successful convergence, exhaustion, and ambiguous utility exits.
 
 The registry never receives the idempotency key carried by `DatabaseRetryObservation`.
 
@@ -52,6 +42,28 @@ The registry never receives the idempotency key carried by `DatabaseRetryObserva
 
 Counters are monotonic until process restart. `reset_for_tests()` exists only for deterministic tests and must not be called by production code.
 
+## Sanitized OpenMetrics adapter
+
+`render_database_recovery_openmetrics` converts one immutable snapshot into deterministic OpenMetrics text using prefix `nutriflavor_database_recovery`.
+
+The renderer provides:
+
+- HELP and TYPE declarations for every scalar counter and delay gauge;
+- sorted `code` series restricted to the three reviewed error codes;
+- sorted `sqlstate` series restricted to `40001`, `40P01`, `57014`, `55P03`, `08xxx`, and `unknown`;
+- deterministic output ending in one `# EOF` marker;
+- no timestamp, request, tenant, household, user, proposal, schedule, food, or idempotency label;
+- no HTTP route or authentication decision.
+
+It rejects:
+
+- unreviewed code or SQLSTATE labels;
+- negative or non-integer counters;
+- negative, infinite, or NaN delay values;
+- negative or non-integer labeled-series counts.
+
+The renderer is an in-process adapter only. A deployment must choose an authenticated/private publishing mechanism and must not add unbounded labels.
+
 ## Alerts
 
 `DatabaseRecoveryAlertPolicy` defines positive process-local thresholds for:
@@ -61,21 +73,13 @@ Counters are monotonic until process restart. `reset_for_tests()` exists only fo
 - transaction-abort volume: warning;
 - invalidated checked-out connections: warning.
 
-`evaluate_database_recovery_alerts` returns immutable alert values containing code, severity, observed count, threshold, and a sanitized message.
-
-These are adapter inputs, not a complete production alerting system. Deployments still need time windows, rates, **cross-replica aggregation**, persistence, dashboards, paging, deduplication, ownership, runbooks, and SLOs.
+`evaluate_database_recovery_alerts` returns immutable sanitized alert values. These are adapter inputs, not a complete production alerting system. Deployments still need time windows, rates, **cross-replica aggregation**, persistence, dashboards, paging, deduplication, ownership, runbooks, and SLOs.
 
 ## Thread safety and failure behavior
 
 The registry uses a re-entrant lock. Concurrent updates are monotonic, and snapshots copy counters into immutable mappings.
 
-Invalid combinations fail before counters change:
-
-- `retry_safe=true` requires a proven transaction abort;
-- `outcome_unknown=true` cannot be retry-safe;
-- `will_retry=true` requires retry-safe evidence;
-- outcome-unknown observations cannot schedule an automatic retry;
-- retry delay cannot be negative.
+Invalid metric combinations fail before counters change. Outcome-unknown observations cannot schedule automatic retries, and retry delay cannot be negative.
 
 ## Verification
 
@@ -83,14 +87,15 @@ Focused tests prove:
 
 - unknown codes and SQLSTATEs collapse to bounded safe buckets;
 - connection SQLSTATEs collapse to `08xxx`;
-- SQL, parameters, exception messages, and idempotency keys do not appear in snapshots;
+- SQL, parameters, exception messages, idempotency keys, and domain IDs do not appear in snapshots or OpenMetrics text;
 - snapshots are immutable;
-- HTTP errors update sanitized counters;
-- bounded retries record scheduled attempts and successful convergence;
-- exhaustion and outcome-unknown utility paths are distinct;
+- HTTP errors and bounded retries update exact counters;
 - alert thresholds produce deterministic severity and counts;
 - **1,600 concurrent updates** remain exact;
-- invalid combinations leave counters unchanged.
+- OpenMetrics ordering and output are deterministic;
+- empty label maps remain valid;
+- unbounded labels and malformed values fail closed;
+- invalid metric combinations leave counters unchanged.
 
 ## Non-claims
 
