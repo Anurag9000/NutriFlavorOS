@@ -109,7 +109,7 @@ export default function PreparationScheduleSupportExportPage() {
 
   return (
     <AppLayout>
-      <main id="main-content" className="mx-auto max-w-6xl space-y-6">
+      <div className="mx-auto max-w-6xl space-y-6">
         <div>
           <p className="text-sm font-medium text-primary">Preparation operations</p>
           <h1 className="text-3xl font-semibold tracking-tight">
@@ -306,7 +306,7 @@ export default function PreparationScheduleSupportExportPage() {
             </Alert>
           </>
         )}
-      </main>
+      </div>
     </AppLayout>
   );
 }
