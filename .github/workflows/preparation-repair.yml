@@ -15,7 +15,7 @@ concurrency:
 jobs:
   repair-contract:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
     env:
       DATABASE_URL: sqlite:////tmp/nutriflavor-preparation-repair.db
       JWT_SECRET: preparation-repair-ci-secret-at-least-32-bytes
@@ -31,7 +31,7 @@ jobs:
       - run: pip install -r backend/requirements.txt
       - run: pip check
 
-      - name: Compile complete repair, derivation, execution, and database authority
+      - name: Compile complete repair, derivation, execution, support, and database authority
         run: >-
           python -m compileall -q
           backend/main.py
@@ -46,6 +46,7 @@ jobs:
           backend/domain/preparation_schedule_replay.py
           backend/domain/preparation_schedule_derivation.py
           backend/domain/preparation_schedule_derivation_coverage.py
+          backend/domain/preparation_schedule_support_export.py
           backend/domain/preparation_task_execution_eligibility.py
           backend/engines/prep_schedule_repair.py
           backend/preparation_repair_proposal_models.py
@@ -62,6 +63,7 @@ jobs:
           backend/services/preparation_schedule_approval_service.py
           backend/services/preparation_schedule_derivation_service.py
           backend/services/preparation_schedule_derivation_coverage_service.py
+          backend/services/preparation_schedule_support_export_service.py
           backend/services/preparation_task_execution_service.py
           backend/services/preparation_task_execution_eligibility_service.py
           backend/services/preparation_task_execution_replacement_guard_service.py
@@ -70,13 +72,16 @@ jobs:
           backend/tests/test_preparation_operations_service.py
           backend/tests/preparation_operations_service_cases.py
           backend/tests/test_preparation_task_execution_service.py
+          backend/tests/test_preparation_schedule_support_export.py
           backend/migrations/versions/20260802_0015_preparation_repair_proposals.py
           backend/migrations/versions/20260802_0016_repair_proposal_calendar_identity.py
           backend/migrations/versions/20260802_0017_repair_proposal_acceptance.py
           backend/migrations/versions/20260802_0018_unique_repair_source_acceptance.py
           scripts/benchmark_preparation_repair.py
+          scripts/export_preparation_schedule_support_snapshot.py
           scripts/repair_preparation_schedule.py
           scripts/validate_database_transient_failure_boundary.py
+          scripts/validate_preparation_schedule_support_export.py
           scripts/validate_preparation_repair_contract.py
           scripts/validate_preparation_repair_proposal_contract.py
           scripts/validate_preparation_repair_proposal_invalidation.py
@@ -112,6 +117,8 @@ jobs:
         run: python scripts/validate_openapi_contracts.py
       - name: Validate structured database transient-failure boundary
         run: python scripts/validate_database_transient_failure_boundary.py
+      - name: Validate read-only schedule support export
+        run: python scripts/validate_preparation_schedule_support_export.py
       - name: Validate advisory repair contract
         run: python scripts/validate_preparation_repair_contract.py
       - name: Validate proposal lifecycle contract
@@ -145,12 +152,13 @@ jobs:
       - name: Validate task execution eligibility frontend
         run: python scripts/validate_preparation_task_execution_eligibility_frontend.py
 
-      - name: Run complete repair and execution authority backend tests
+      - name: Run complete repair, execution, and support authority backend tests
         run: >-
           pytest -q
           backend/tests/test_database_operational_error_handler.py
           backend/tests/test_preparation_operations_service.py
           backend/tests/test_preparation_task_execution_service.py
+          backend/tests/test_preparation_schedule_support_export.py
           backend/tests/test_preparation_schedule_repair.py
           backend/tests/test_preparation_schedule_replay.py
           backend/tests/test_preparation_repair_advisory_boundary.py
