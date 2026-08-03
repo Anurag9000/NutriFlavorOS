@@ -131,6 +131,10 @@ class DatabaseRecoveryMetrics:
         retry_safe: bool,
         connection_invalidated: bool,
     ) -> None:
+        if retry_safe and not transaction_aborted:
+            raise ValueError("retry_safe requires a proven transaction abort")
+        if outcome_unknown and retry_safe:
+            raise ValueError("outcome_unknown cannot be retry_safe")
         safe_code = _safe_code(code)
         safe_sqlstate = _safe_sqlstate(sqlstate)
         with self._lock:
@@ -145,10 +149,6 @@ class DatabaseRecoveryMetrics:
                 self._nonretryable_error_total += 1
             if connection_invalidated:
                 self._invalidated_connection_total += 1
-            if retry_safe and not transaction_aborted:
-                raise ValueError("retry_safe requires a proven transaction abort")
-            if outcome_unknown and retry_safe:
-                raise ValueError("outcome_unknown cannot be retry_safe")
 
     def record_retry_observation(
         self,
