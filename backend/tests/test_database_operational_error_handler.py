@@ -56,6 +56,7 @@ def test_deadlock_returns_retryable_structured_503():
         ),
         "sqlstate": "40P01",
         "retryable": True,
+        "retry_safe": True,
         "transaction_aborted": True,
         "outcome_unknown": False,
         "retry_same_idempotency_key": True,
@@ -70,6 +71,8 @@ def test_statement_timeout_uses_same_exact_retry_boundary():
     assert detail["code"] == "database_transaction_retry_required"
     assert detail["transaction_aborted"] is True
     assert detail["outcome_unknown"] is False
+    assert detail["retryable"] is True
+    assert detail["retry_safe"] is True
     assert detail["retry_same_idempotency_key"] is True
     assert detail["automatic_retry_performed"] is False
 
@@ -81,6 +84,7 @@ def test_connection_exception_marks_commit_outcome_unknown():
     detail = response.json()["detail"]
     assert detail["code"] == "database_commit_outcome_unknown"
     assert detail["retryable"] is True
+    assert detail["retry_safe"] is False
     assert detail["transaction_aborted"] is False
     assert detail["outcome_unknown"] is True
     assert detail["retry_same_idempotency_key"] is True
@@ -95,6 +99,7 @@ def test_invalidated_connection_without_sqlstate_is_ambiguous():
     assert detail["code"] == "database_commit_outcome_unknown"
     assert detail["outcome_unknown"] is True
     assert detail["retryable"] is True
+    assert detail["retry_safe"] is False
 
 
 def test_nonretryable_operational_error_is_sanitized_500():
@@ -106,6 +111,7 @@ def test_nonretryable_operational_error_is_sanitized_500():
     assert detail["code"] == "database_operation_failed"
     assert detail["sqlstate"] == "53300"
     assert detail["retryable"] is False
+    assert detail["retry_safe"] is False
     assert detail["transaction_aborted"] is False
     assert detail["outcome_unknown"] is False
     assert detail["retry_same_idempotency_key"] is False
