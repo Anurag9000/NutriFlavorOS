@@ -7,6 +7,7 @@ import {
   Clock3,
   FileCheck2,
   FileClock,
+  FileJson,
   GitBranch,
   Home,
   LayoutDashboard,
@@ -74,6 +75,11 @@ const navItems = [
     title: "Schedule Derivation",
     url: "/preparation/operations/derivation",
     icon: GitBranch,
+  },
+  {
+    title: "Support Evidence Export",
+    url: "/preparation/operations/support-export",
+    icon: FileJson,
   },
   {
     title: "Calendar Builder",
