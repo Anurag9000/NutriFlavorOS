@@ -15,7 +15,7 @@ concurrency:
 jobs:
   repair-acceptance-races:
     runs-on: ubuntu-latest
-    timeout-minutes: 65
+    timeout-minutes: 70
     services:
       postgres:
         image: postgres:16
@@ -45,10 +45,11 @@ jobs:
       - run: pip install -r backend/requirements.txt
       - run: pip check
 
-      - name: Compile real PostgreSQL migration, race, recovery, and transient-failure harness
+      - name: Compile real PostgreSQL migration, race, recovery, support, and transient-failure harness
         run: >-
           python -m compileall -q
           backend/api/database_error_handlers.py
+          backend/domain/preparation_schedule_support_export.py
           backend/services/household_plan_lifecycle_service.py
           backend/services/preparation_operations_service.py
           backend/services/preparation_operations_service_impl.py
@@ -57,6 +58,7 @@ jobs:
           backend/services/preparation_repair_source_acceptance_guard_service.py
           backend/services/preparation_repair_approval_guard_service.py
           backend/services/preparation_schedule_approval_service.py
+          backend/services/preparation_schedule_support_export_service.py
           backend/services/preparation_task_execution_service.py
           backend/services/preparation_task_completion_service.py
           backend/tests/postgres_preparation_fixture.py
@@ -71,8 +73,11 @@ jobs:
           backend/tests/test_preparation_schedule_completion_postgres.py
           backend/tests/test_preparation_repair_recovery_postgres.py
           backend/tests/test_preparation_repair_transient_failures_postgres.py
+          backend/tests/test_preparation_schedule_support_export_postgres.py
+          scripts/export_preparation_schedule_support_snapshot.py
           scripts/rehearse_repair_source_acceptance_migration_postgres.py
           scripts/validate_database_transient_failure_boundary.py
+          scripts/validate_preparation_schedule_support_export.py
           scripts/validate_preparation_repair_migration_rehearsal.py
           scripts/validate_preparation_repair_plan_cancellation_race.py
           scripts/validate_preparation_repair_calendar_supersession_race.py
@@ -117,7 +122,7 @@ jobs:
           verify_runtime_schema()
           PY
 
-      - name: Validate lifecycle, migration, dependency, completion, recovery, and database-failure contracts
+      - name: Validate lifecycle, migration, dependency, completion, support, recovery, and database-failure contracts
         run: |
           python scripts/validate_preparation_repair_source_acceptance_contract.py
           python scripts/validate_preparation_repair_migration_rehearsal.py
@@ -127,11 +132,12 @@ jobs:
           python scripts/validate_preparation_task_execution_replacement_guard.py
           python scripts/validate_preparation_task_execution_eligibility_contract.py
           python scripts/validate_preparation_schedule_completion_authority.py
+          python scripts/validate_preparation_schedule_support_export.py
           python scripts/validate_preparation_repair_recovery_postgres.py
           python scripts/validate_database_transient_failure_boundary.py
           python scripts/validate_repair_release_identity.py
 
-      - name: Run real PostgreSQL lifecycle, recovery, timeout, and deadlock evidence
+      - name: Run real PostgreSQL lifecycle, support, recovery, timeout, and deadlock evidence
         run: >-
           pytest -q
           backend/tests/test_database_operational_error_handler.py
@@ -143,6 +149,7 @@ jobs:
           backend/tests/test_preparation_repair_calendar_supersession_postgres.py
           backend/tests/test_preparation_repair_calendar_approval_postgres.py
           backend/tests/test_preparation_schedule_completion_postgres.py
+          backend/tests/test_preparation_schedule_support_export_postgres.py
           backend/tests/test_preparation_repair_recovery_postgres.py
           backend/tests/test_preparation_repair_transient_failures_postgres.py
           --junitxml=reports/preparation-repair-postgres.xml
