@@ -11,8 +11,8 @@ from backend.schema_revision import CURRENT_ALEMBIC_REVISION
 
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_API = "0.15.2"
-EXPECTED_OPENAPI_CONTRACT = "2026-08-02.12"
+EXPECTED_API = "0.15.3"
+EXPECTED_OPENAPI_CONTRACT = "2026-08-03.1"
 EXPECTED_MIGRATION = "20260802_0018"
 ELIGIBILITY_PATH = (
     "/api/v1/households/{household_id}/preparation-operations/"
@@ -25,6 +25,10 @@ DERIVATION_PATH = (
 DERIVATION_COVERAGE_PATH = (
     "/api/v1/households/{household_id}/preparation-operations/"
     "schedule-derivation-coverage"
+)
+SUPPORT_EXPORT_PATH = (
+    "/api/v1/households/{household_id}/preparation-operations/"
+    "schedules/{schedule_id}/support-export"
 )
 PROPOSAL_INVALIDATION_PATH = (
     "/api/v1/households/{household_id}/preparation-operations/"
@@ -62,6 +66,7 @@ def validate_identity() -> dict:
         ELIGIBILITY_PATH,
         DERIVATION_PATH,
         DERIVATION_COVERAGE_PATH,
+        SUPPORT_EXPORT_PATH,
         PROPOSAL_INVALIDATION_PATH,
     }
     contract_paths = set(contract.get("paths", {}))
@@ -72,6 +77,7 @@ def validate_identity() -> dict:
         "PreparationTaskExecutionEligibilityView",
         "PreparationScheduleDerivationEvidenceView",
         "PreparationScheduleDerivationCoverageView",
+        "PreparationScheduleSupportExport",
         "PreparationRepairProposalInvalidateRequest",
     }
     contract_schemas = set(contract.get("schemas", {}))
@@ -90,6 +96,7 @@ def validate_identity() -> dict:
             "Owner-only proposal invalidation",
             "Lowest-layer task terminality",
             "Database transient failures and exact recovery",
+            "Preparation schedule support export",
             "database_transaction_retry_required",
             "database_commit_outcome_unknown",
             "64 valid accepted lifecycles",
@@ -105,6 +112,7 @@ def validate_identity() -> dict:
             "Owner-only proposal invalidation",
             "Lowest-layer task terminality",
             "Database transient failures and exact recovery",
+            "Preparation schedule support export",
             "statement-timeout evidence",
             "deadlock evidence",
             "64 valid accepted lifecycles",
@@ -119,6 +127,7 @@ def validate_identity() -> dict:
             "Owner-only proposal invalidation is implemented",
             "Lowest-layer task terminality",
             "C10 — PostgreSQL lifecycle, migration, and transient-failure evidence",
+            "C11 — Read-only support evidence export",
             "automatic_retry_performed=false",
         },
         "docs/PREPARATION_REPAIR_EXECUTION_BOUNDARY.md": {
@@ -136,6 +145,15 @@ def validate_identity() -> dict:
             "same idempotency key",
             "no automatic retry",
         },
+        "docs/PREPARATION_SCHEDULE_SUPPORT_EXPORT.md": {
+            "Preparation Schedule Support Export",
+            "Canonical evidence hash",
+            "REPEATABLE READ",
+            "SET TRANSACTION READ ONLY",
+            "Concurrent acceptance proof",
+            "viewer access",
+            "mutation_performed=false",
+        },
     }
     for relative, fragments in required_fragments.items():
         source = _read(relative, errors)
@@ -145,6 +163,7 @@ def validate_identity() -> dict:
 
     main_source = _read("backend/main.py", errors)
     for fragment in {
+        'version="0.15.3"',
         "preparation_schedule_derivation_routes",
         "preparation_task_execution_eligibility_routes",
         "app.include_router(preparation_schedule_derivation_routes.router)",
@@ -169,6 +188,48 @@ def validate_identity() -> dict:
     }:
         if fragment not in database_handler:
             errors.append(f"database failure boundary lacks release fragment: {fragment}")
+
+    operations_routes = _read(
+        "backend/api/preparation_operations_routes.py",
+        errors,
+    )
+    for fragment in {
+        '"/schedules/{schedule_id}/support-export"',
+        "response_model=PreparationScheduleSupportExport",
+        "HouseholdRole.VIEWER",
+        "export_preparation_schedule_support_snapshot(",
+    }:
+        if fragment not in operations_routes:
+            errors.append(f"preparation operations routes lack release fragment: {fragment}")
+
+    support_service = _read(
+        "backend/services/preparation_schedule_support_export_service.py",
+        errors,
+    )
+    for fragment in {
+        "def export_preparation_schedule_support_snapshot",
+        'isolation_level="REPEATABLE READ"',
+        'text("SET TRANSACTION READ ONLY")',
+        'text("SELECT txid_current_snapshot()")',
+        "def preparation_schedule_support_evidence_hash",
+        '"mutation_performed": False',
+    }:
+        if fragment not in support_service:
+            errors.append(f"support export service lacks release fragment: {fragment}")
+
+    support_race = _read(
+        "backend/tests/test_preparation_schedule_support_export_postgres.py",
+        errors,
+    )
+    for fragment in {
+        "test_postgres_support_export_is_repeatable_read_during_acceptance",
+        'historical.snapshot_isolation == "repeatable_read"',
+        '== ["proposed"]',
+        '== ["accepted"]',
+        "current.evidence_hash != historical.evidence_hash",
+    }:
+        if fragment not in support_race:
+            errors.append(f"support export PostgreSQL evidence lacks release fragment: {fragment}")
 
     proposal_routes = _read(
         "backend/api/preparation_repair_proposal_routes.py",
@@ -244,6 +305,9 @@ def validate_identity() -> dict:
         "required_schemas": sorted(required_schemas),
         "completion_authority": "transition_schedule",
         "database_transient_failure_boundary": True,
+        "support_export": True,
+        "support_export_isolation": "repeatable_read",
+        "support_export_mutation_performed": False,
         "automatic_retry_performed": False,
         "migration_rehearsal_count": 64,
         "errors": errors,
