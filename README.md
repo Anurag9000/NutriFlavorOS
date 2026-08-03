@@ -8,9 +8,9 @@ NutriFlavorOS is an **experimental household food-planning, transactional invent
 
 Development is performed through coherent commits directly to `main`. Code, tests, migrations, OpenAPI, frontend clients, CI, specifications, and status documentation must move together.
 
-- API: `0.15.2`
+- API: `0.15.3`
 - Alembic head: `20260802_0018`
-- OpenAPI contract: `2026-08-02.12`
+- OpenAPI contract: `2026-08-03.1`
 - Food-evidence frontend binding contract: `2026-08-01.2`
 - Preparation-operations frontend binding contract: `2026-08-02.4`
 - Household-plan frontend binding contract: `2026-08-02.4`
@@ -145,21 +145,28 @@ Task events are user-entered claims, not observed execution or safety evidence.
 - Nonterminal tasks produce `schedule_tasks_not_terminal` with sorted remaining IDs.
 - The named completion service is only a compatibility delegate and contains no second proof or commit path.
 - Static validation forbids product modules from importing the preserved compatibility implementation directly.
-- A real PostgreSQL race proves that schedule completion cannot commit ahead of the final task event; it fails with either `schedule_tasks_not_terminal` or `schedule_version_conflict`, then succeeds only with the post-event version.
+- A real PostgreSQL race proves that schedule completion cannot commit ahead of the final task event.
 
 ### Task-execution eligibility
 
-Before enabling any task or schedule-completion control, the frontend reads:
+Before enabling any task or schedule-completion control, the frontend reads the viewer-authorized eligibility endpoint. **Task-execution eligibility** returns `eligible`, `schedule_not_approved`, or `source_schedule_has_accepted_replacement` with exact replacement-chain identities.
 
-`GET /api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/task-execution-eligibility`
+A replaced source remains readable but cannot receive new task events or completion. Server guards remain authoritative.
 
-**Task-execution eligibility** returns:
+## Preparation schedule support export
 
-- `eligible`;
-- `schedule_not_approved`;
-- `source_schedule_has_accepted_replacement`.
+The viewer-authorized support endpoint is:
 
-A replaced source remains readable but cannot receive new task events or completion. Exact proposal, acceptance, and replacement identities are displayed, controls remain disabled while eligibility is loading or false, and the mutation function reasserts eligibility before submission. Server guards remain authoritative.
+`GET /api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/support-export`
+
+It returns a strict `preparation-schedule-support-export-v1` package containing the selected schedule, lifecycle events, derivation evidence, task-execution eligibility, deterministic task state/history, every related repair proposal, acceptance evidence, and proposal event chain.
+
+- PostgreSQL uses a dedicated `REPEATABLE READ`, `SET TRANSACTION READ ONLY` snapshot and retains `txid_current_snapshot()` as transaction evidence.
+- A canonical SHA-256 binds domain evidence while excluding transaction timestamps and snapshot metadata.
+- The export explicitly reports `mutation_performed=false`, `actual_execution_verified=false`, and `food_safety_verified=false`.
+- Authentication plus household viewer access is required; unauthorized cross-household reads preserve `404` non-disclosure.
+- An operator CLI writes the same evidence atomically to a caller-selected path.
+- A real PostgreSQL concurrent-acceptance probe proves an in-progress export retains the pre-acceptance snapshot while a fresh export sees the accepted replacement and a different evidence hash.
 
 ## Database transient failures and exact recovery
 
@@ -183,13 +190,7 @@ Typed frontend clients are contract-tested and do not use browser storage to byp
 
 ## Governed research platform
 
-Catalog `2026-08-01.3` defines:
-
-- **37 task contracts**;
-- **30 dataset families**;
-- **75 model or algorithm families**;
-- **29 experiment contracts**;
-- **39 feature contracts**.
+Catalog `2026-08-01.3` defines 37 task contracts, 30 dataset families, 75 model or algorithm families, 29 experiment contracts, and 39 feature contracts.
 
 Executable offline families include retrieval/ranking, temporal evaluation, dense/intermittent forecasting, uncertainty, Pareto/CP-SAT/MILP/robust planning, exact preparation comparison, minimal-change repair, FEFO replay, and forecast-to-inventory evaluation. Catalog registration does not imply promotion or readiness.
 
@@ -200,9 +201,8 @@ Configured direct-`main` workflows cover:
 - dependency, compile, backend, repository, Alembic, OpenAPI, frontend-binding, and static-contract checks;
 - fresh SQLite and PostgreSQL migrations;
 - populated `0017 → 0018` PostgreSQL migration rehearsal with retained JSON evidence;
-- repair computation, proposal creation, acceptance, source uniqueness, invalidation, approval, tamper, derivation, task execution, and lowest-layer completion tests;
-- real PostgreSQL duplicate/competing acceptance, acceptance/rejection, acceptance/invalidation, rejection/invalidation, source-plan cancellation, calendar supersession, source-execution, final-task/schedule-completion, and approval races;
-- real PostgreSQL discarded-response, statement-timeout, and deadlock exact-retry evidence;
+- repair computation, proposal creation, acceptance, source uniqueness, invalidation, approval, tamper, derivation, task execution, lowest-layer completion, and support-export tests;
+- real PostgreSQL lifecycle/dependency races, final-task/schedule-completion, repeatable-read support export, discarded-response, statement-timeout, and deadlock exact-retry evidence;
 - frontend typecheck and focused Vitest suites;
 - machine-readable benchmark, migration, and JUnit artifacts.
 
@@ -215,7 +215,7 @@ The exact latest hosted workflow and retained artifacts must be inspected before
 - Execution-aware repair after source task history begins remains future work.
 - Joint meal, inventory, reservation, shopping, leftover, and preparation repair remains future work.
 - Authenticated PostgreSQL-backed Playwright and automated accessibility evidence remain incomplete.
-- Real connection-loss-during-commit, failover, pool-recovery, and production-snapshot migration evidence remain incomplete.
+- Real connection-loss-during-commit, failover, pool-recovery, production-snapshot migration, signed support packages, and support-retention tooling remain incomplete.
 - Vision, multimodal nutrition, graph learning, causal/off-policy promotion, continual/federated personalization, sustainability claims, and autonomous control remain gated research.
 - The exact latest hosted workflows have not been observed green in this execution context.
 
@@ -247,5 +247,6 @@ PostgreSQL is recommended for concurrent or hosted deployments.
 - [Repair Acceptance](docs/PREPARATION_REPAIR_ACCEPTANCE.md)
 - [Repair Execution Boundary](docs/PREPARATION_REPAIR_EXECUTION_BOUNDARY.md)
 - [Schedule Derivation Evidence](docs/PREPARATION_SCHEDULE_DERIVATION.md)
+- [Preparation Schedule Support Export](docs/PREPARATION_SCHEDULE_SUPPORT_EXPORT.md)
 - [Preparation Operations](docs/PREPARATION_OPERATIONS.md)
 - [Governed Research Platform](docs/RESEARCH_PLATFORM.md)
