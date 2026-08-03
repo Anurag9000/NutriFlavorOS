@@ -16,8 +16,7 @@ FILES = {
     "retry": "backend/exact_database_retry.py",
     "unit_tests": "backend/tests/test_database_pool_timeout_boundary.py",
     "postgres_test": "backend/tests/test_preparation_repair_pool_exhaustion_postgres.py",
-    "workflow": ".github/workflows/preparation-repair-postgres.yml",
-    "repair_workflow": ".github/workflows/preparation-repair.yml",
+    "workflow": ".github/workflows/preparation-repair-pool-exhaustion.yml",
     "docs": "docs/PREPARATION_REPAIR_POOL_EXHAUSTION.md",
     "status": "docs/IMPLEMENTATION_STATUS.md",
     "roadmap": "docs/ROADMAP.md",
@@ -76,7 +75,7 @@ def validate_contract() -> dict:
             "pool_timeout_warning_threshold",
             "no_transaction_started: bool = False",
             "retry_safe requires a proven abort or no started transaction",
-            "database connection-pool checkout timed out before a transaction started",
+            "Database connection-pool checkout timed out before a transaction started",
         },
         "openmetrics": {
             '"database_pool_timeout"',
@@ -113,7 +112,7 @@ def validate_contract() -> dict:
             '"acceptances": 1',
             '"replacement_schedules": 1',
             "replayed.acceptance.id == accepted.acceptance.id",
-            "assert db.get_bind().dialect.name == \"postgresql\"",
+            'db.get_bind().dialect.name == "postgresql"',
         },
         "docs": {
             "PostgreSQL Pool Exhaustion Recovery",
@@ -136,12 +135,14 @@ def validate_contract() -> dict:
             "database_pool_timeout",
         },
         "workflow": {
-            "test_preparation_repair_pool_exhaustion_postgres.py",
+            "validate-preparation-repair-pool-exhaustion",
+            "postgres:16",
+            "pool-exhaustion-recovery",
+            "backend/tests/test_database_pool_timeout_boundary.py",
+            "backend/tests/test_preparation_repair_pool_exhaustion_postgres.py",
             "validate_preparation_repair_pool_exhaustion_contract.py",
-        },
-        "repair_workflow": {
-            "test_database_pool_timeout_boundary.py",
-            "validate_preparation_repair_pool_exhaustion_contract.py",
+            "reports/preparation-repair-pool-exhaustion.xml",
+            "if-no-files-found: error",
         },
     }
     for label, fragments in required.items():
@@ -166,8 +167,10 @@ def validate_contract() -> dict:
     for name in sorted(expected_postgres - _test_names(sources["postgres_test"])):
         errors.append(f"pool exhaustion PostgreSQL test is missing: {name}")
 
-    forbidden_postgres = {
-        "sqlite",
+    lowered = sources["postgres_test"].lower()
+    if "sqlite" in lowered:
+        errors.append("pool exhaustion PostgreSQL test contains SQLite fallback")
+    for fragment in {
         "pytest.skip",
         "pytest.mark.skip",
         "pytest.mark.xfail",
@@ -175,11 +178,7 @@ def validate_contract() -> dict:
         "DBPersistedPreparationSchedule(",
         "OperationalError(",
         "SQLAlchemyTimeoutError(",
-    }
-    lowered = sources["postgres_test"].lower()
-    if "sqlite" in lowered:
-        errors.append("pool exhaustion PostgreSQL test contains SQLite fallback")
-    for fragment in sorted(forbidden_postgres - {"sqlite"}):
+    }:
         if fragment in sources["postgres_test"]:
             errors.append(
                 "pool exhaustion PostgreSQL test contains forbidden shortcut: "
@@ -200,6 +199,7 @@ def validate_contract() -> dict:
         "zero_mutation_before_recovery": True,
         "exact_key_recovery": True,
         "postgres_only": True,
+        "dedicated_workflow": True,
         "errors": errors,
     }
 
