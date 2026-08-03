@@ -53,6 +53,19 @@ The first database statement establishes a stable snapshot. Every later schedule
 
 SQLite uses the caller session and reports `serializable` as a local best-effort isolation label. No concurrent SQLite snapshot guarantee is claimed.
 
+## Snapshot-internal authorization
+
+The HTTP endpoint applies two authorization layers:
+
+1. the normal request-session household viewer check preserves authentication and `404` non-disclosure before export work begins;
+2. PostgreSQL then repeats `require_household_access(..., HouseholdRole.VIEWER)` inside the exact read-only repeatable-read snapshot used to assemble the package.
+
+The second check closes the membership-change gap between request authorization and the dedicated evidence transaction. The authenticated user ID comes only from the server-side current-user dependency; it is never accepted from request JSON or query parameters.
+
+SQLite revalidates viewer access on the caller session before building the export. The operational CLI intentionally uses the separate unprivileged export service because it is an operator tool rather than an application authorization surface.
+
+Regression coverage requires owner success, nonmember `404`, explicit operator-path separation, route use of the authorized service, and absence of lifecycle mutation calls in both export services.
+
 ## Concurrent acceptance proof
 
 The PostgreSQL race probe:
@@ -86,7 +99,7 @@ The support endpoint is:
 
 `GET /api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/support-export`
 
-It requires authentication and household viewer access. Cross-household and unauthorized reads retain `404` non-disclosure through the standard household access boundary.
+It requires authentication and household viewer access. Cross-household and unauthorized reads retain `404` non-disclosure through both the request-session and snapshot-internal authorization boundaries.
 
 ## Protected browser workspace
 
@@ -109,7 +122,7 @@ The workspace:
 - uses the sole main landmark provided by `AppLayout` and does not create a duplicate `<main>` or `main-content` ID;
 - uses no `localStorage`, `sessionStorage`, IndexedDB, or browser-side authority cache.
 
-Focused Vitest coverage proves explicit generation, server identity/non-claims, complete hash-addressed download, stale-scope clearing, fail-closed errors, and URL-constructor preservation while mocking blob methods.
+Focused Vitest coverage proves explicit generation, server identity/non-claims, complete hash-addressed download, stale-scope clearing, fail-closed errors, focus restoration, and URL-constructor preservation while mocking blob methods.
 
 ## Failure and non-claim boundary
 
