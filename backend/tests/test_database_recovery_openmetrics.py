@@ -30,19 +30,25 @@ def _snapshot(
         invalidated_connection_total=1,
         retry_delay_seconds_total=0.35,
         retry_delay_seconds_max=0.2,
-        code_counts=code_counts
-        or {
-            "database_commit_outcome_unknown": 2,
-            "database_operation_failed": 2,
-            "database_transaction_retry_required": 9,
-        },
-        sqlstate_counts=sqlstate_counts
-        or {
-            "08xxx": 2,
-            "40001": 5,
-            "40P01": 2,
-            "unknown": 4,
-        },
+        code_counts=(
+            code_counts
+            if code_counts is not None
+            else {
+                "database_commit_outcome_unknown": 2,
+                "database_operation_failed": 2,
+                "database_transaction_retry_required": 9,
+            }
+        ),
+        sqlstate_counts=(
+            sqlstate_counts
+            if sqlstate_counts is not None
+            else {
+                "08xxx": 2,
+                "40001": 5,
+                "40P01": 2,
+                "unknown": 4,
+            }
+        ),
     )
 
 
@@ -125,8 +131,14 @@ def test_openmetrics_empty_label_maps_remain_valid():
         _snapshot(code_counts={}, sqlstate_counts={})
     )
 
-    assert "# TYPE nutriflavor_database_recovery_classified_events_total counter" in rendered
-    assert "# TYPE nutriflavor_database_recovery_sqlstate_events_total counter" in rendered
+    assert (
+        "# TYPE nutriflavor_database_recovery_classified_events_total counter"
+        in rendered
+    )
+    assert (
+        "# TYPE nutriflavor_database_recovery_sqlstate_events_total counter"
+        in rendered
+    )
     assert "{code=" not in rendered
     assert "{sqlstate=" not in rendered
     assert rendered.endswith("# EOF\n")
