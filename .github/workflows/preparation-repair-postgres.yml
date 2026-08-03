@@ -50,6 +50,7 @@ jobs:
           python -m compileall -q
           backend/api/database_error_handlers.py
           backend/database_recovery_metrics.py
+          backend/database_recovery_openmetrics.py
           backend/exact_database_retry.py
           backend/domain/preparation_schedule_support_export.py
           backend/services/household_plan_lifecycle_service.py
@@ -67,6 +68,7 @@ jobs:
           backend/tests/postgres_preparation_fixture.py
           backend/tests/test_database_operational_error_handler.py
           backend/tests/test_database_recovery_metrics.py
+          backend/tests/test_database_recovery_openmetrics.py
           backend/tests/test_exact_database_retry.py
           backend/tests/test_preparation_repair_acceptance_postgres.py
           backend/tests/test_preparation_repair_source_acceptance_postgres.py
@@ -158,6 +160,7 @@ jobs:
           pytest -q
           backend/tests/test_database_operational_error_handler.py
           backend/tests/test_database_recovery_metrics.py
+          backend/tests/test_database_recovery_openmetrics.py
           backend/tests/test_exact_database_retry.py
           backend/tests/test_preparation_repair_acceptance_postgres.py
           backend/tests/test_preparation_repair_source_acceptance_postgres.py
