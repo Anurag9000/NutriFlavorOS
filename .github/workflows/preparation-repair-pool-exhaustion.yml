@@ -59,6 +59,7 @@ jobs:
           backend/tests/test_database_recovery_metric_integrity.py
           backend/tests/test_preparation_repair_pool_exhaustion_postgres.py
           backend/tests/test_preparation_repair_pool_pressure_postgres.py
+          scripts/validate_database_recovery_metric_integrity.py
           scripts/validate_preparation_repair_pool_exhaustion_contract.py
           scripts/validate_preparation_repair_pool_pressure_contract.py
           scripts/validate_database_recovery_observability.py
@@ -80,6 +81,8 @@ jobs:
         run: python scripts/validate_preparation_repair_pool_exhaustion_contract.py
       - name: Validate controlled sustained pool pressure contract
         run: python scripts/validate_preparation_repair_pool_pressure_contract.py
+      - name: Validate database recovery metric integrity
+        run: python scripts/validate_database_recovery_metric_integrity.py
       - name: Validate database recovery observability
         run: python scripts/validate_database_recovery_observability.py
       - name: Validate synchronized repair release identity
