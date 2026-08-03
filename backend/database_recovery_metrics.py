@@ -23,12 +23,14 @@ _ALLOWED_CODES = frozenset(
     {
         "database_transaction_retry_required",
         "database_commit_outcome_unknown",
+        "database_pool_timeout",
         "database_operation_failed",
     }
 )
 _ALLOWED_SQLSTATES = frozenset({"40001", "40P01", "57014", "55P03"})
 _UNKNOWN_SQLSTATE = "unknown"
 _CONNECTION_SQLSTATE_CLASS = "08xxx"
+_POOL_TIMEOUT_CODE = "database_pool_timeout"
 
 
 def utcnow() -> datetime:
@@ -58,6 +60,7 @@ class DatabaseRecoveryAlertPolicy:
     retry_exhausted_warning_threshold: int = 1
     transaction_abort_warning_threshold: int = 10
     invalidated_connection_warning_threshold: int = 1
+    pool_timeout_warning_threshold: int = 1
 
     def __post_init__(self) -> None:
         for name, value in self.__dict__.items():
@@ -132,12 +135,25 @@ class DatabaseRecoveryMetrics:
         retryable: bool,
         retry_safe: bool,
         connection_invalidated: bool,
+        no_transaction_started: bool = False,
     ) -> None:
-        if retry_safe and not transaction_aborted:
-            raise ValueError("retry_safe requires a proven transaction abort")
+        if transaction_aborted and no_transaction_started:
+            raise ValueError(
+                "transaction_aborted and no_transaction_started are mutually exclusive"
+            )
+        if retry_safe and not (transaction_aborted or no_transaction_started):
+            raise ValueError(
+                "retry_safe requires a proven abort or no started transaction"
+            )
         if outcome_unknown and retry_safe:
             raise ValueError("outcome_unknown cannot be retry_safe")
+        if outcome_unknown and no_transaction_started:
+            raise ValueError("outcome_unknown cannot assert no transaction started")
         safe_code = _safe_code(code)
+        if no_transaction_started != (safe_code == _POOL_TIMEOUT_CODE):
+            raise ValueError(
+                "no_transaction_started must identify only database_pool_timeout"
+            )
         safe_sqlstate = _safe_sqlstate(sqlstate)
         with self._lock:
             self._operational_error_total += 1
@@ -161,6 +177,7 @@ class DatabaseRecoveryMetrics:
         outcome_unknown: bool,
         will_retry: bool,
         delay_seconds: float,
+        no_transaction_started: bool = False,
     ) -> None:
         if delay_seconds < 0:
             raise ValueError("delay_seconds cannot be negative")
@@ -168,7 +185,13 @@ class DatabaseRecoveryMetrics:
             raise ValueError("will_retry requires retry_safe")
         if outcome_unknown and will_retry:
             raise ValueError("outcome_unknown cannot be automatically retried")
+        if outcome_unknown and no_transaction_started:
+            raise ValueError("outcome_unknown cannot assert no transaction started")
         safe_code = _safe_code(code)
+        if no_transaction_started != (safe_code == _POOL_TIMEOUT_CODE):
+            raise ValueError(
+                "no_transaction_started must identify only database_pool_timeout"
+            )
         safe_sqlstate = _safe_sqlstate(sqlstate)
         with self._lock:
             self._retry_observation_total += 1
@@ -257,6 +280,13 @@ def evaluate_database_recovery_alerts(
             snapshot.invalidated_connection_total,
             policy.invalidated_connection_warning_threshold,
             "A checked-out database connection was invalidated.",
+        ),
+        (
+            "database_pool_timeout",
+            "warning",
+            int(snapshot.code_counts.get(_POOL_TIMEOUT_CODE, 0)),
+            policy.pool_timeout_warning_threshold,
+            "Database connection-pool checkout timed out before a transaction started.",
         ),
     )
     for code, severity, observed, threshold, message in candidates:
