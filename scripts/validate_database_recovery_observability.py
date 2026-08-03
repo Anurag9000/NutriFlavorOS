@@ -155,7 +155,7 @@ def validate_contract() -> dict:
             '"08xxx"',
             '"unknown"',
             "pool_timeout_warning_threshold",
-            "database_pool_checkout_timeout",
+            "Database connection-pool checkout timed out before a transaction started",
             "no_transaction_started: bool = False",
             "record_retry_succeeded_after_retry",
             "record_retry_exhausted",
