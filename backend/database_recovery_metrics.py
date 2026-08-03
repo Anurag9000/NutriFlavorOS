@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from math import isfinite
 from threading import RLock
 from types import MappingProxyType
 from typing import Mapping
@@ -53,6 +54,15 @@ def _safe_sqlstate(value: str | None) -> str:
     if len(normalized) == 5 and normalized.startswith("08"):
         return _CONNECTION_SQLSTATE_CLASS
     return _UNKNOWN_SQLSTATE
+
+
+def _finite_nonnegative_delay(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError("delay_seconds must be a finite nonnegative number")
+    normalized = float(value)
+    if not isfinite(normalized) or normalized < 0:
+        raise ValueError("delay_seconds must be a finite nonnegative number")
+    return normalized
 
 
 def _expected_code_for_operational_error(
@@ -166,8 +176,8 @@ class DatabaseRecoveryAlertPolicy:
 
     def __post_init__(self) -> None:
         for name, value in self.__dict__.items():
-            if value < 1:
-                raise ValueError(f"{name} must be positive")
+            if type(value) is not int or value < 1:
+                raise ValueError(f"{name} must be a positive integer")
 
 
 @dataclass(frozen=True)
@@ -274,8 +284,7 @@ class DatabaseRecoveryMetrics:
         delay_seconds: float,
         no_transaction_started: bool = False,
     ) -> None:
-        if delay_seconds < 0:
-            raise ValueError("delay_seconds cannot be negative")
+        normalized_delay = _finite_nonnegative_delay(delay_seconds)
         safe_code = _safe_code(code)
         _validate_retry_observation_classification(
             safe_code=safe_code,
@@ -291,10 +300,10 @@ class DatabaseRecoveryMetrics:
             self._sqlstate_counts[safe_sqlstate] += 1
             if will_retry:
                 self._retry_scheduled_total += 1
-            self._retry_delay_seconds_total += delay_seconds
+            self._retry_delay_seconds_total += normalized_delay
             self._retry_delay_seconds_max = max(
                 self._retry_delay_seconds_max,
-                delay_seconds,
+                normalized_delay,
             )
 
     def record_retry_succeeded_after_retry(self) -> None:
