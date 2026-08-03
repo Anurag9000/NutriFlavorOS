@@ -18,6 +18,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import OperationalError
 
+from backend.database_recovery_metrics import DATABASE_RECOVERY_METRICS
+
 
 TRANSACTION_RETRY_SQLSTATES: Final[frozenset[str]] = frozenset(
     {
@@ -87,9 +89,19 @@ async def database_operational_error_handler(
     _: Request,
     exc: OperationalError,
 ) -> JSONResponse:
-    """Return a stable, non-leaking response for operational DB failures."""
+    """Return a stable, non-leaking response and sanitized process metrics."""
 
     detail = classify_operational_error(exc)
+    sqlstate_value = detail["sqlstate"]
+    DATABASE_RECOVERY_METRICS.record_operational_error(
+        code=str(detail["code"]),
+        sqlstate=(str(sqlstate_value) if sqlstate_value is not None else None),
+        transaction_aborted=bool(detail["transaction_aborted"]),
+        outcome_unknown=bool(detail["outcome_unknown"]),
+        retryable=bool(detail["retryable"]),
+        retry_safe=bool(detail["retry_safe"]),
+        connection_invalidated=bool(exc.connection_invalidated),
+    )
     status_code = 503 if detail["retryable"] else 500
     headers = {"Retry-After": "1"} if detail["retryable"] else None
     return JSONResponse(
