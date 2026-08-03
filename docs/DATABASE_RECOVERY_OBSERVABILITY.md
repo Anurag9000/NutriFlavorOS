@@ -48,6 +48,19 @@ Pool checkout timeouts are represented through bounded `code_counts["database_po
 
 Counters are monotonic until process restart. `reset_for_tests()` exists only for deterministic tests and must not be called by production code.
 
+## Exact classification and numeric integrity
+
+Every recorded event must use one reviewed code/proof partition:
+
+- transaction-abort proof maps to `database_transaction_retry_required`;
+- outcome ambiguity maps to `database_commit_outcome_unknown`;
+- pre-transaction checkout proof maps to `database_pool_timeout`;
+- absence of retry proof maps to `database_operation_failed`.
+
+The code and proof flags must agree. `retryable`, `retry_safe`, `transaction_aborted`, `outcome_unknown`, `no_transaction_started`, and connection invalidation are cross-validated before any counter changes.
+
+Retry delays must be finite and nonnegative. Boolean, nonnumeric, negative, `NaN`, and infinite values are rejected. Alert policies require positive integer thresholds; booleans and fractional thresholds are rejected. Every invalid classification, delay, or threshold fails atomically without changing counters, labels, totals, or delay aggregates.
+
 ## Sanitized OpenMetrics adapter
 
 `render_database_recovery_openmetrics` converts one immutable snapshot into deterministic OpenMetrics text using prefix `nutriflavor_database_recovery`.
@@ -61,24 +74,13 @@ The renderer provides:
 - no timestamp, request, tenant, household, user, proposal, schedule, food, or idempotency label;
 - no HTTP route or authentication decision.
 
-It rejects:
-
-- unreviewed code or SQLSTATE labels;
-- negative or non-integer counters;
-- negative, infinite, or NaN delay values;
-- negative or non-integer labeled-series counts.
+It rejects unreviewed labels, negative or noninteger counters, negative/nonfinite delays, and malformed labeled-series counts.
 
 The renderer is an in-process adapter only. A deployment must choose an authenticated/private publishing mechanism and must not add unbounded labels.
 
 ## Alerts
 
-`DatabaseRecoveryAlertPolicy` defines positive process-local thresholds for:
-
-- **outcome-unknown events: critical**;
-- exhausted retry budgets: warning;
-- transaction-abort volume: warning;
-- invalidated checked-out connections: warning;
-- connection-pool checkout timeout: warning.
+`DatabaseRecoveryAlertPolicy` defines positive integer process-local thresholds for outcome-unknown events, exhausted retry budgets, transaction-abort volume, invalidated checked-out connections, and connection-pool checkout timeout.
 
 `evaluate_database_recovery_alerts` returns immutable sanitized alert values. These are adapter inputs, not a complete production alerting system. Deployments still need time windows, rates, **cross-replica aggregation**, persistence, dashboards, paging, deduplication, ownership, runbooks, and SLOs.
 
@@ -86,28 +88,13 @@ The renderer is an in-process adapter only. A deployment must choose an authenti
 
 The registry uses a re-entrant lock. Concurrent updates are monotonic, and snapshots copy counters into immutable mappings.
 
-Invalid metric combinations fail before counters change:
-
-- `retry_safe=true` requires a proven transaction abort or proof that no transaction started;
-- `transaction_aborted` and `no_transaction_started` are mutually exclusive;
-- outcome-unknown evidence cannot be retry-safe or claim that no transaction started;
-- `no_transaction_started=true` is reserved for `database_pool_timeout`;
-- outcome-unknown observations cannot schedule automatic retries;
-- retry delay cannot be negative.
+Invalid metric combinations fail before counters change. Outcome-unknown observations cannot schedule automatic retries, pre-transaction proof is reserved for pool checkout timeout, and invalidated connections must remain outcome-unknown.
 
 ## Controlled sustained pressure aggregation
 
 The controlled sustained PostgreSQL pool-pressure test occupies a two-connection pool and executes three synchronized waves with eight callers per wave.
 
-All **24 checkout timeouts** are recorded through the explicit bounded retry utility as:
-
-- 24 `database_pool_timeout` code-count events;
-- 24 retry observations;
-- 24 exhausted single-attempt budgets;
-- zero scheduled retries;
-- zero outcome-unknown events;
-- zero invalidated connections;
-- zero HTTP operational-error events, because the test invokes the explicit caller utility rather than the HTTP boundary.
+All **24 checkout timeouts** are recorded through the explicit bounded retry utility as 24 `database_pool_timeout` code-count events, 24 retry observations, 24 exhausted single-attempt budgets, zero scheduled retries, zero outcome-unknown events, zero invalidated connections, and zero HTTP operational-error events.
 
 The test also proves zero lifecycle mutation during pressure and `checkedout() == 0` after capacity is released and exact-key recovery completes. These counts are deterministic evidence for the controlled corpus, not representative production rates or capacity.
 
@@ -116,28 +103,20 @@ The test also proves zero lifecycle mutation during pressure and `checkedout() =
 Focused tests prove:
 
 - unknown codes and SQLSTATEs collapse to bounded safe buckets;
+- every reviewed code remains recordable with its exact proof flags;
+- mismatched code/proof combinations fail before any counter changes;
 - connection SQLSTATEs collapse to `08xxx`;
 - SQL, parameters, exception messages, idempotency keys, and domain IDs do not appear in snapshots or OpenMetrics text;
 - snapshots are immutable;
+- nonfinite timing values and noninteger alert thresholds fail atomically;
 - HTTP errors and bounded retries update exact counters;
 - pool checkout timeout produces one bounded alert and OpenMetrics series;
-- the three-wave controlled pressure corpus produces exactly 24 checkout-timeout observations and exhausted single-attempt budgets;
+- the three-wave pressure corpus produces exactly 24 checkout-timeout observations and exhausted single-attempt budgets;
 - alert thresholds produce deterministic severity and counts;
 - **1,600 concurrent updates** remain exact;
 - OpenMetrics ordering and output are deterministic;
-- empty label maps remain valid;
-- unbounded labels and malformed values fail closed;
-- invalid metric combinations leave counters unchanged.
+- unbounded labels and malformed values fail closed.
 
 ## Non-claims
 
-This implementation does not provide:
-
-- a public or authenticated metrics HTTP endpoint;
-- persistent counters across process restarts;
-- cross-replica aggregation;
-- time-windowed rates or histograms;
-- production dashboards, paging, or incident automation;
-- representative production capacity, production pool sizing, or sustained real-traffic throughput;
-- automatic mutation retries;
-- proof of hosted green workflows without observed exact runs and artifacts.
+This implementation does not provide a public or authenticated metrics HTTP endpoint, persistent counters across process restarts, cross-replica aggregation, time-windowed rates or histograms, production dashboards/paging/incident automation, representative production capacity, production pool sizing, automatic mutation retries, or proof of hosted green workflows without observed exact runs and artifacts.
