@@ -1,10 +1,10 @@
 """Test-only PostgreSQL wire proxy that drops the COMMIT acknowledgement.
 
 The proxy forwards one real PostgreSQL connection. It detects a frontend COMMIT
-query, forwards it upstream, waits until PostgreSQL emits CommandComplete with
-payload ``COMMIT``, withholds that server frame from the client, and closes the
-connection. The server has completed COMMIT while the client receives only a
-connection failure and therefore cannot know the commit outcome.
+query, arms the drop before forwarding it upstream, waits until PostgreSQL emits
+CommandComplete with payload ``COMMIT``, withholds that server frame from the
+client, and closes the connection. The server has completed COMMIT while the
+client receives only a connection failure and therefore cannot know the outcome.
 """
 
 from __future__ import annotations
@@ -74,6 +74,7 @@ class CommitAckDropReport:
     upstream_host: str
     upstream_port: int
     commit_query_seen: bool
+    commit_query_forwarded: bool
     commit_command_complete_seen: bool
     commit_acknowledgement_forwarded: bool
     client_connection_closed_after_drop: bool
@@ -104,6 +105,7 @@ class PostgresCommitAckDropProxy:
         self._stop = threading.Event()
         self._ready = threading.Event()
         self._commit_query_seen = threading.Event()
+        self._commit_query_forwarded = threading.Event()
         self._commit_command_complete_seen = threading.Event()
         self._client_closed_after_drop = threading.Event()
         self._upstream_closed_after_drop = threading.Event()
@@ -155,6 +157,7 @@ class PostgresCommitAckDropProxy:
             upstream_host=self.upstream_host,
             upstream_port=self.upstream_port,
             commit_query_seen=self._commit_query_seen.is_set(),
+            commit_query_forwarded=self._commit_query_forwarded.is_set(),
             commit_command_complete_seen=(
                 self._commit_command_complete_seen.is_set()
             ),
@@ -299,10 +302,16 @@ class PostgresCommitAckDropProxy:
                         break
                     frame = bytes(buffer[:packet_length])
                     del buffer[:packet_length]
-                    self._upstream.sendall(frame)
                     query = _frontend_query(frame)
-                    if query is not None and query.rstrip(b";").upper() == b"COMMIT":
+                    is_commit = bool(
+                        query is not None
+                        and query.rstrip(b";").upper() == b"COMMIT"
+                    )
+                    if is_commit:
                         self._commit_query_seen.set()
+                    self._upstream.sendall(frame)
+                    if is_commit:
+                        self._commit_query_forwarded.set()
         except BaseException as exc:  # pragma: no cover - thread diagnostic path
             self._record_error(exc)
 
@@ -326,7 +335,7 @@ class PostgresCommitAckDropProxy:
                     frame = bytes(buffer[:packet_length])
                     del buffer[:packet_length]
                     if (
-                        self._commit_query_seen.is_set()
+                        self._commit_query_forwarded.is_set()
                         and _command_complete_tag(frame) == b"COMMIT"
                     ):
                         self._commit_command_complete_seen.set()
