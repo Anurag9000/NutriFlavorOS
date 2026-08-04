@@ -1,6 +1,6 @@
 # NutriFlavorOS Implementation Status
 
-**Status date:** 2026-08-03  
+**Status date:** 2026-08-04  
 **Development policy:** coherent direct commits to `main`; no feature pull requests or development branches; no history rewriting.  
 **Database migration head:** `20260802_0018`  
 **API version:** `0.15.4`  
@@ -87,7 +87,7 @@ Implemented real PostgreSQL evidence includes:
 
 ### Controlled application-worker recycle
 
-A **controlled application-worker recycle** now exercises a separate subprocess while its one-connection pool is fully occupied.
+A **controlled application-worker recycle** exercises a separate subprocess while its one-connection pool is fully occupied.
 
 - The old worker publishes a stable 32-character worker-instance identity and a live PostgreSQL backend PID.
 - Its guarded acceptance receives one real `database_pool_timeout` and creates zero acceptance, schedule, or lifecycle-event rows.
@@ -96,7 +96,17 @@ A **controlled application-worker recycle** now exercises a separate subprocess 
 - A **fresh worker process** publishes a different worker-instance identity and backend PID, accepts the same exact request once, and closes with zero checked-out connections.
 - A later parent-session retry returns the same acceptance and schedule identities.
 
-This is orderly recycle evidence, not ungraceful crash recovery, container/node failure, or multi-node failover.
+### Controlled ungraceful application-worker crash
+
+A real **ungraceful application-worker crash** boundary now uses `SIGKILL` in two PostgreSQL subprocess cases.
+
+- Checkout-holder crash: the worker holds the only pool connection, a guarded acceptance times out before transaction start, independent reads prove zero lifecycle mutation, and the parent kills the worker with `SIGKILL`.
+- Flushed-open-transaction crash: production acceptance reaches a test-only `Session.commit()` interception, calls `flush()`, and exposes one transaction-local acceptance, replacement schedule, accepted event, and created event while independent committed readers still see zero and the proposal remains `proposed`.
+- The parent sends `SIGKILL`, waits for the old PostgreSQL backend to disappear, and proves PostgreSQL rolled the **flushed but uncommitted** lifecycle back to exactly zero committed mutation.
+- A fresh worker with a different worker-instance identity and backend PID repeats the same exact idempotency key, creates one accepted replacement, and closes without a pool leak.
+- A later exact retry returns the same acceptance and schedule identities and preserves proposal event order `created → accepted`.
+
+This proves controlled process-death rollback and exact recovery. It does not prove COMMIT-acknowledgement-in-flight loss, operating-system/container/node failure, cross-replica coordination, or multi-node failover.
 
 ## Database recovery observability
 
@@ -117,14 +127,14 @@ This is an adapter foundation, not production monitoring. Time windows, persiste
 
 ## PostgreSQL concurrency evidence
 
-Configured PostgreSQL-only coverage includes duplicate/competing acceptance, acceptance versus rejection/invalidation/source execution, plan cancellation and calendar supersession races, repaired approval races, final-task versus schedule completion, repeatable-read support export, lost responses, statement timeout, deadlock, post-commit backend termination, checked-out pool invalidation, repeated serialization retry, controlled single-checkout exhaustion, controlled sustained pool pressure, controlled application-worker recycle, populated migration rehearsal, and exact migration/dialect assertions with retained JUnit/JSON evidence.
+Configured PostgreSQL-only coverage includes duplicate/competing acceptance, acceptance versus rejection/invalidation/source execution, plan cancellation and calendar supersession races, repaired approval races, final-task versus schedule completion, repeatable-read support export, lost responses, statement timeout, deadlock, post-commit backend termination, checked-out pool invalidation, repeated serialization retry, controlled single-checkout exhaustion, controlled sustained pool pressure, controlled application-worker recycle, controlled ungraceful worker crash, populated migration rehearsal, and exact migration/dialect assertions with retained JUnit/JSON evidence.
 
 The exact latest hosted executions and artifacts have not been observed in this context. Configured tests are not reported green until inspected.
 
 ## Remaining P0/P1 work
 
 - Observe and repair exact current hosted workflows and artifacts.
-- Test connection loss while COMMIT acknowledgement itself is in flight, ungraceful worker/process crash recovery, and multi-node failover.
+- Test connection loss while COMMIT acknowledgement itself is in flight, operating-system/container/node failure, cross-replica process replacement, and multi-node failover.
 - Establish representative production capacity under realistic concurrent traffic, queueing, latency, pool sizing, process counts, and duration; the 24-timeout controlled pressure corpus is not representative production capacity.
 - Connect process metrics to authenticated production monitoring with cross-replica rates, dashboards, alerts, paging, SLOs, and runbooks.
 - Add production-snapshot or production-scale migration rehearsal, backup/restore, and point-in-time recovery.
@@ -133,4 +143,4 @@ The exact latest hosted executions and artifacts have not been observed in this 
 
 ## Non-claims
 
-NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, COMMIT-acknowledgement-in-flight recovery, ungraceful crash recovery, multi-node failover recovery, representative production capacity, production pool sizing or sustained-load capacity, signed/export-retention guarantees, production monitoring completeness, or current hosted green-build status.
+NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, COMMIT-acknowledgement-in-flight recovery, operating-system/container/node crash recovery, cross-replica recovery, multi-node failover recovery, representative production capacity, production pool sizing or sustained-load capacity, signed/export-retention guarantees, production monitoring completeness, or current hosted green-build status.
