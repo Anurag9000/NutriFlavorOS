@@ -106,7 +106,21 @@ A real **ungraceful application-worker crash** boundary now uses `SIGKILL` in tw
 - A fresh worker with a different worker-instance identity and backend PID repeats the same exact idempotency key, creates one accepted replacement, and closes without a pool leak.
 - A later exact retry returns the same acceptance and schedule identities and preserves proposal event order `created → accepted`.
 
-This proves controlled process-death rollback and exact recovery. It does not prove COMMIT-acknowledgement-in-flight loss, operating-system/container/node failure, cross-replica coordination, or multi-node failover.
+This crash boundary proves controlled process-death rollback before COMMIT. The separate COMMIT acknowledgement boundary below covers one controlled post-COMMIT ambiguity case.
+
+### Controlled PostgreSQL COMMIT acknowledgement loss
+
+A real **COMMIT acknowledgement loss** boundary uses a test-only PostgreSQL wire proxy around one production acceptance request.
+
+- The proxied transaction explicitly sets `synchronous_commit=on` and verifies the effective value.
+- The proxy parses both simple-query and extended-protocol frontend messages, arms the drop before forwarding the real COMMIT, and records that the complete COMMIT frame was forwarded upstream.
+- PostgreSQL emits `CommandComplete(COMMIT)`; the proxy consumes that frame, withholds it from the client, and closes both proxied sockets.
+- SQLAlchemy raises an invalidated `OperationalError`, classified as `database_commit_outcome_unknown`, `retry_safe=false`, `outcome_unknown=true`, and `automatic_retry_performed=false`.
+- Independent direct reads observe exactly one acceptance, one draft replacement schedule, one accepted proposal event, one created schedule event, and proposal status `accepted`.
+- A fresh request with the **same exact idempotency key** returns the already-created acceptance and schedule identities and preserves counts at one.
+- The proxy proves both forwarding threads terminate without leakage.
+
+This closes one controlled acknowledgement-withheld timing after server-side COMMIT completion. It does not establish every network-loss timing, encrypted-protocol interception, synchronous-replica durability, cross-replica coordination, or multi-node failover recovery.
 
 ## Database recovery observability
 
@@ -127,14 +141,14 @@ This is an adapter foundation, not production monitoring. Time windows, persiste
 
 ## PostgreSQL concurrency evidence
 
-Configured PostgreSQL-only coverage includes duplicate/competing acceptance, acceptance versus rejection/invalidation/source execution, plan cancellation and calendar supersession races, repaired approval races, final-task versus schedule completion, repeatable-read support export, lost responses, statement timeout, deadlock, post-commit backend termination, checked-out pool invalidation, repeated serialization retry, controlled single-checkout exhaustion, controlled sustained pool pressure, controlled application-worker recycle, controlled ungraceful worker crash, populated migration rehearsal, and exact migration/dialect assertions with retained JUnit/JSON evidence.
+Configured PostgreSQL-only coverage includes duplicate/competing acceptance, acceptance versus rejection/invalidation/source execution, plan cancellation and calendar supersession races, repaired approval races, final-task versus schedule completion, repeatable-read support export, lost responses, statement timeout, deadlock, post-commit backend termination, checked-out pool invalidation, repeated serialization retry, controlled single-checkout exhaustion, controlled sustained pool pressure, controlled application-worker recycle, controlled ungraceful worker crash, controlled COMMIT acknowledgement loss, populated migration rehearsal, and exact migration/dialect assertions with retained JUnit/JSON evidence.
 
 The exact latest hosted executions and artifacts have not been observed in this context. Configured tests are not reported green until inspected.
 
 ## Remaining P0/P1 work
 
 - Observe and repair exact current hosted workflows and artifacts.
-- Test connection loss while COMMIT acknowledgement itself is in flight, operating-system/container/node failure, cross-replica process replacement, and multi-node failover.
+- Test broader network-loss timings around COMMIT, encrypted transport behavior, operating-system/container/node failure, cross-replica process replacement, synchronous-replica acknowledgement, and multi-node failover.
 - Establish representative production capacity under realistic concurrent traffic, queueing, latency, pool sizing, process counts, and duration; the 24-timeout controlled pressure corpus is not representative production capacity.
 - Connect process metrics to authenticated production monitoring with cross-replica rates, dashboards, alerts, paging, SLOs, and runbooks.
 - Add production-snapshot or production-scale migration rehearsal, backup/restore, and point-in-time recovery.
@@ -143,4 +157,4 @@ The exact latest hosted executions and artifacts have not been observed in this 
 
 ## Non-claims
 
-NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, COMMIT-acknowledgement-in-flight recovery, operating-system/container/node crash recovery, cross-replica recovery, multi-node failover recovery, representative production capacity, production pool sizing or sustained-load capacity, signed/export-retention guarantees, production monitoring completeness, or current hosted green-build status.
+NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, exhaustive COMMIT-loss recovery, encrypted-transport interception, synchronous-replica durability, operating-system/container/node crash recovery, cross-replica recovery, multi-node failover recovery, representative production capacity, production pool sizing or sustained-load capacity, signed/export-retention guarantees, production monitoring completeness, or current hosted green-build status.
