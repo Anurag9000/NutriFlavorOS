@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FILES = {
     "proxy": "backend/tests/postgres_commit_ack_drop_proxy.py",
+    "proxy_tests": "backend/tests/test_postgres_commit_ack_drop_proxy.py",
     "test": "backend/tests/test_preparation_repair_commit_ack_loss_postgres.py",
     "handler": "backend/api/database_error_handlers.py",
     "guard": "backend/services/preparation_repair_source_acceptance_guard_service.py",
@@ -94,6 +95,17 @@ def validate_contract() -> dict:
             "commit_acknowledgement_forwarded=False",
             "proxy threads leaked",
         },
+        "proxy_tests": {
+            "test_simple_query_commit_is_detected_exactly",
+            "test_extended_protocol_parse_commit_is_detected_exactly",
+            "test_command_complete_commit_tag_is_detected_exactly",
+            "test_protocol_lengths_wait_for_complete_prefix_and_reject_invalid_values",
+            '_frontend_query(_frame(b"Q", b"  COMMIT;\\x00"))',
+            '_frontend_query(parse) == b"COMMIT"',
+            '_command_complete_tag(_frame(b"C", b"COMMIT\\x00"))',
+            "with pytest.raises(AssertionError, match=\"frame length\")",
+            "with pytest.raises(AssertionError, match=\"startup packet length\")",
+        },
         "test": {
             "test_postgres_commit_acknowledgement_loss_recovers_exact_committed_request",
             "PostgresCommitAckDropProxy(",
@@ -138,6 +150,7 @@ def validate_contract() -> dict:
             "validate-preparation-repair-commit-ack-loss",
             "postgres:16",
             "postgres_commit_ack_drop_proxy.py",
+            "test_postgres_commit_ack_drop_proxy.py",
             "test_preparation_repair_commit_ack_loss_postgres.py",
             "validate_preparation_repair_commit_ack_loss_contract.py",
             "validate_preparation_repair_commit_ack_loss_release.py",
@@ -175,6 +188,15 @@ def validate_contract() -> dict:
         for fragment in sorted(fragments):
             if not _contains(sources[label], fragment):
                 errors.append(f"{FILES[label]} lacks COMMIT-ack fragment: {fragment}")
+
+    expected_proxy_tests = {
+        "test_simple_query_commit_is_detected_exactly",
+        "test_extended_protocol_parse_commit_is_detected_exactly",
+        "test_command_complete_commit_tag_is_detected_exactly",
+        "test_protocol_lengths_wait_for_complete_prefix_and_reject_invalid_values",
+    }
+    for name in sorted(expected_proxy_tests - _test_names(sources["proxy_tests"])):
+        errors.append(f"COMMIT proxy protocol test is missing: {name}")
 
     expected_test = "test_postgres_commit_acknowledgement_loss_recovers_exact_committed_request"
     if expected_test not in _test_names(sources["test"]):
@@ -235,6 +257,7 @@ def validate_contract() -> dict:
         "valid": not errors,
         "database": "postgresql",
         "wire_proxy": True,
+        "protocol_unit_tests": True,
         "ssl_disabled_for_protocol_inspection": True,
         "gss_encryption_disabled_for_protocol_inspection": True,
         "simple_query_commit_supported": True,
