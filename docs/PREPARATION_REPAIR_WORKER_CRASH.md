@@ -19,12 +19,14 @@ idempotency key during recovery. No lifecycle row is fabricated.
 Every subprocess publishes:
 
 - a random 32-character worker-instance identity;
-- its operating-system process ID;
+- its operating-system process ID as a diagnostic observation;
 - its live PostgreSQL backend PID;
 - the proposal and exact request supplied through a temporary JSON document.
 
-The fresh recovery worker must have a different worker-instance identity,
-process ID, and PostgreSQL backend PID from the crashed worker.
+The fresh recovery worker must have a different worker-instance identity and a
+different PostgreSQL backend PID from the crashed worker. The operating-system
+PID is not used as a uniqueness proof because **OS PID reuse** is legal after a
+process exits.
 
 ## Checkout-holder crash
 
@@ -73,6 +75,14 @@ PostgreSQL rollback leaves exactly zero committed lifecycle mutation. A fresh
 worker then repeats the identical idempotent acceptance, creates exactly one
 replacement, and a subsequent exact retry returns the same identities.
 
+## Deterministic process cleanup
+
+The parent owns cleanup through a `finally` boundary. `_kill_worker()` performs
+only the real `SIGKILL` delivery and exit-code assertion. The final cleanup
+function guarantees the subprocess is stopped and consumes stdout/stderr
+exactly once, avoiding reads from already-closed pipes while preserving failure
+diagnostics.
+
 ## Evidence requirements
 
 The PostgreSQL tests require:
@@ -84,11 +94,13 @@ The PostgreSQL tests require:
 - transaction-local flushed counts of one versus independently visible counts
   of zero;
 - zero committed mutation after each crash;
-- a different recovery worker and PostgreSQL backend;
+- a different recovery worker-instance identity and PostgreSQL backend PID;
+- tolerance for legal OS PID reuse;
 - one final acceptance, one replacement schedule, one accepted proposal event,
   and one created schedule event;
 - final proposal event order `created → accepted`;
-- exact same-key idempotent replay.
+- exact same-key idempotent replay;
+- exactly one subprocess-output collection during final cleanup.
 
 The focused PostgreSQL workflow retains JUnit evidence and runs static contracts
 that reject skip, xfail, SQLite fallback, mocked failure, raw lifecycle inserts,
