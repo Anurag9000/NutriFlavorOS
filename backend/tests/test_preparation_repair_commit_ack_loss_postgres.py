@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
@@ -138,6 +138,8 @@ def test_postgres_commit_acknowledgement_loss_recovers_exact_committed_request(d
         )
         worker = ProxiedSession()
         try:
+            worker.execute(text("SET LOCAL synchronous_commit = on"))
+            assert worker.execute(text("SHOW synchronous_commit")).scalar_one() == "on"
             with pytest.raises(OperationalError) as caught:
                 accept_repair_proposal_with_source_guard(
                     worker,
@@ -172,9 +174,10 @@ def test_postgres_commit_acknowledgement_loss_recovers_exact_committed_request(d
     assert proxy_report.upstream_connection_closed_after_drop is True
     assert proxy_report.proxy_threads_stopped is True
 
-    # PostgreSQL generated CommandComplete(COMMIT), so an independent direct
-    # connection must see the committed lifecycle even though the caller did not
-    # receive the acknowledgement and raised an outcome-unknown error.
+    # PostgreSQL generated CommandComplete(COMMIT) with synchronous_commit=on,
+    # so an independent direct connection must see the committed lifecycle even
+    # though the caller never received that acknowledgement and raised an
+    # outcome-unknown error.
     assert _accepted_counts(db, proposal.id) == ONE_COUNTS
     proposal_row = db.get(DBPreparationRepairProposal, proposal.id)
     assert proposal_row is not None
