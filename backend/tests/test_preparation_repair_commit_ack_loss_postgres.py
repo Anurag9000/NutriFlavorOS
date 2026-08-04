@@ -165,6 +165,7 @@ def test_postgres_commit_acknowledgement_loss_recovers_exact_committed_request(d
 
     proxy_report = proxy.report()
     assert proxy_report.commit_query_seen is True
+    assert proxy_report.commit_query_forwarded is True
     assert proxy_report.commit_command_complete_seen is True
     assert proxy_report.commit_acknowledgement_forwarded is False
     assert proxy_report.client_connection_closed_after_drop is True
