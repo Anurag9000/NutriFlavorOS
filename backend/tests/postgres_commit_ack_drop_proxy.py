@@ -61,6 +61,12 @@ def _frontend_query(frame: bytes) -> bytes | None:
     return None
 
 
+def _is_commit_query(query: bytes | None) -> bool:
+    if query is None:
+        return False
+    return query.strip().rstrip(b";").strip().upper() == b"COMMIT"
+
+
 def _command_complete_tag(frame: bytes) -> bytes | None:
     if frame[:1] != b"C":
         return None
@@ -292,11 +298,7 @@ class PostgresCommitAckDropProxy:
                         break
                     frame = bytes(buffer[:packet_length])
                     del buffer[:packet_length]
-                    query = _frontend_query(frame)
-                    is_commit = bool(
-                        query is not None
-                        and query.rstrip(b";").upper() == b"COMMIT"
-                    )
+                    is_commit = _is_commit_query(_frontend_query(frame))
                     if is_commit:
                         self._commit_query_seen.set()
                     self._upstream.sendall(frame)
