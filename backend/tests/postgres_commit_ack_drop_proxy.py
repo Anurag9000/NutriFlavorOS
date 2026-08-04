@@ -96,7 +96,6 @@ class PostgresCommitAckDropProxy:
         self.upstream_port = upstream_port
         self.listen_host = listen_host
         self.listen_port = 0
-
         self._listener: socket.socket | None = None
         self._client: socket.socket | None = None
         self._upstream: socket.socket | None = None
@@ -158,16 +157,10 @@ class PostgresCommitAckDropProxy:
             upstream_port=self.upstream_port,
             commit_query_seen=self._commit_query_seen.is_set(),
             commit_query_forwarded=self._commit_query_forwarded.is_set(),
-            commit_command_complete_seen=(
-                self._commit_command_complete_seen.is_set()
-            ),
+            commit_command_complete_seen=self._commit_command_complete_seen.is_set(),
             commit_acknowledgement_forwarded=False,
-            client_connection_closed_after_drop=(
-                self._client_closed_after_drop.is_set()
-            ),
-            upstream_connection_closed_after_drop=(
-                self._upstream_closed_after_drop.is_set()
-            ),
+            client_connection_closed_after_drop=self._client_closed_after_drop.is_set(),
+            upstream_connection_closed_after_drop=self._upstream_closed_after_drop.is_set(),
             proxy_threads_stopped=threads_stopped,
         )
 
@@ -208,9 +201,7 @@ class PostgresCommitAckDropProxy:
         with self._error_lock:
             errors = tuple(self._errors)
         if errors:
-            raise AssertionError(
-                "commit acknowledgement proxy thread failed"
-            ) from errors[0]
+            raise AssertionError("commit acknowledgement proxy thread failed") from errors[0]
 
     @staticmethod
     def _close_socket(value: socket.socket | None) -> None:
@@ -296,7 +287,6 @@ class PostgresCommitAckDropProxy:
                         self._upstream.sendall(packet)
                         startup_complete = True
                         continue
-
                     packet_length = _frame_length(buffer)
                     if packet_length is None or len(buffer) < packet_length:
                         break
@@ -335,7 +325,7 @@ class PostgresCommitAckDropProxy:
                     frame = bytes(buffer[:packet_length])
                     del buffer[:packet_length]
                     if (
-                        self._commit_query_forwarded.is_set()
+                        self._commit_query_seen.is_set()
                         and _command_complete_tag(frame) == b"COMMIT"
                     ):
                         self._commit_command_complete_seen.set()
@@ -350,7 +340,4 @@ class PostgresCommitAckDropProxy:
             self._record_error(exc)
 
 
-__all__ = [
-    "CommitAckDropReport",
-    "PostgresCommitAckDropProxy",
-]
+__all__ = ["CommitAckDropReport", "PostgresCommitAckDropProxy"]
