@@ -13,9 +13,7 @@ FILES = {
     "proxy": "backend/tests/postgres_commit_ack_drop_proxy.py",
     "test": "backend/tests/test_preparation_repair_commit_ack_loss_postgres.py",
     "handler": "backend/api/database_error_handlers.py",
-    "guard": (
-        "backend/services/preparation_repair_source_acceptance_guard_service.py"
-    ),
+    "guard": "backend/services/preparation_repair_source_acceptance_guard_service.py",
     "workflow": ".github/workflows/preparation-repair-commit-ack-loss.yml",
     "docs": "docs/PREPARATION_REPAIR_COMMIT_ACK_LOSS.md",
     "status": "docs/IMPLEMENTATION_STATUS.md",
@@ -80,16 +78,16 @@ def validate_contract() -> dict:
             "def _startup_packet_length",
             "def _frame_length",
             "def _frontend_query",
-            "message_type == b\"Q\"",
-            "message_type == b\"P\"",
+            'message_type == b"Q"',
+            'message_type == b"P"',
             "def _command_complete_tag",
-            "frame[:1] != b\"C\"",
-            "query.rstrip(b\";\").upper() == b\"COMMIT\"",
+            'frame[:1] != b"C"',
+            'query.rstrip(b";").upper() == b"COMMIT"',
             "self._commit_query_seen.set()",
             "self._upstream.sendall(frame)",
             "self._commit_query_forwarded.set()",
-            "self._commit_query_forwarded.is_set()",
-            "_command_complete_tag(frame) == b\"COMMIT\"",
+            "self._commit_query_seen.is_set()",
+            '_command_complete_tag(frame) == b"COMMIT"',
             "self._commit_command_complete_seen.set()",
             "self._close_socket(self._client)",
             "self._close_socket(self._upstream)",
@@ -176,13 +174,9 @@ def validate_contract() -> dict:
     for label, fragments in required.items():
         for fragment in sorted(fragments):
             if not _contains(sources[label], fragment):
-                errors.append(
-                    f"{FILES[label]} lacks COMMIT-ack fragment: {fragment}"
-                )
+                errors.append(f"{FILES[label]} lacks COMMIT-ack fragment: {fragment}")
 
-    expected_test = (
-        "test_postgres_commit_acknowledgement_loss_recovers_exact_committed_request"
-    )
+    expected_test = "test_postgres_commit_acknowledgement_loss_recovers_exact_committed_request"
     if expected_test not in _test_names(sources["test"]):
         errors.append("PostgreSQL COMMIT acknowledgement loss test is missing")
 
@@ -199,7 +193,7 @@ def validate_contract() -> dict:
     _require_order(
         sources["proxy"],
         (
-            "self._commit_query_forwarded.is_set()",
+            "self._commit_query_seen.is_set()",
             '_command_complete_tag(frame) == b"COMMIT"',
             "self._commit_command_complete_seen.set()",
             "self._close_socket(self._client)",
