@@ -1,6 +1,6 @@
 # NutriFlavorOS Engineering and Research Roadmap
 
-**Roadmap date:** 2026-08-03  
+**Roadmap date:** 2026-08-04  
 **Execution rule:** implement directly on `main` in coherent commits; keep code, tests, migrations, contracts, frontend clients, CI, and documentation synchronized; never rewrite history.  
 **Current migration head:** `20260802_0018`  
 **Current API:** `0.15.4`  
@@ -71,7 +71,7 @@ This proves controlled checkout-timeout recovery, not production pool sizing or 
 
 ### C14 — Controlled sustained PostgreSQL pool pressure
 
-**Controlled sustained pool pressure** is implemented as a deterministic extension of C13. The controlled sustained pool pressure corpus is deliberately bounded and reproducible.
+**Controlled sustained pool pressure** is implemented as a deterministic extension of C13.
 
 - A constrained `QueuePool` uses two connections, no overflow, a 0.12-second checkout timeout, and pre-ping.
 - Three synchronized waves run eight callers per wave against the same exact idempotent acceptance request.
@@ -94,7 +94,17 @@ A **controlled application-worker recycle** is implemented under active pool exh
 - A fresh worker process publishes a different worker-instance identity and backend PID, performs the same exact-key acceptance once, and closes without a pool leak.
 - A final retry returns the same acceptance and schedule identities.
 
-This closes orderly process-recycle recovery only. **Crash recovery**, container/node failure, cross-replica coordination, and **multi-node failover** remain open.
+### C16 — Controlled ungraceful application-worker crash
+
+A real **ungraceful application-worker crash** boundary is implemented with `SIGKILL`.
+
+- Checkout-holder case: the worker holds the only pool connection, the exact acceptance times out before transaction start, and committed reads prove zero lifecycle mutation before and after process death.
+- Flushed-open-transaction case: production acceptance flushes one acceptance, replacement schedule, accepted proposal event, and created schedule event inside the worker transaction; an independent committed reader simultaneously sees zero and the proposal remains `proposed`.
+- The parent kills the worker with `SIGKILL`, waits for the old PostgreSQL backend to disappear, and proves the flushed but uncommitted lifecycle is fully rolled back.
+- A fresh worker with a different worker-instance identity, process ID, and backend PID repeats the same exact idempotency key and creates one accepted replacement.
+- A final retry returns the same acceptance and schedule identities and preserves `created → accepted` proposal-event order.
+
+This closes controlled application-process death during checkout and before commit. It does not establish **commit acknowledgement** loss in flight, operating-system/container/node failure behavior, cross-replica recovery, or **multi-node failover**.
 
 ## P0 — Observe and repair exact hosted verification
 
@@ -103,7 +113,7 @@ Inspect exact latest `main` workflow runs and artifacts, record exact commit/run
 ## P0 — Remaining PostgreSQL operational recovery
 
 - Connection loss while COMMIT acknowledgement itself is in flight.
-- Ungraceful crash recovery while a transaction or checkout is active.
+- Operating-system, container-runtime, Kubernetes pod, and node failure behavior beyond the controlled worker `SIGKILL` corpus.
 - PostgreSQL primary loss, replica promotion, DNS/service-discovery changes, and multi-node failover.
 - Cross-replica retry coordination and process replacement across multiple application instances.
 - Representative production capacity under realistic concurrent traffic, queueing, latency, process counts, pool sizing, connection lifetime/recycle behavior, and duration beyond the controlled 24-timeout corpus.
@@ -138,5 +148,5 @@ Continue reviewed evidence, forecasting, constrained ranking, backup/PITR, relea
 - The server always reports `automatic_retry_performed=false`.
 - Database recovery metrics never store SQL, request contents, idempotency keys, or domain identifiers.
 - Frontend preflight never replaces server authority.
-- No clinical, food-safety, global-optimality, model-readiness, representative-capacity, crash-recovery, failover, or green-build claim without exact supporting evidence.
+- No clinical, food-safety, global-optimality, model-readiness, representative-capacity, commit-acknowledgement, node-failure, cross-replica, failover, or green-build claim without exact supporting evidence.
 - No force push, history rewrite, feature branch, or feature PR.
