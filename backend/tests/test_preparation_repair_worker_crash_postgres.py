@@ -210,11 +210,24 @@ def _start_worker(
     )
 
 
+def _collect_worker_output(process: subprocess.Popen[str]) -> tuple[str, str]:
+    stdout, stderr = process.communicate(timeout=5)
+    return stdout or "", stderr or ""
+
+
 def _kill_worker(process: subprocess.Popen[str]) -> None:
     assert process.poll() is None
     os.kill(process.pid, signal.SIGKILL)
     return_code = process.wait(timeout=15)
     assert return_code == -signal.SIGKILL
+    _collect_worker_output(process)
+
+
+def _ensure_worker_stopped(process: subprocess.Popen[str]) -> None:
+    if process.poll() is None:
+        os.kill(process.pid, signal.SIGKILL)
+        process.wait(timeout=15)
+    _collect_worker_output(process)
 
 
 def _recover(
@@ -311,26 +324,30 @@ def test_postgres_sigkill_during_pool_checkout_recovers_exact_request(
         report_path=crash_report_path,
         repo_root=repo_root,
     )
-    report = _wait_for_json(
-        crash_report_path,
-        lambda value: value.get("waiting_for_sigkill") is True,
-    )
-    old_worker_instance_id = str(report["worker_instance_id"])
-    old_backend_pid = int(report["holder_backend_pid"])
-    assert len(old_worker_instance_id) == 32
-    assert report["worker_pid"] == process.pid
-    assert report["pool_checked_out"] == 1
-    assert report["code"] == "database_pool_timeout"
-    assert report["retry_safe"] is True
-    assert report["no_transaction_started"] is True
-    assert report["outcome_unknown"] is False
-    assert report["will_retry"] is False
-    assert report["lifecycle_mutation_performed"] is False
-    assert _backend_exists(db, old_backend_pid) is True
-    assert _accepted_counts(db, proposal.id) == ZERO_COUNTS
-    assert _proposal_status(db, proposal.id) == "proposed"
+    try:
+        report = _wait_for_json(
+            crash_report_path,
+            lambda value: value.get("waiting_for_sigkill") is True,
+        )
+        old_worker_instance_id = str(report["worker_instance_id"])
+        old_backend_pid = int(report["holder_backend_pid"])
+        assert len(old_worker_instance_id) == 32
+        assert report["worker_pid"] == process.pid
+        assert report["pool_checked_out"] == 1
+        assert report["code"] == "database_pool_timeout"
+        assert report["retry_safe"] is True
+        assert report["no_transaction_started"] is True
+        assert report["outcome_unknown"] is False
+        assert report["will_retry"] is False
+        assert report["lifecycle_mutation_performed"] is False
+        assert _backend_exists(db, old_backend_pid) is True
+        assert _accepted_counts(db, proposal.id) == ZERO_COUNTS
+        assert _proposal_status(db, proposal.id) == "proposed"
 
-    _kill_worker(process)
+        _kill_worker(process)
+    finally:
+        _ensure_worker_stopped(process)
+
     _wait_for_backend_absence(db, old_backend_pid)
     assert _accepted_counts(db, proposal.id) == ZERO_COUNTS
     assert _proposal_status(db, proposal.id) == "proposed"
@@ -369,28 +386,33 @@ def test_postgres_sigkill_after_flush_rolls_back_then_recovers_exact_request(
         report_path=crash_report_path,
         repo_root=repo_root,
     )
-    report = _wait_for_json(
-        crash_report_path,
-        lambda value: value.get("transaction_flushed_before_crash") is True,
-    )
-    old_worker_instance_id = str(report["worker_instance_id"])
-    old_backend_pid = int(report["backend_pid"])
-    assert len(old_worker_instance_id) == 32
-    assert report["worker_pid"] == process.pid
-    assert report["pool_checked_out"] == 1
-    assert report["transaction_commit_started"] is False
-    assert report["transaction_local_counts"] == ONE_COUNTS
-    assert report["transaction_local_proposal_status"] == "accepted"
-    assert report["waiting_for_sigkill"] is True
-    assert report["lifecycle_commit_performed"] is False
-    assert _backend_exists(db, old_backend_pid) is True
+    try:
+        report = _wait_for_json(
+            crash_report_path,
+            lambda value: value.get("transaction_flushed_before_crash") is True,
+        )
+        old_worker_instance_id = str(report["worker_instance_id"])
+        old_backend_pid = int(report["backend_pid"])
+        assert len(old_worker_instance_id) == 32
+        assert report["worker_pid"] == process.pid
+        assert report["pool_checked_out"] == 1
+        assert report["commit_method_intercepted"] is True
+        assert report["database_commit_statement_started"] is False
+        assert report["transaction_local_counts"] == ONE_COUNTS
+        assert report["transaction_local_proposal_status"] == "accepted"
+        assert report["waiting_for_sigkill"] is True
+        assert report["lifecycle_commit_performed"] is False
+        assert _backend_exists(db, old_backend_pid) is True
 
-    # The child transaction sees its flushed rows, while an independent committed
-    # read still sees the original proposal and zero lifecycle mutation.
-    assert _accepted_counts(db, proposal.id) == ZERO_COUNTS
-    assert _proposal_status(db, proposal.id) == "proposed"
+        # The child transaction sees its flushed rows, while an independent
+        # committed read sees the original proposal and zero lifecycle mutation.
+        assert _accepted_counts(db, proposal.id) == ZERO_COUNTS
+        assert _proposal_status(db, proposal.id) == "proposed"
 
-    _kill_worker(process)
+        _kill_worker(process)
+    finally:
+        _ensure_worker_stopped(process)
+
     _wait_for_backend_absence(db, old_backend_pid)
     assert _accepted_counts(db, proposal.id) == ZERO_COUNTS
     assert _proposal_status(db, proposal.id) == "proposed"
