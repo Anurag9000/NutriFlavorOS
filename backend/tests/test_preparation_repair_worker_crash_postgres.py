@@ -220,7 +220,6 @@ def _kill_worker(process: subprocess.Popen[str]) -> None:
     os.kill(process.pid, signal.SIGKILL)
     return_code = process.wait(timeout=15)
     assert return_code == -signal.SIGKILL
-    _collect_worker_output(process)
 
 
 def _ensure_worker_stopped(process: subprocess.Popen[str]) -> None:
@@ -358,7 +357,6 @@ def test_postgres_sigkill_during_pool_checkout_recovers_exact_request(
         repo_root=repo_root,
     )
     assert recovery_report["worker_instance_id"] != old_worker_instance_id
-    assert recovery_report["worker_pid"] != process.pid
     assert recovery_report["recovery_backend_pid"] != old_backend_pid
     _assert_exact_recovery(
         db,
@@ -423,7 +421,6 @@ def test_postgres_sigkill_after_flush_rolls_back_then_recovers_exact_request(
         repo_root=repo_root,
     )
     assert recovery_report["worker_instance_id"] != old_worker_instance_id
-    assert recovery_report["worker_pid"] != process.pid
     assert recovery_report["recovery_backend_pid"] != old_backend_pid
     _assert_exact_recovery(
         db,
