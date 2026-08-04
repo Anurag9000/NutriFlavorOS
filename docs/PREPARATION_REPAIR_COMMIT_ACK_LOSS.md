@@ -97,7 +97,8 @@ Before the proxied request, independent direct reads require exactly zero:
 - replacement schedule `created` events.
 
 After the proxy observes and withholds `CommandComplete(COMMIT)`, independent
-direct reads require exactly:
+direct reads require **exactly one acceptance** and its matching immutable
+replacement lifecycle:
 
 - one acceptance;
 - one draft replacement schedule at version 1;
