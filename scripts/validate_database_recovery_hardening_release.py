@@ -24,19 +24,19 @@ FILES = {
     "integrity_tests": "backend/tests/test_database_recovery_metric_integrity.py",
     "retry_tests": "backend/tests/test_exact_database_retry.py",
     "pool_tests": "backend/tests/test_database_pool_timeout_boundary.py",
-    "exhaustion_test": (
-        "backend/tests/test_preparation_repair_pool_exhaustion_postgres.py"
-    ),
+    "exhaustion_test": "backend/tests/test_preparation_repair_pool_exhaustion_postgres.py",
     "pressure_test": "backend/tests/test_preparation_repair_pool_pressure_postgres.py",
+    "crash_helper": "scripts/probe_preparation_repair_worker_crash.py",
+    "crash_test": "backend/tests/test_preparation_repair_worker_crash_postgres.py",
     "metric_contract": "scripts/validate_database_recovery_metric_integrity.py",
-    "pressure_contract": (
-        "scripts/validate_preparation_repair_pool_pressure_contract.py"
-    ),
+    "pressure_contract": "scripts/validate_preparation_repair_pool_pressure_contract.py",
+    "crash_contract": "scripts/validate_preparation_repair_worker_crash_contract.py",
     "workflow": ".github/workflows/preparation-repair-pool-exhaustion.yml",
     "readme": "README.md",
     "observability_docs": "docs/DATABASE_RECOVERY_OBSERVABILITY.md",
     "retry_docs": "docs/PREPARATION_REPAIR_SERIALIZATION_RETRY.md",
     "pressure_docs": "docs/PREPARATION_REPAIR_POOL_PRESSURE.md",
+    "crash_docs": "docs/PREPARATION_REPAIR_WORKER_CRASH.md",
     "status": "docs/IMPLEMENTATION_STATUS.md",
     "roadmap": "docs/ROADMAP.md",
 }
@@ -147,6 +147,25 @@ def validate_release() -> dict:
             "snapshot.retry_exhausted_total == EXPECTED_TIMEOUTS",
             "constrained_engine.pool.checkedout() == 0",
         },
+        "crash_helper": {
+            "class _CrashBeforeCommitSession(Session)",
+            "self.flush()",
+            '"transaction_flushed_before_crash": True',
+            '"transaction_commit_started": False',
+            '"lifecycle_commit_performed": False',
+            'choices=("checkout-crash", "transaction-crash", "recover")',
+            "accept_repair_proposal_with_source_guard(",
+        },
+        "crash_test": {
+            "test_postgres_sigkill_during_pool_checkout_recovers_exact_request",
+            "test_postgres_sigkill_after_flush_rolls_back_then_recovers_exact_request",
+            "os.kill(process.pid, signal.SIGKILL)",
+            "return_code == -signal.SIGKILL",
+            '"transaction_local_counts"] == ONE_COUNTS',
+            "_accepted_counts(db, proposal.id) == ZERO_COUNTS",
+            "_wait_for_backend_absence(db, old_backend_pid)",
+            "replayed.acceptance.id == recovery_report[\"acceptance_id\"]",
+        },
         "metric_contract": {
             '"exact_code_proof_partition": True',
             '"nonfinite_policy_values_rejected": True',
@@ -160,6 +179,15 @@ def validate_release() -> dict:
             '"pool_checked_out_after_recovery": 0',
             '"representative_production_capacity": False',
         },
+        "crash_contract": {
+            '"real_sigkill": True',
+            '"checkout_holder_crash": True',
+            '"flushed_open_transaction_crash": True',
+            '"committed_rows_after_crash": 0',
+            '"same_key_recovery": True',
+            '"commit_acknowledgement_loss_proven": False',
+            '"multi_node_failover_proven": False',
+        },
         "workflow": {
             "test_database_operational_error_handler.py",
             "test_database_recovery_metrics.py",
@@ -169,6 +197,9 @@ def validate_release() -> dict:
             "test_exact_database_retry.py",
             "test_preparation_repair_pool_exhaustion_postgres.py",
             "test_preparation_repair_pool_pressure_postgres.py",
+            "test_preparation_repair_worker_crash_postgres.py",
+            "probe_preparation_repair_worker_crash.py",
+            "validate_preparation_repair_worker_crash_contract.py",
             "validate_database_recovery_metric_integrity.py",
             "validate_preparation_repair_pool_pressure_contract.py",
             "reports/preparation-repair-pool-exhaustion.xml",
@@ -179,6 +210,8 @@ def validate_release() -> dict:
             f"OpenAPI contract: `{EXPECTED_OPENAPI}`",
             "controlled sustained pool pressure",
             "24 checkout timeouts",
+            "ungraceful application-worker crash",
+            "flushed open transaction",
             "No public metrics HTTP endpoint",
             "not representative production capacity",
         },
@@ -209,25 +242,38 @@ def validate_release() -> dict:
             "checkedout() == 0",
             "not representative production capacity",
         },
+        "crash_docs": {
+            "PostgreSQL Ungraceful Application-Worker Crash Recovery",
+            "real `SIGKILL`",
+            "Flushed-open-transaction crash",
+            "independent committed reader",
+            "same exact idempotency key",
+            "commit acknowledgement itself is in flight",
+            "multi-node failover",
+        },
         "status": {
             "Exact classification integrity",
             "Nonfinite retry timing",
             "controlled sustained pool pressure",
             "24 checkout timeouts",
             "zero lifecycle mutation",
+            "Controlled ungraceful application-worker crash",
+            "flushed but uncommitted",
         },
         "roadmap": {
             "C14 — Controlled sustained PostgreSQL pool pressure",
             "controlled sustained pool pressure",
+            "C16 — Controlled ungraceful application-worker crash",
+            "ungraceful application-worker crash",
             "representative production capacity",
+            "commit acknowledgement",
         },
     }
     for label, fragments in required.items():
         for fragment in sorted(fragments):
             if not _contains(sources[label], fragment):
                 errors.append(
-                    f"{FILES[label]} lacks recovery-hardening release fragment: "
-                    f"{fragment}"
+                    f"{FILES[label]} lacks recovery-hardening release fragment: {fragment}"
                 )
 
     return {
@@ -239,6 +285,12 @@ def validate_release() -> dict:
         "controlled_pressure_timeout_count": 24,
         "controlled_pressure_zero_mutation": True,
         "controlled_pressure_pool_checked_out_after_recovery": 0,
+        "ungraceful_worker_sigkill": True,
+        "flushed_open_transaction_rollback": True,
+        "crash_committed_rows_after_termination": 0,
+        "crash_same_key_recovery": True,
+        "commit_acknowledgement_loss_proven": False,
+        "multi_node_failover_proven": False,
         "nonfinite_retry_inputs_rejected": True,
         "classification_integrity_enforced": True,
         "public_metrics_endpoint": False,
