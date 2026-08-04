@@ -129,20 +129,22 @@ def validate_release() -> dict:
             "SIGKILL",
             "flushed open transaction",
             "same exact idempotency key",
-            "does not prove commit-acknowledgement-in-flight loss",
+            "This crash boundary does not itself prove post-COMMIT ambiguity",
+            "COMMIT acknowledgement loss",
         },
         "status": {
             "Controlled ungraceful application-worker crash",
             "flushed but uncommitted",
             "SIGKILL",
-            "COMMIT-acknowledgement-in-flight recovery",
+            "This crash boundary proves controlled process-death rollback before COMMIT",
+            "Controlled PostgreSQL COMMIT acknowledgement loss",
             "multi-node failover recovery",
         },
         "roadmap": {
             "C16 — Controlled ungraceful application-worker crash",
             "ungraceful application-worker crash",
             "OS PID reuse",
-            "commit acknowledgement",
+            "C17 — PostgreSQL COMMIT acknowledgement loss",
             "multi-node failover",
         },
     }
@@ -150,8 +152,7 @@ def validate_release() -> dict:
         for fragment in sorted(fragments):
             if not _contains(sources[label], fragment):
                 errors.append(
-                    f"{FILES[label]} lacks worker-crash release fragment: "
-                    f"{fragment}"
+                    f"{FILES[label]} lacks worker-crash release fragment: {fragment}"
                 )
 
     forbidden_test = {
@@ -189,6 +190,7 @@ def validate_release() -> dict:
         "final_acceptance_count": 1,
         "final_replacement_count": 1,
         "commit_acknowledgement_loss_proven": False,
+        "separate_commit_acknowledgement_boundary_present": True,
         "multi_node_failover_proven": False,
         "hosted_green_claim": False,
         "errors": errors,
