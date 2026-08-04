@@ -66,6 +66,26 @@ def _called_attributes(source: str) -> set[str]:
     return result
 
 
+def _function_call_names(source: str, function_name: str) -> list[str]:
+    tree = ast.parse(source)
+    for node in tree.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if node.name != function_name:
+            continue
+        result: list[str] = []
+        for child in ast.walk(node):
+            if not isinstance(child, ast.Call):
+                continue
+            function = child.func
+            if isinstance(function, ast.Attribute):
+                result.append(function.attr)
+            elif isinstance(function, ast.Name):
+                result.append(function.id)
+        return result
+    return []
+
+
 def validate_contract() -> dict:
     errors: list[str] = []
     sources = {name: _read(path, errors) for name, path in FILES.items()}
@@ -102,6 +122,9 @@ def validate_contract() -> dict:
             "subprocess.Popen(",
             "os.kill(process.pid, signal.SIGKILL)",
             "return_code == -signal.SIGKILL",
+            "def _collect_worker_output",
+            "def _kill_worker",
+            "def _ensure_worker_stopped",
             "_ensure_worker_stopped(process)",
             "_wait_for_backend_absence(db, old_backend_pid)",
             '"commit_method_intercepted"] is True',
@@ -113,7 +136,6 @@ def validate_contract() -> dict:
             "_accepted_counts(db, proposal.id) == ONE_COUNTS",
             '_proposal_status(db, proposal.id) == "accepted"',
             'recovery_report["worker_instance_id"] != old_worker_instance_id',
-            'recovery_report["worker_pid"] != process.pid',
             'recovery_report["recovery_backend_pid"] != old_backend_pid',
             "replayed.acceptance.id == recovery_report[\"acceptance_id\"]",
             "replayed.acceptance.idempotency_key == idempotency_key",
@@ -140,6 +162,7 @@ def validate_contract() -> dict:
             "independent committed reader",
             "exactly zero committed lifecycle mutation",
             "same exact idempotency key",
+            "OS PID reuse",
             "does not prove",
             "commit acknowledgement itself is in flight",
             "multi-node failover",
@@ -183,6 +206,18 @@ def validate_contract() -> dict:
         if required_call not in test_calls:
             errors.append(f"worker-crash test lacks call: {required_call}")
 
+    kill_calls = _function_call_names(sources["test"], "_kill_worker")
+    cleanup_calls = _function_call_names(
+        sources["test"],
+        "_ensure_worker_stopped",
+    )
+    if "_collect_worker_output" in kill_calls:
+        errors.append("_kill_worker must not consume subprocess output")
+    if cleanup_calls.count("_collect_worker_output") != 1:
+        errors.append(
+            "_ensure_worker_stopped must collect subprocess output exactly once"
+        )
+
     forbidden = {
         "pytest.skip",
         "pytest.mark.skip",
@@ -200,6 +235,7 @@ def validate_contract() -> dict:
         "DBPreparationScheduleEvent(",
         "sqlite://",
         "super().commit(",
+        'recovery_report["worker_pid"] != process.pid',
         "multi_node_failover_proven = True",
         "commit_acknowledgement_loss_proven = True",
     }
@@ -225,10 +261,12 @@ def validate_contract() -> dict:
         "committed_rows_after_crash": 0,
         "old_backend_absence_verified": True,
         "fresh_worker_instance": True,
+        "os_pid_reuse_tolerated": True,
         "fresh_backend_pid": True,
         "same_key_recovery": True,
         "final_acceptance_count": 1,
         "final_replacement_count": 1,
+        "subprocess_output_collected_once": True,
         "crash_process_cleanup_guaranteed": True,
         "commit_acknowledgement_loss_proven": False,
         "multi_node_failover_proven": False,
