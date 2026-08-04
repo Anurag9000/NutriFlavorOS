@@ -55,6 +55,7 @@ jobs:
           backend/tests/postgres_preparation_fixture.py
           backend/tests/test_preparation_repair_commit_ack_loss_postgres.py
           scripts/validate_database_transient_failure_boundary.py
+          scripts/validate_database_recovery_hardening_release.py
           scripts/validate_preparation_repair_commit_ack_loss_contract.py
           scripts/validate_preparation_repair_commit_ack_loss_release.py
           scripts/validate_repair_release_identity.py
@@ -77,6 +78,8 @@ jobs:
         run: python scripts/validate_preparation_repair_commit_ack_loss_contract.py
       - name: Validate COMMIT acknowledgement loss release
         run: python scripts/validate_preparation_repair_commit_ack_loss_release.py
+      - name: Validate broad database recovery hardening release
+        run: python scripts/validate_database_recovery_hardening_release.py
       - name: Validate synchronized repair release identity
         run: python scripts/validate_repair_release_identity.py
 
