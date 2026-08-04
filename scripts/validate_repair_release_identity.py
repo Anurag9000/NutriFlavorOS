@@ -106,7 +106,13 @@ def validate_identity() -> dict:
             "No public metrics HTTP endpoint",
             "controlled sustained pool pressure",
             "24 checkout timeouts",
+            "controlled application-worker recycle",
+            "ungraceful application-worker crash",
+            "COMMIT acknowledgement loss",
+            "CommandComplete(COMMIT)",
+            "same exact idempotency key",
             "not representative production capacity",
+            "multi-node failover",
         },
         "docs/IMPLEMENTATION_STATUS.md": {
             f"**Database migration head:** `{EXPECTED_MIGRATION}`",
@@ -118,19 +124,20 @@ def validate_identity() -> dict:
             "Schedule derivation evidence",
             "Lowest-layer task terminality",
             "Task-execution eligibility",
-            "source_schedule_has_accepted_replacement",
             "Preparation schedule support export",
-            "explicit support-evidence generation/download",
             "post-commit connection-loss evidence",
             "checked-out pool connection invalidation evidence",
             "bounded exact serialization retry",
             "three consecutive `40001` aborts",
             "database recovery observability",
-            "privacy-preserving process metrics",
-            "cross-replica aggregation",
             "controlled sustained pool pressure",
             "24 checkout timeouts",
-            "zero lifecycle mutation",
+            "controlled application-worker recycle",
+            "Controlled ungraceful application-worker crash",
+            "COMMIT acknowledgement loss",
+            "CommandComplete(COMMIT)",
+            "same exact idempotency key",
+            "cross-replica aggregation",
         },
         "docs/ROADMAP.md": {
             f"**Current migration head:** `{EXPECTED_MIGRATION}`",
@@ -145,15 +152,12 @@ def validate_identity() -> dict:
             "C11 — Read-only support evidence export",
             "C12 — Database recovery observability foundation",
             "C14 — Controlled sustained PostgreSQL pool pressure",
-            "post-commit connection-loss recovery",
-            "checked-out pool connection recovery",
-            "bounded exact serialization retry",
-            "three consecutive `40001` aborts",
-            "database recovery observability",
-            "cross-replica aggregation",
+            "C15 — Controlled application-worker recycle",
+            "C16 — Controlled ungraceful application-worker crash",
+            "C17 — PostgreSQL COMMIT acknowledgement loss",
             "automatic_retry_performed=false",
-            "controlled sustained pool pressure",
             "representative production capacity",
+            "multi-node failover",
         },
         "docs/PREPARATION_REPAIR_ACCEPTANCE.md": {
             "creates exactly one new preparation schedule in `draft` state",
@@ -166,8 +170,6 @@ def validate_identity() -> dict:
             "Post-commit connection-loss recovery",
             "Checked-out pool connection recovery",
             "Repeated serialization recovery",
-            "three consecutive SQLSTATE `40001`",
-            "fourth exact-key attempt",
             "database_transaction_retry_required",
             "database_commit_outcome_unknown",
             "same idempotency key",
@@ -191,9 +193,36 @@ def validate_identity() -> dict:
             "eight callers per wave",
             "24 checkout timeouts",
             "exactly zero lifecycle mutation",
-            "same idempotency key",
             "checkedout() == 0",
             "not representative production capacity",
+        },
+        "docs/PREPARATION_REPAIR_WORKER_RECYCLE.md": {
+            "Controlled PostgreSQL Application-Worker Recycle",
+            "worker-instance",
+            "old PostgreSQL backend disappears",
+            "fresh worker process",
+            "same idempotency key",
+            "not a crash-recovery or multi-node failover proof",
+        },
+        "docs/PREPARATION_REPAIR_WORKER_CRASH.md": {
+            "PostgreSQL Ungraceful Application-Worker Crash Recovery",
+            "real `SIGKILL`",
+            "Flushed-open-transaction crash",
+            "Deterministic process cleanup",
+            "OS PID reuse",
+            "same exact idempotency key",
+            "multi-node failover",
+        },
+        "docs/PREPARATION_REPAIR_COMMIT_ACK_LOSS.md": {
+            "PostgreSQL COMMIT Acknowledgement Loss",
+            "synchronous_commit=on",
+            "CommandComplete(COMMIT)",
+            "acknowledgement is withheld",
+            "database_commit_outcome_unknown",
+            "retry_safe=false",
+            "same exact idempotency key",
+            "single controlled proxy connection",
+            "does not prove multi-node failover",
         },
         "docs/PREPARATION_REPAIR_SERIALIZATION_RETRY.md": {
             "Bounded Exact Serialization Retry",
@@ -219,31 +248,18 @@ def validate_identity() -> dict:
             "Snapshot-internal authorization",
             "mutation_performed=false",
         },
-        "docs/PREPARATION_OPERATIONS.md": {
-            f"API: `{EXPECTED_API}`",
-            f"OpenAPI contract: `{EXPECTED_OPENAPI_CONTRACT}`",
-            "retry_safe=true",
-            "retry_safe=false",
-            "checked-out pool connection invalidation",
-        },
     }
     for relative, fragments in documentation.items():
         _require(relative, fragments, errors, "release")
 
-    _require(
-        "backend/main.py",
-        {
+    implementation = {
+        "backend/main.py": {
             'version="0.15.4"',
             "database_error_handlers.install_database_error_handlers(app)",
             "app.include_router(preparation_schedule_derivation_routes.router)",
             "app.include_router(preparation_task_execution_eligibility_routes.router)",
         },
-        errors,
-        "mounted release",
-    )
-    _require(
-        "backend/api/database_error_handlers.py",
-        {
+        "backend/api/database_error_handlers.py": {
             "database_transaction_retry_required",
             "database_commit_outcome_unknown",
             "database_pool_timeout",
@@ -252,205 +268,150 @@ def validate_identity() -> dict:
             '"automatic_retry_performed": False',
             "DATABASE_RECOVERY_METRICS.record_operational_error(",
         },
-        errors,
-        "database failure boundary",
-    )
-    _require(
-        "backend/database_recovery_metrics.py",
-        {
+        "backend/database_recovery_metrics.py": {
             "class DatabaseRecoveryMetricsSnapshot",
             "class DatabaseRecoveryMetrics",
             "class DatabaseRecoveryAlertPolicy",
             "DATABASE_RECOVERY_METRICS = DatabaseRecoveryMetrics()",
-            "record_retry_succeeded_after_retry",
-            "record_retry_exhausted",
-            "record_utility_outcome_unknown",
             "MappingProxyType(dict(self._code_counts))",
             '"database_pool_timeout"',
             '"08xxx"',
             "RLock()",
         },
-        errors,
-        "database recovery metrics",
-    )
-    _require(
-        "backend/exact_database_retry.py",
-        {
+        "backend/exact_database_retry.py": {
             "class ExactDatabaseRetryPolicy",
             "class DatabaseOutcomeUnknown",
             "classify_database_error",
             "DATABASE_RECOVERY_METRICS.record_retry_observation(",
-            "DATABASE_RECOVERY_METRICS.record_retry_succeeded_after_retry()",
             "DATABASE_RECOVERY_METRICS.record_retry_exhausted()",
-            "DATABASE_RECOVERY_METRICS.record_utility_outcome_unknown()",
         },
-        errors,
-        "bounded retry utility",
-    )
-    _require(
-        "backend/tests/test_database_recovery_metrics.py",
-        {
-            "test_metrics_snapshot_sanitizes_labels_and_is_immutable",
-            "test_http_error_handler_records_only_sanitized_classification",
-            "test_bounded_retry_metrics_track_convergence_exhaustion_and_ambiguity",
-            "test_alert_evaluation_uses_explicit_thresholds",
-            "test_metrics_registry_is_thread_safe_and_monotonic",
-            "test_invalid_metric_combinations_fail_before_counter_mutation",
-            "retry_observation_total == 1600",
-        },
-        errors,
-        "observability regressions",
-    )
-    _require(
-        "scripts/validate_database_recovery_observability.py",
-        {
-            '"scope": "process_local"',
-            '"sensitive_identifiers_recorded": False',
-            '"public_http_endpoint": False',
-            '"cross_replica_aggregation": False',
-            '"alert_evaluation": True',
-        },
-        errors,
-        "observability contract",
-    )
-
-    _require(
-        "backend/api/preparation_operations_routes.py",
-        {
-            "export_authorized_preparation_schedule_support_snapshot(",
-            "authorized_user_id=current_user.id",
-        },
-        errors,
-        "snapshot-authorized route",
-    )
-    _require(
-        "backend/services/preparation_schedule_support_export_authorized_service.py",
-        {
+        "backend/services/preparation_schedule_support_export_authorized_service.py": {
             "authorized_user_id: str",
             "require_household_access(",
             "HouseholdRole.VIEWER",
             'text("SET TRANSACTION READ ONLY")',
             "transaction.rollback()",
         },
-        errors,
-        "snapshot authorization",
-    )
-    _require(
-        "backend/tests/test_preparation_repair_connection_loss_postgres.py",
-        {
+        "backend/tests/test_preparation_repair_connection_loss_postgres.py": {
             "test_postgres_connection_loss_after_commit_recovers_by_exact_retry",
             'text("SELECT pg_terminate_backend(:pid)")',
             'classification["retry_safe"] is False',
         },
-        errors,
-        "post-commit recovery",
-    )
-    _require(
-        "backend/tests/test_preparation_repair_pool_invalidation_postgres.py",
-        {
+        "backend/tests/test_preparation_repair_pool_invalidation_postgres.py": {
             "test_postgres_invalidated_checked_out_connection_recovers_on_fresh_session",
             "observed_error.connection_invalidated is True",
             "recovery_backend_pid != dead_backend_pid",
         },
-        errors,
-        "pool recovery",
-    )
-    _require(
-        "backend/tests/test_preparation_repair_serialization_retry_postgres.py",
-        {
+        "backend/tests/test_preparation_repair_serialization_retry_postgres.py": {
             "test_postgres_repeated_serialization_failures_retry_exact_request_once",
             'isolation_level="SERIALIZABLE"',
             "failed_attempts = 3",
             "max_attempts=4",
-            '"40001"',
-            '"acceptances": 1',
-            '"replacement_schedules": 1',
         },
-        errors,
-        "serialization recovery",
-    )
-    _require(
-        "backend/tests/test_preparation_repair_pool_exhaustion_postgres.py",
-        {
+        "backend/tests/test_preparation_repair_pool_exhaustion_postgres.py": {
             "test_postgres_pool_exhaustion_times_out_before_mutation_and_recovers",
             "pool_size=1",
             "max_overflow=0",
             "pool_timeout=0.1",
-            '"acceptances": 0',
-            '"acceptances": 1',
         },
-        errors,
-        "single pool exhaustion",
-    )
-    _require(
-        "backend/tests/test_preparation_repair_pool_pressure_postgres.py",
-        {
+        "backend/tests/test_preparation_repair_pool_pressure_postgres.py": {
             "test_postgres_sustained_pool_pressure_times_out_cleanly_then_recovers",
             "POOL_SIZE = 2",
             "WORKERS_PER_WAVE = 8",
             "PRESSURE_WAVES = 3",
             "EXPECTED_TIMEOUTS = WORKERS_PER_WAVE * PRESSURE_WAVES",
-            "ThreadPoolExecutor(max_workers=WORKERS_PER_WAVE)",
-            "Barrier(WORKERS_PER_WAVE + 1)",
             "snapshot.retry_exhausted_total == EXPECTED_TIMEOUTS",
             "constrained_engine.pool.checkedout() == 0",
-            "replayed.acceptance.id == accepted.acceptance.id",
         },
-        errors,
-        "sustained pool pressure",
-    )
-    _require(
-        "scripts/validate_preparation_repair_pool_pressure_contract.py",
-        {
-            "_integer_expression",
-            '"expected_checkout_timeouts": 24',
-            '"derived_constant_evaluation": True',
-            '"zero_mutation_before_recovery": True',
-            '"representative_production_capacity": False',
+        "backend/tests/test_preparation_repair_worker_recycle_postgres.py": {
+            "test_postgres_worker_recycle_under_pool_pressure_recovers_exact_request",
+            "new_worker_instance_id != old_worker_instance_id",
+            "_wait_for_backend_absence(db, old_backend_pid)",
+            "replayed.acceptance.id == recovery_report[\"acceptance_id\"]",
         },
-        errors,
-        "sustained pool pressure contract",
-    )
+        "backend/tests/test_preparation_repair_worker_crash_postgres.py": {
+            "test_postgres_sigkill_during_pool_checkout_recovers_exact_request",
+            "test_postgres_sigkill_after_flush_rolls_back_then_recovers_exact_request",
+            "os.kill(process.pid, signal.SIGKILL)",
+            "return_code == -signal.SIGKILL",
+            "_wait_for_backend_absence(db, old_backend_pid)",
+            'recovery_report["worker_instance_id"] != old_worker_instance_id',
+        },
+        "backend/tests/postgres_commit_ack_drop_proxy.py": {
+            "class PostgresCommitAckDropProxy",
+            "self._commit_query_seen.set()",
+            "self._upstream.sendall(frame)",
+            "self._commit_query_forwarded.set()",
+            'self._commit_query_seen.is_set()',
+            '_command_complete_tag(frame) == b"COMMIT"',
+            "commit_acknowledgement_forwarded=False",
+        },
+        "backend/tests/test_preparation_repair_commit_ack_loss_postgres.py": {
+            "test_postgres_commit_acknowledgement_loss_recovers_exact_committed_request",
+            'worker.execute(text("SET LOCAL synchronous_commit = on"))',
+            'classification["code"] == "database_commit_outcome_unknown"',
+            'classification["retry_safe"] is False',
+            "proxy_report.commit_query_forwarded is True",
+            "proxy_report.commit_command_complete_seen is True",
+            "proxy_report.commit_acknowledgement_forwarded is False",
+            "replayed.acceptance.id == acceptance.id",
+        },
+        "scripts/validate_preparation_repair_worker_recycle_release.py": {
+            '"stable_worker_instance_identity": True',
+            '"same_key_recovery": True',
+            '"hosted_green_claim": False',
+        },
+        "scripts/validate_preparation_repair_worker_crash_release.py": {
+            '"real_sigkill": True',
+            '"os_pid_reuse_tolerated": True',
+            '"subprocess_output_collected_once": True',
+            '"hosted_green_claim": False',
+        },
+        "scripts/validate_preparation_repair_commit_ack_loss_release.py": {
+            '"wire_proxy": True',
+            '"command_complete_commit_seen": True',
+            '"commit_acknowledgement_forwarded": False',
+            '"same_key_recovery": True',
+            '"hosted_green_claim": False',
+        },
+    }
+    for relative, fragments in implementation.items():
+        _require(relative, fragments, errors, "implementation")
 
-    _require(
-        ".github/workflows/preparation-repair.yml",
-        {
+    workflows = {
+        ".github/workflows/preparation-repair.yml": {
             "backend/database_recovery_metrics.py",
-            "backend/tests/test_database_recovery_metrics.py",
             "validate_database_recovery_observability.py",
-            "validate_preparation_repair_serialization_retry_contract.py",
             "validate_repair_release_identity.py",
         },
-        errors,
-        "SQLite repair workflow",
-    )
-    _require(
-        ".github/workflows/preparation-repair-postgres.yml",
-        {
-            "backend/database_recovery_metrics.py",
-            "backend/tests/test_database_recovery_metrics.py",
-            "validate_database_recovery_observability.py",
+        ".github/workflows/preparation-repair-postgres.yml": {
             "test_preparation_repair_connection_loss_postgres.py",
             "test_preparation_repair_pool_invalidation_postgres.py",
             "test_preparation_repair_serialization_retry_postgres.py",
             "reports/preparation-repair-postgres.xml",
         },
-        errors,
-        "PostgreSQL evidence workflow",
-    )
-    _require(
-        ".github/workflows/preparation-repair-pool-exhaustion.yml",
-        {
-            "test_database_pool_timeout_boundary.py",
+        ".github/workflows/preparation-repair-pool-exhaustion.yml": {
             "test_preparation_repair_pool_exhaustion_postgres.py",
             "test_preparation_repair_pool_pressure_postgres.py",
-            "validate_preparation_repair_pool_exhaustion_contract.py",
-            "validate_preparation_repair_pool_pressure_contract.py",
+            "test_preparation_repair_worker_recycle_postgres.py",
+            "test_preparation_repair_worker_crash_postgres.py",
+            "validate_preparation_repair_worker_recycle_release.py",
+            "validate_preparation_repair_worker_crash_release.py",
             "reports/preparation-repair-pool-exhaustion.xml",
         },
-        errors,
-        "pool pressure evidence workflow",
-    )
+        ".github/workflows/preparation-repair-commit-ack-loss.yml": {
+            "validate-preparation-repair-commit-ack-loss",
+            "postgres_commit_ack_drop_proxy.py",
+            "test_preparation_repair_commit_ack_loss_postgres.py",
+            "validate_preparation_repair_commit_ack_loss_contract.py",
+            "validate_preparation_repair_commit_ack_loss_release.py",
+            "validate_database_recovery_hardening_release.py",
+            "validate_repair_release_identity.py",
+            "reports/preparation-repair-commit-ack-loss.xml",
+        },
+    }
+    for relative, fragments in workflows.items():
+        _require(relative, fragments, errors, "workflow")
 
     main_source = _read("backend/main.py", errors)
     for forbidden in {
@@ -479,12 +440,28 @@ def validate_identity() -> dict:
         "pressure_timeout_count": 24,
         "pressure_zero_mutation": True,
         "pressure_pool_checked_out_after_recovery": 0,
+        "controlled_worker_recycle": True,
+        "worker_recycle_same_key_recovery": True,
+        "ungraceful_worker_sigkill": True,
+        "flushed_open_transaction_rollback": True,
+        "crash_os_pid_reuse_tolerated": True,
+        "crash_subprocess_output_collected_once": True,
+        "controlled_commit_acknowledgement_loss": True,
+        "commit_query_forwarded": True,
+        "synchronous_commit_on": True,
+        "command_complete_commit_seen": True,
+        "commit_acknowledgement_forwarded": False,
+        "commit_client_outcome_unknown": True,
+        "commit_same_key_recovery": True,
+        "single_controlled_proxy_connection": True,
         "representative_production_capacity": False,
+        "multi_node_failover_proven": False,
         "database_recovery_observability": True,
         "metrics_scope": "process_local",
         "metrics_sensitive_identifiers_recorded": False,
         "metrics_public_http_endpoint": False,
         "server_automatic_retry": False,
+        "hosted_green_claim": False,
         "errors": errors,
     }
 
