@@ -101,7 +101,7 @@ A real **ungraceful application-worker crash** boundary is implemented with `SIG
 - Checkout-holder case: the worker holds the only pool connection, the exact acceptance times out before transaction start, and committed reads prove zero lifecycle mutation before and after process death.
 - Flushed-open-transaction case: production acceptance flushes one acceptance, replacement schedule, accepted proposal event, and created schedule event inside the worker transaction; an independent committed reader simultaneously sees zero and the proposal remains `proposed`.
 - The parent kills the worker with `SIGKILL`, waits for the old PostgreSQL backend to disappear, and proves the flushed but uncommitted lifecycle is fully rolled back.
-- A fresh worker with a different worker-instance identity, process ID, and backend PID repeats the same exact idempotency key and creates one accepted replacement.
+- A fresh worker with a different worker-instance identity and backend PID repeats the same exact idempotency key and creates one accepted replacement. The operating-system PID remains diagnostic only because **OS PID reuse** is legal.
 - A final retry returns the same acceptance and schedule identities and preserves `created → accepted` proposal-event order.
 
 This closes controlled application-process death during checkout and before commit. It does not establish **commit acknowledgement** loss in flight, operating-system/container/node failure behavior, cross-replica recovery, or **multi-node failover**.
