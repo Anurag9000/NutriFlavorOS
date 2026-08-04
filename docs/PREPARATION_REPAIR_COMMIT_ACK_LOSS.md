@@ -73,6 +73,20 @@ This is a test-only boundary against the local PostgreSQL service. It does not
 recommend disabling TLS or GSS encryption in production. Production database
 connections must follow the deployment security policy.
 
+## Protocol parser coverage
+
+Independent unit tests verify:
+
+- simple-query COMMIT extraction;
+- extended-protocol parse-message COMMIT extraction;
+- exact `CommandComplete(COMMIT)` tag parsing;
+- non-COMMIT command tags remaining distinct;
+- partial frontend and startup prefixes waiting for more bytes;
+- invalid PostgreSQL frame and startup-packet lengths failing closed.
+
+These parser tests run in the same retained JUnit artifact as the real
+PostgreSQL integration test. They do not replace the integration evidence.
+
 ## Persisted evidence
 
 Before the proxied request, independent direct reads require exactly zero:
@@ -116,11 +130,12 @@ Any protocol parser error or leaked thread fails the test.
 A dedicated PostgreSQL workflow compiles and runs:
 
 - the protocol proxy;
+- the protocol parser unit tests;
 - the real commit-acknowledgement-loss test;
 - the transient database-error classifier;
 - the production source-acceptance guard;
 - the protocol contract;
-- the synchronized release validator.
+- the focused and broad synchronized release validators.
 
 The workflow upgrades PostgreSQL to migration head `20260802_0018`, verifies the
 runtime schema, and retains JUnit evidence. Configured execution is not a hosted
