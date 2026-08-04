@@ -80,7 +80,8 @@ def validate_contract() -> dict:
             'self.execute(text("SELECT pg_backend_pid()"))',
             "_transaction_local_counts(self, _COMMIT_PROPOSAL_ID)",
             '"transaction_flushed_before_crash": True',
-            '"transaction_commit_started": False',
+            '"commit_method_intercepted": True',
+            '"database_commit_statement_started": False',
             '"lifecycle_commit_performed": False',
             '"waiting_for_sigkill": True',
             "while True:",
@@ -101,7 +102,10 @@ def validate_contract() -> dict:
             "subprocess.Popen(",
             "os.kill(process.pid, signal.SIGKILL)",
             "return_code == -signal.SIGKILL",
+            "_ensure_worker_stopped(process)",
             "_wait_for_backend_absence(db, old_backend_pid)",
+            '"commit_method_intercepted"] is True',
+            '"database_commit_statement_started"] is False',
             '"transaction_local_counts"] == ONE_COUNTS',
             '"transaction_local_proposal_status"] == "accepted"',
             "_accepted_counts(db, proposal.id) == ZERO_COUNTS",
@@ -175,7 +179,7 @@ def validate_contract() -> dict:
     for required_call in {"flush", "execute", "replace", "uuid4"}:
         if required_call not in helper_calls:
             errors.append(f"worker-crash helper lacks call: {required_call}")
-    for required_call in {"Popen", "run", "kill", "wait"}:
+    for required_call in {"Popen", "run", "kill", "wait", "communicate"}:
         if required_call not in test_calls:
             errors.append(f"worker-crash test lacks call: {required_call}")
 
@@ -213,6 +217,8 @@ def validate_contract() -> dict:
         "real_sigkill": True,
         "checkout_holder_crash": True,
         "flushed_open_transaction_crash": True,
+        "commit_method_intercepted": True,
+        "database_commit_statement_started": False,
         "production_guard_service": True,
         "transaction_local_rows_before_crash": 4,
         "independent_committed_rows_before_crash": 0,
@@ -223,6 +229,7 @@ def validate_contract() -> dict:
         "same_key_recovery": True,
         "final_acceptance_count": 1,
         "final_replacement_count": 1,
+        "crash_process_cleanup_guaranteed": True,
         "commit_acknowledgement_loss_proven": False,
         "multi_node_failover_proven": False,
         "errors": errors,
