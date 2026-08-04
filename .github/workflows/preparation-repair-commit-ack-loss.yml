@@ -53,6 +53,7 @@ jobs:
           backend/services/preparation_repair_source_acceptance_guard_service.py
           backend/tests/postgres_commit_ack_drop_proxy.py
           backend/tests/postgres_preparation_fixture.py
+          backend/tests/test_postgres_commit_ack_drop_proxy.py
           backend/tests/test_preparation_repair_commit_ack_loss_postgres.py
           scripts/validate_database_transient_failure_boundary.py
           scripts/validate_database_recovery_hardening_release.py
@@ -83,9 +84,10 @@ jobs:
       - name: Validate synchronized repair release identity
         run: python scripts/validate_repair_release_identity.py
 
-      - name: Run real PostgreSQL COMMIT acknowledgement loss evidence
+      - name: Run PostgreSQL protocol and COMMIT acknowledgement loss evidence
         run: >-
           pytest -q
+          backend/tests/test_postgres_commit_ack_drop_proxy.py
           backend/tests/test_preparation_repair_commit_ack_loss_postgres.py
           --junitxml=reports/preparation-repair-commit-ack-loss.xml
 
