@@ -104,7 +104,21 @@ A real **ungraceful application-worker crash** boundary is implemented with `SIG
 - A fresh worker with a different worker-instance identity and backend PID repeats the same exact idempotency key and creates one accepted replacement. The operating-system PID remains diagnostic only because **OS PID reuse** is legal.
 - A final retry returns the same acceptance and schedule identities and preserves `created → accepted` proposal-event order.
 
-This closes controlled application-process death during checkout and before commit. It does not establish **commit acknowledgement** loss in flight, operating-system/container/node failure behavior, cross-replica recovery, or **multi-node failover**.
+This closes controlled application-process death during checkout and before commit. It does not establish operating-system/container/node failure behavior, cross-replica recovery, or **multi-node failover**.
+
+### C17 — PostgreSQL COMMIT acknowledgement loss
+
+A controlled **COMMIT acknowledgement loss** boundary is implemented with a test-only PostgreSQL wire proxy.
+
+- The proxied production acceptance transaction sets `synchronous_commit=on`.
+- The proxy parses simple-query and extended-protocol messages, arms the drop before forwarding COMMIT, and proves the complete COMMIT frame is forwarded upstream.
+- PostgreSQL emits `CommandComplete(COMMIT)`; the proxy withholds that acknowledgement and closes both proxied sockets.
+- The client receives an invalidated `OperationalError` classified as `database_commit_outcome_unknown`, `retry_safe=false`, and `automatic_retry_performed=false`.
+- Independent direct reads prove one committed acceptance, one draft replacement, and exactly one accepted/created event pair.
+- A fresh request with the same exact idempotency key returns the existing acceptance and schedule identities without duplication.
+- The proxy proves both forwarding threads terminate without leakage.
+
+This closes one controlled acknowledgement-withheld timing after server-side COMMIT completion. It does not establish all possible network-loss timings, encrypted transport interception, synchronous-replica durability, cross-replica coordination, or **multi-node failover**.
 
 ## P0 — Observe and repair exact hosted verification
 
@@ -112,9 +126,9 @@ Inspect exact latest `main` workflow runs and artifacts, record exact commit/run
 
 ## P0 — Remaining PostgreSQL operational recovery
 
-- Connection loss while COMMIT acknowledgement itself is in flight.
+- Broader network-loss timings around COMMIT, including encrypted transport and loss after acknowledgement reaches lower client buffers.
 - Operating-system, container-runtime, Kubernetes pod, and node failure behavior beyond the controlled worker `SIGKILL` corpus.
-- PostgreSQL primary loss, replica promotion, DNS/service-discovery changes, and multi-node failover.
+- PostgreSQL primary loss, replica promotion, DNS/service-discovery changes, synchronous-replica acknowledgement, and multi-node failover.
 - Cross-replica retry coordination and process replacement across multiple application instances.
 - Representative production capacity under realistic concurrent traffic, queueing, latency, process counts, pool sizing, connection lifetime/recycle behavior, and duration beyond the controlled 24-timeout corpus.
 - Production-snapshot or production-scale migration rehearsal beyond the 64-lifecycle corpus.
@@ -148,5 +162,5 @@ Continue reviewed evidence, forecasting, constrained ranking, backup/PITR, relea
 - The server always reports `automatic_retry_performed=false`.
 - Database recovery metrics never store SQL, request contents, idempotency keys, or domain identifiers.
 - Frontend preflight never replaces server authority.
-- No clinical, food-safety, global-optimality, model-readiness, representative-capacity, commit-acknowledgement, node-failure, cross-replica, failover, or green-build claim without exact supporting evidence.
+- No clinical, food-safety, global-optimality, model-readiness, representative-capacity, exhaustive-commit-loss, node-failure, cross-replica, failover, or green-build claim without exact supporting evidence.
 - No force push, history rewrite, feature branch, or feature PR.
