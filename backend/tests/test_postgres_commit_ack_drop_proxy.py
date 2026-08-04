@@ -6,6 +6,7 @@ from backend.tests.postgres_commit_ack_drop_proxy import (
     _command_complete_tag,
     _frame_length,
     _frontend_query,
+    _is_commit_query,
     _startup_packet_length,
 )
 
@@ -24,6 +25,15 @@ def test_simple_query_commit_is_detected_exactly():
 def test_extended_protocol_parse_commit_is_detected_exactly():
     parse = _frame(b"P", b"statement-name\x00 COMMIT \x00\x00\x00")
     assert _frontend_query(parse) == b"COMMIT"
+
+
+def test_commit_query_normalization_is_strict_and_case_insensitive():
+    assert _is_commit_query(b"COMMIT") is True
+    assert _is_commit_query(b" commit ; ") is True
+    assert _is_commit_query(b"\nCoMmIt;\t") is True
+    assert _is_commit_query(b"COMMIT AND CHAIN") is False
+    assert _is_commit_query(b"ROLLBACK") is False
+    assert _is_commit_query(None) is False
 
 
 def test_command_complete_commit_tag_is_detected_exactly():
