@@ -15,7 +15,7 @@ concurrency:
 jobs:
   pool-exhaustion-recovery:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 60
     services:
       postgres:
         image: postgres:16
@@ -45,7 +45,7 @@ jobs:
       - run: pip install -r backend/requirements.txt
       - run: pip check
 
-      - name: Compile pool timeout, sustained pressure, worker recycle, retry, metrics, and PostgreSQL evidence
+      - name: Compile pool timeout, sustained pressure, recycle, crash, retry, metrics, and PostgreSQL evidence
         run: >-
           python -m compileall -q
           backend/main.py
@@ -64,13 +64,16 @@ jobs:
           backend/tests/test_preparation_repair_pool_exhaustion_postgres.py
           backend/tests/test_preparation_repair_pool_pressure_postgres.py
           backend/tests/test_preparation_repair_worker_recycle_postgres.py
+          backend/tests/test_preparation_repair_worker_crash_postgres.py
           scripts/probe_preparation_repair_worker_recycle.py
+          scripts/probe_preparation_repair_worker_crash.py
           scripts/validate_database_recovery_hardening_release.py
           scripts/validate_database_recovery_metric_integrity.py
           scripts/validate_preparation_repair_pool_exhaustion_contract.py
           scripts/validate_preparation_repair_pool_pressure_contract.py
           scripts/validate_preparation_repair_worker_recycle_contract.py
           scripts/validate_preparation_repair_worker_recycle_release.py
+          scripts/validate_preparation_repair_worker_crash_contract.py
           scripts/validate_database_recovery_observability.py
           scripts/validate_database_transient_failure_boundary.py
           scripts/validate_preparation_repair_serialization_retry_contract.py
@@ -100,6 +103,8 @@ jobs:
         run: python scripts/validate_preparation_repair_worker_recycle_contract.py
       - name: Validate controlled application-worker recycle release
         run: python scripts/validate_preparation_repair_worker_recycle_release.py
+      - name: Validate ungraceful application-worker crash contract
+        run: python scripts/validate_preparation_repair_worker_crash_contract.py
       - name: Validate database recovery metric integrity
         run: python scripts/validate_database_recovery_metric_integrity.py
       - name: Validate database recovery observability
@@ -109,7 +114,7 @@ jobs:
       - name: Validate synchronized repair release identity
         run: python scripts/validate_repair_release_identity.py
 
-      - name: Run complete retry, metrics, pool timeout, pressure, and worker recycle evidence
+      - name: Run complete retry, metrics, pool, recycle, and crash evidence
         run: >-
           pytest -q
           backend/tests/test_database_operational_error_handler.py
@@ -121,6 +126,7 @@ jobs:
           backend/tests/test_preparation_repair_pool_exhaustion_postgres.py
           backend/tests/test_preparation_repair_pool_pressure_postgres.py
           backend/tests/test_preparation_repair_worker_recycle_postgres.py
+          backend/tests/test_preparation_repair_worker_crash_postgres.py
           --junitxml=reports/preparation-repair-pool-exhaustion.xml
 
       - uses: actions/upload-artifact@v7
