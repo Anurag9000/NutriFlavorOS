@@ -150,7 +150,24 @@ A **controlled physical-standby promotion** boundary now exercises two PostgreSQ
 - The application performs **explicit endpoint rotation** to the promoted server and repeats the exact idempotency key through the production guard.
 - The promoted primary returns the same acceptance and draft schedule identities. Final counts remain one acceptance, one replacement, one accepted event, and one created event.
 
-This proves one caught-up asynchronous physical standby and manual promotion. It does not prove automatic failover detection, automatic DNS/service-discovery rotation, fencing, split-brain prevention, safe old-primary rewind/rejoin, synchronous-standby durability, multi-instance convergence after promotion, or multi-region failover.
+This proves one caught-up asynchronous physical standby and manual promotion.
+
+### Controlled automatic PostgreSQL failover
+
+A **controlled automatic PostgreSQL failover** boundary extends the physical cluster with topology automation and a stable application route.
+
+- One stable TCP endpoint initially routes fresh PostgreSQL connections to `original-primary` at epoch `0`.
+- Two independent controller processes monitor the healthy old-primary endpoint and remain alive before failure injection.
+- The original primary is stopped with zero grace. Each controller requires three consecutive failed TCP probes before attempting failover.
+- A **single local witness lease** uses nonblocking exclusive `flock`; one winner advances the **fence epoch** from `0` to `1` while the other controller performs no promotion or route mutation.
+- Promotion is forbidden while Docker reports the old primary running. The winner removes the stopped old-primary container, proves it is absent, preserves its data volume, and proves the old host endpoint is unavailable.
+- The winner promotes the caught-up standby, verifies writable state, the original system identifier, and a new WAL timeline, then atomically rotates the stable route to `promoted-standby` at epoch `1`.
+- The stable endpoint records successful connections to both epochs and reports zero leaked connection threads.
+- The application reuses the **unchanged stable database URL** and the same SQLAlchemy engine object for a fresh connection after promotion.
+- Repeating the exact original idempotency key through the production source guard returns the same acceptance and draft replacement identities. Counts remain exactly one acceptance, one replacement, one accepted event, and one created event.
+- The topology controllers never perform application mutation retry; the HTTP contract remains `automatic_retry_performed=false`.
+
+This closes one failure-triggered, single-host control-plane corpus. It does not prove distributed consensus, replicated quorum or lease correctness, production STONITH, asymmetric-partition split-brain prevention, safe old-primary rewind/rejoin, continuity of already-open sessions, managed-service endpoint behavior, multiple-standby selection, or multi-region failover.
 
 ## Database recovery observability
 
@@ -171,7 +188,7 @@ This is an adapter foundation, not production monitoring. Time windows, persiste
 
 ## PostgreSQL concurrency evidence
 
-Configured PostgreSQL-only coverage includes duplicate/competing acceptance, acceptance versus rejection/invalidation/source execution, plan cancellation and calendar supersession races, repaired approval races, final-task versus schedule completion, repeatable-read support export, lost responses, statement timeout, deadlock, post-commit backend termination, checked-out pool invalidation, repeated serialization retry, controlled single-checkout exhaustion, controlled sustained pool pressure, controlled application-worker recycle, controlled ungraceful worker crash, controlled COMMIT acknowledgement loss, controlled multi-application-instance exact recovery, controlled physical-standby promotion, populated migration rehearsal, and exact migration/dialect assertions with retained JUnit/JSON evidence.
+Configured PostgreSQL-only coverage includes duplicate/competing acceptance, acceptance versus rejection/invalidation/source execution, plan cancellation and calendar supersession races, repaired approval races, final-task versus schedule completion, repeatable-read support export, lost responses, statement timeout, deadlock, post-commit backend termination, checked-out pool invalidation, repeated serialization retry, controlled single-checkout exhaustion, controlled sustained pool pressure, controlled application-worker recycle, controlled ungraceful worker crash, controlled COMMIT acknowledgement loss, controlled multi-application-instance exact recovery, controlled physical-standby promotion, controlled automatic PostgreSQL failover, populated migration rehearsal, and exact migration/dialect assertions with retained JUnit/JSON evidence.
 
 The exact latest hosted executions and artifacts have not been observed in this context. Configured tests are not reported green until inspected.
 
@@ -179,8 +196,8 @@ The exact latest hosted executions and artifacts have not been observed in this 
 
 - Observe and repair exact current hosted workflows and artifacts.
 - Test broader network-loss timings around COMMIT, encrypted transport behavior, operating-system/container/node failure, and synchronous-standby acknowledgement.
-- Add automatic failure detection and promotion, DNS/service-discovery or virtual-IP rotation, connection-pool target rotation, fencing, quorum, split-brain prevention, and safe old-primary rewind/rejoin.
-- Extend the six-worker application-instance corpus across the promoted-primary boundary; the current physical-promotion corpus performs one explicit recovering request.
+- Add distributed/replicated witness or quorum authority, production-grade STONITH, asymmetric-partition fencing, safe old-primary rewind/rejoin, DNS/service-discovery or managed-proxy behavior, and connection-pool handling for already-open sessions.
+- Extend the six-worker application-instance corpus across the automatically promoted stable endpoint; the current automatic corpus performs one recovering application request.
 - Exercise managed/cloud PostgreSQL behavior, multiple standby selection, regional failure, and multi-region failover.
 - Establish representative production capacity under realistic concurrent traffic, queueing, latency, pool sizing, process counts, and duration; the 24-timeout controlled pressure corpus is not representative production capacity.
 - Connect process metrics to authenticated production monitoring with cross-replica rates, dashboards, alerts, paging, SLOs, and runbooks.
@@ -190,4 +207,4 @@ The exact latest hosted executions and artifacts have not been observed in this 
 
 ## Non-claims
 
-NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, exhaustive COMMIT-loss recovery, encrypted-transport interception, synchronous-standby durability, operating-system/container/node crash recovery, automatic failover orchestration, automatic endpoint rotation, split-brain fencing, safe old-primary rejoin, multi-application-instance recovery after promotion, managed-database behavior, multi-region failover recovery, representative production capacity, production pool sizing or sustained-load capacity, signed/export-retention guarantees, production monitoring completeness, or current hosted green-build status.
+NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, exhaustive COMMIT-loss recovery, encrypted-transport interception, synchronous-standby durability, operating-system/container/node crash recovery, distributed failover consensus, replicated quorum or witness authority, production STONITH, asymmetric-partition split-brain prevention, safe old-primary rejoin, continuity of already-open database sessions, multi-application-instance recovery after promotion, managed-database behavior, multi-region failover recovery, representative production capacity, production pool sizing or sustained-load capacity, signed/export-retention guarantees, production monitoring completeness, or current hosted green-build status.
