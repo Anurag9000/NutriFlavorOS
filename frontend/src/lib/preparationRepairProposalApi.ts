@@ -175,9 +175,10 @@ export const preparationRepairProposalApi = {
     householdId: string,
     statuses?: PreparationRepairProposalStatus[],
   ) => {
-    const query = new URLSearchParams();
-    for (const status of statuses ?? []) query.append("status", status);
-    const suffix = query.size ? `?${query.toString()}` : "";
+    const encodedStatuses = (statuses ?? [])
+      .map((status) => `status=${encodeURIComponent(status)}`)
+      .join("&");
+    const suffix = encodedStatuses ? `?${encodedStatuses}` : "";
     return apiRequest<PreparationRepairProposalView[]>(
       `${collection(householdId)}${suffix}`,
     );
