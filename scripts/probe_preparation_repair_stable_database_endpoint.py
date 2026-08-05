@@ -71,7 +71,7 @@ class StablePostgresEndpoint:
         self._event_path = event_path
         self._report_path = report_path
         self._stop = threading.Event()
-        self._event_lock = threading.Lock()
+        self._event_lock = threading.RLock()
         self._threads_lock = threading.Lock()
         self._threads: set[threading.Thread] = set()
         self._connection_count = 0
