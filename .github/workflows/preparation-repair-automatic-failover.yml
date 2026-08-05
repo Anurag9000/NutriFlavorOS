@@ -15,7 +15,7 @@ concurrency:
 jobs:
   automatic-fenced-failover:
     runs-on: ubuntu-latest
-    timeout-minutes: 100
+    timeout-minutes: 110
     env:
       FAILOVER_POSTGRES_IMAGE: postgres:16
       FAILOVER_NETWORK: nutriflavor-auto-failover-${{ github.run_id }}-${{ github.run_attempt }}
@@ -35,6 +35,7 @@ jobs:
       FAILOVER_AUTOMATIC_REPORT_PATH: reports/preparation-repair-automatic-failover.json
       FAILOVER_MULTI_WORKER_REPORT_PATH: reports/preparation-repair-post-promotion-workers.json
       FAILOVER_REJOIN_REPORT_PATH: reports/preparation-repair-old-primary-rejoin.json
+      FAILOVER_AUTOMATIC_REJOIN_REPORT_PATH: reports/preparation-repair-automatic-rejoin.json
       DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:55432/nutriflavor_test
       JWT_SECRET: automatic-failover-ci-secret-at-least-32-bytes
       AUTO_CREATE_SCHEMA: "false"
@@ -64,11 +65,15 @@ jobs:
           scripts/probe_preparation_repair_multi_instance_recovery.py
           scripts/probe_preparation_repair_post_promotion_multi_instance.py
           scripts/probe_preparation_repair_old_primary_rejoin.py
+          scripts/probe_preparation_repair_automatic_old_primary_rejoin.py
           scripts/run_preparation_repair_automatic_failover_controller.py
+          scripts/run_preparation_repair_automatic_rejoin_controller.py
           scripts/validate_preparation_repair_automatic_failover_contract.py
           scripts/validate_preparation_repair_automatic_failover_release.py
           scripts/validate_preparation_repair_old_primary_rejoin_contract.py
           scripts/validate_preparation_repair_old_primary_rejoin_release.py
+          scripts/validate_preparation_repair_automatic_rejoin_contract.py
+          scripts/validate_preparation_repair_automatic_rejoin_release.py
           scripts/validate_repair_release_identity.py
 
       - name: Validate failover shell syntax
@@ -105,6 +110,12 @@ jobs:
       - name: Validate old-primary rejoin release
         run: python scripts/validate_preparation_repair_old_primary_rejoin_release.py
 
+      - name: Validate automatic old-primary rejoin contract
+        run: python scripts/validate_preparation_repair_automatic_rejoin_contract.py
+
+      - name: Validate automatic old-primary rejoin release
+        run: python scripts/validate_preparation_repair_automatic_rejoin_release.py
+
       - name: Validate synchronized repair release identity
         run: python scripts/validate_repair_release_identity.py
 
@@ -117,11 +128,8 @@ jobs:
       - name: Run six-worker exact recovery after automatic promotion
         run: python scripts/probe_preparation_repair_post_promotion_multi_instance.py
 
-      - name: Rewind and rejoin fenced old primary
-        run: bash scripts/rewind_preparation_repair_old_primary.sh
-
-      - name: Verify rewound old primary as streaming standby
-        run: python scripts/probe_preparation_repair_old_primary_rejoin.py
+      - name: Automatically rewind and rejoin fenced old primary
+        run: python scripts/probe_preparation_repair_automatic_old_primary_rejoin.py
 
       - name: Capture automatic failover diagnostics
         if: failure()
