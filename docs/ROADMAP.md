@@ -74,7 +74,7 @@ Six independent application workers establish distinct identities, pools, sessio
 
 **Controlled automatic PostgreSQL failover** keeps one stable application URL for fresh connections. Two controllers require three consecutive failed probes. A **single local witness lease** selects one winner, advances the **fence epoch** from `0` to `1`, removes the stopped old-primary container while retaining its data volume, promotes the caught-up standby, and atomically routes epoch `1` to the promoted primary. The losing controller performs no topology mutation. Exact-key recovery returns the original identities.
 
-This is one single-host control-plane corpus, not **distributed consensus**, replicated quorum, production STONITH, partition-safe fencing, safe old-primary rejoin, or managed-service behavior.
+This is one single-host control-plane corpus, not **distributed consensus**, replicated quorum, production STONITH, partition-safe fencing, automatic old-primary rejoin, or managed-service behavior.
 
 ### C21 — Six-worker recovery after automatic promotion
 
@@ -90,6 +90,21 @@ A **six-worker post-promotion** corpus runs on the same C20 promoted cluster bef
 
 This closes controlled multi-application-instance convergence after automatic promotion. Six workers remain a correctness corpus, not representative production capacity.
 
+### C22 — Controlled old-primary rewind and standby rejoin
+
+The retained fenced old-primary data volume is rebuilt with PostgreSQL `pg_rewind` after the C20/C21 promoted-primary evidence.
+
+- The initial primary starts with and verifies `wal_log_hints=on`.
+- Rewind is denied while the old-primary container exists.
+- `pg_rewind` uses the promoted primary as source and the retained old data volume as target.
+- The rewound data starts under a distinct container identity with `standby.signal` and replication application name `rewound-old-primary`.
+- The node rejoins as a **read-only streaming standby**, while the promoted primary remains the write authority.
+- Source and receiver both report streaming and share the same system identifier.
+- Acceptance and replacement identities and lifecycle counts remain exactly one on both nodes.
+- A controlled `pg_switch_wal()` creates a new flush position, and the rejoined standby must replay at least that exact LSN while remaining in recovery.
+
+This closes one controlled old-primary rewind/rejoin path. **Automatic rejoin orchestration**, partition-safe stale-primary rejection, missing-WAL fallback, base-backup rebuild, multiple-node lifecycle management, and representative recovery time remain open.
+
 ## P0 — Observe and repair exact hosted verification
 
 Inspect exact latest `main` workflow runs and artifacts, record commit/run/artifact identities, repair every failure without skips or weakening, and never report green without exact current evidence.
@@ -99,7 +114,7 @@ Inspect exact latest `main` workflow runs and artifacts, record commit/run/artif
 - Broader COMMIT-loss timing, encrypted transport, and lower client-buffer behavior.
 - Operating-system, container-runtime, Kubernetes pod, and node failure evidence beyond controlled process death.
 - Synchronous-standby acknowledgement and durability.
-- Distributed or replicated witness/quorum authority, production STONITH, asymmetric-partition fencing, stale-primary write rejection, and safe old-primary `pg_rewind`/rejoin.
+- Distributed or replicated witness/quorum authority, production STONITH, asymmetric-partition fencing, stale-primary write rejection, automatic rejoin orchestration, and missing-WAL/base-backup recovery.
 - Continuity, invalidation, and pool replacement for already-open sessions during endpoint transition.
 - DNS/service-discovery, virtual-IP, service-mesh, managed-proxy, cloud PostgreSQL, multiple standby selection, regional failure, **multi-node failover**, and multi-region recovery.
 - Representative RPO, RTO, latency, throughput, traffic, process counts, connection lifetimes, pool sizing, duration, and production capacity.
@@ -133,5 +148,5 @@ Continue reviewed evidence, forecasting, constrained ranking, backup/PITR, relea
 - `retry_safe=true` is reserved for proven aborts or proof that no transaction started.
 - Connection ambiguity remains `retry_safe=false`; `automatic_retry_performed=false` remains authoritative.
 - Recovery metrics never store SQL, request contents, keys, or domain identifiers.
-- No clinical, food-safety, global-optimality, representative-capacity, exhaustive-network, distributed-consensus, production-STONITH, old-primary-rejoin, multi-region, or green-build claim without exact supporting evidence.
+- No clinical, food-safety, global-optimality, representative-capacity, exhaustive-network, distributed-consensus, production-STONITH, automatic-rejoin, multi-region, or green-build claim without exact supporting evidence.
 - No force push, history rewrite, feature branch, or feature PR.
