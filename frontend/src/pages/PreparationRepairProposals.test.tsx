@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -350,8 +356,8 @@ describe("Preparation repair proposal registry", () => {
       await screen.findByRole("heading", { name: "Repair proposal registry" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Two explicit lifecycle decisions")).toBeInTheDocument();
-    expect(screen.getByText(/Draft persistence: false/)).toBeInTheDocument();
-    expect(screen.getByText(createdEvent.reason)).toBeInTheDocument();
+    expect(await screen.findByText(/Draft persistence: false/)).toBeInTheDocument();
+    expect(await screen.findByText(createdEvent.reason)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Schedule approval" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Approve/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Execute/i })).not.toBeInTheDocument();
@@ -382,7 +388,12 @@ describe("Preparation repair proposal registry", () => {
     renderPage();
     await screen.findByLabelText("Strict revised request JSON");
 
-    fireEvent.click(screen.getByRole("checkbox", { name: /dinner\.prep/i }));
+    const immutableGroup = await screen.findByRole("group", {
+      name: "Immutable placements",
+    });
+    fireEvent.click(
+      within(immutableGroup).getByRole("checkbox", { name: /dinner\.prep/i }),
+    );
     fireEvent.click(
       screen.getByRole("checkbox", {
         name: /proposal creation is not acceptance or owner approval/i,
@@ -491,7 +502,9 @@ describe("Preparation repair proposal registry", () => {
     expect(
       screen.getByRole("link", { name: "Review draft for approval" }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Accept and create draft" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Accept and create draft" }),
+    ).not.toBeInTheDocument();
     expect(mocks.acceptance).toHaveBeenCalledWith("home-1", 11);
   });
 
@@ -502,10 +515,14 @@ describe("Preparation repair proposal registry", () => {
     expect(
       await screen.findByRole("heading", { name: "Repair proposal registry" }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Create advisory proposal" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Accept and create draft" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Create advisory proposal" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Accept and create draft" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reject proposal" })).not.toBeInTheDocument();
-    expect(screen.getByText(/Draft persistence: false/)).toBeInTheDocument();
+    expect(await screen.findByText(/Draft persistence: false/)).toBeInTheDocument();
   });
 
   it("blocks acceptance controls for stale proposals", async () => {
@@ -523,6 +540,8 @@ describe("Preparation repair proposal registry", () => {
 
     expect(await screen.findByText("Cannot accept while stale")).toBeInTheDocument();
     expect(screen.getByText("source schedule has execution history")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Accept and create draft" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Accept and create draft" }),
+    ).not.toBeInTheDocument();
   });
 });
