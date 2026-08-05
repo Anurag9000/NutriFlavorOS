@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the synchronized COMMIT-acknowledgement-loss release boundary."""
+"""Validate the synchronized COMMIT-loss and multi-instance recovery release."""
 
 from __future__ import annotations
 
@@ -20,9 +20,13 @@ FILES = {
     "proxy": "backend/tests/postgres_commit_ack_drop_proxy.py",
     "proxy_tests": "backend/tests/test_postgres_commit_ack_drop_proxy.py",
     "test": "backend/tests/test_preparation_repair_commit_ack_loss_postgres.py",
+    "multi_helper": "scripts/probe_preparation_repair_multi_instance_recovery.py",
+    "multi_test": "backend/tests/test_preparation_repair_multi_instance_recovery_postgres.py",
     "contract": "scripts/validate_preparation_repair_commit_ack_loss_contract.py",
+    "multi_contract": "scripts/validate_preparation_repair_multi_instance_recovery_contract.py",
     "workflow": ".github/workflows/preparation-repair-commit-ack-loss.yml",
     "docs": "docs/PREPARATION_REPAIR_COMMIT_ACK_LOSS.md",
+    "multi_docs": "docs/PREPARATION_REPAIR_MULTI_INSTANCE_RECOVERY.md",
     "readme": "README.md",
     "status": "docs/IMPLEMENTATION_STATUS.md",
     "roadmap": "docs/ROADMAP.md",
@@ -106,6 +110,39 @@ def validate_release() -> dict:
             "replayed.acceptance.id == acceptance.id",
             "replayed.acceptance.idempotency_key == idempotency_key",
         },
+        "multi_helper": {
+            "Subprocess worker for coordinated exact-key recovery across app instances",
+            "WORKER_INSTANCE_ID = uuid4().hex",
+            "GATE_WAIT_SECONDS = 30.0",
+            "poolclass=QueuePool",
+            "pool_size=1",
+            "max_overflow=0",
+            "pool_pre_ping=True",
+            'db.execute(text("SELECT pg_backend_pid()"))',
+            '"waiting_for_release_gate": True',
+            "_wait_for_gate(gate_path, release_token)",
+            "accept_repair_proposal_with_source_guard(",
+            '"same_key_recovery_performed": True',
+            '"pool_checked_out_after_close": checked_out_after_close',
+        },
+        "multi_test": {
+            "WORKER_COUNT = 6",
+            "test_postgres_ambiguous_commit_converges_across_six_application_instances",
+            "_commit_once_without_acknowledgement",
+            'classification["code"] == "database_commit_outcome_unknown"',
+            'classification["retry_safe"] is False',
+            "subprocess.Popen(",
+            "len(worker_instance_ids) == WORKER_COUNT",
+            "len(backend_pids) == WORKER_COUNT",
+            "all(_backend_exists(db, value) for value in backend_pids)",
+            "_write_json_atomically(gate_path, {\"release_token\": release_token})",
+            'value.get("same_key_recovery_performed") is True',
+            'value["idempotency_key_matches"] is True',
+            'value["pool_checked_out_after_close"] == 0',
+            "_accepted_counts(db, proposal.id) == ONE_COUNTS",
+            '"created",',
+            '"accepted",',
+        },
         "contract": {
             '"wire_proxy": True',
             '"protocol_unit_tests": True',
@@ -120,13 +157,30 @@ def validate_release() -> dict:
             '"single_controlled_proxy_connection": True',
             '"multi_node_failover_proven": False',
         },
+        "multi_contract": {
+            '"database_primary_count": 1',
+            '"application_worker_count": 6',
+            '"distinct_worker_instances": True',
+            '"distinct_live_backend_pids": True',
+            '"simultaneous_release_gate": True',
+            '"distributed_lock_service": False',
+            '"final_acceptance_count": 1',
+            '"final_replacement_count": 1',
+            '"same_acceptance_identity_for_all_workers": True',
+            '"same_schedule_identity_for_all_workers": True',
+            '"database_replica_promotion_proven": False',
+            '"multi_node_failover_proven": False',
+        },
         "workflow": {
             "validate-preparation-repair-commit-ack-loss",
             "postgres:16",
             "postgres_commit_ack_drop_proxy.py",
             "test_postgres_commit_ack_drop_proxy.py",
             "test_preparation_repair_commit_ack_loss_postgres.py",
+            "test_preparation_repair_multi_instance_recovery_postgres.py",
+            "probe_preparation_repair_multi_instance_recovery.py",
             "validate_preparation_repair_commit_ack_loss_contract.py",
+            "validate_preparation_repair_multi_instance_recovery_contract.py",
             "validate_preparation_repair_commit_ack_loss_release.py",
             "validate_database_recovery_hardening_release.py",
             "validate_repair_release_identity.py",
@@ -144,6 +198,16 @@ def validate_release() -> dict:
             "single controlled proxy connection",
             "does not prove multi-node failover",
         },
+        "multi_docs": {
+            "Controlled Multi-Application-Instance Exact Recovery",
+            "single-primary PostgreSQL",
+            "six independent application worker processes",
+            "six PostgreSQL backends",
+            "same existing acceptance ID",
+            "same existing draft replacement schedule ID",
+            "No separate distributed lock service",
+            "multi-node PostgreSQL failover",
+        },
         "readme": {
             f"API: `{EXPECTED_API}`",
             f"Alembic head: `{EXPECTED_MIGRATION}`",
@@ -152,6 +216,9 @@ def validate_release() -> dict:
             "CommandComplete(COMMIT)",
             "database_commit_outcome_unknown",
             "same exact idempotency key",
+            "controlled multi-application-instance exact recovery",
+            "six independent application workers",
+            "one PostgreSQL primary",
             "multi-node failover",
         },
         "status": {
@@ -160,12 +227,17 @@ def validate_release() -> dict:
             "CommandComplete(COMMIT)",
             "database_commit_outcome_unknown",
             "same exact idempotency key",
+            "controlled multi-application-instance exact recovery",
+            "six independent worker processes",
+            "one PostgreSQL primary",
             "multi-node failover recovery",
         },
         "roadmap": {
             "C17 — PostgreSQL COMMIT acknowledgement loss",
             "COMMIT acknowledgement loss",
             "CommandComplete(COMMIT)",
+            "C18 — Controlled multi-application-instance exact recovery",
+            "six independent application workers",
             "multi-node failover",
         },
     }
@@ -173,7 +245,7 @@ def validate_release() -> dict:
         for fragment in sorted(fragments):
             if not _contains(sources[label], fragment):
                 errors.append(
-                    f"{FILES[label]} lacks COMMIT-ack release fragment: {fragment}"
+                    f"{FILES[label]} lacks COMMIT/multi-instance release fragment: {fragment}"
                 )
 
     return {
@@ -195,6 +267,12 @@ def validate_release() -> dict:
         "committed_replacement_count": 1,
         "same_key_recovery": True,
         "single_controlled_proxy_connection": True,
+        "database_primary_count": 1,
+        "application_worker_count": 6,
+        "simultaneous_multi_instance_recovery": True,
+        "distributed_lock_service": False,
+        "same_identity_for_all_workers": True,
+        "database_replica_promotion_proven": False,
         "multi_node_failover_proven": False,
         "hosted_green_claim": False,
         "errors": errors,
