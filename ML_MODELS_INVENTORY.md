@@ -1,111 +1,100 @@
-# NutriFlavorOS - Complete ML Model Inventory
+# NutriFlavorOS Model and Algorithm Inventory
 
-**Last Updated:** February 14, 2026  
-**Status:** ✅ Production Ready | Trained to Convergence
+**Reviewed:** 2026-08-06  
+**Status:** research and experimental implementations; no blanket production, convergence, accuracy, or deployment claim.
 
----
+## Interpretation rules
 
-## 🧠 ML Models in Production
+A Python class, architecture, checkpoint path, training script, or catalog entry is not evidence that a model has been trained, converged, evaluated, approved, or deployed. A model may be described as validated only when the repository contains an immutable dataset/version manifest, split definition, environment lock, training run, artifact hash, evaluation report, calibration and robustness evidence, model card, approval decision, and deployment record.
 
-### 1. **Deep Taste Predictor** (Transformer)
-**File:** `backend/ml/taste_predictor.py`  
-**Weights:** `backend/ml/weights/taste_predictor.pth`
+NutriFlavorOS must not use learned outputs to diagnose, treat, or predict medical conditions, allergies, glucose response, microbiome state, mental health, stress, sleep outcomes, or food safety.
 
-**Architecture:**
-- **Encoders**: Dual Transformer Encoders (User Genome, Recipe Profile)
-- **Fusion**: Cross-Attention Fusion layer
-- **Output**: Multi-head Predictor (Hedonic Score + Confidence)
-- **Input Dim**: 512-dim flavor vectors
+## Current system-of-record algorithms
 
-**Training:**
-- **Method**: Supervised (MSE Loss)
-- **Epochs**: Trained to convergence (Early Stopping patience 10)
-- **Optimizer**: Adam (lr=1e-3)
-- **Accuracy Target**: 95%+
+The most mature repository paths are deterministic, evidence-driven algorithms rather than learned models:
 
----
+- Constraint-aware meal-plan generation with explicit inputs, bounded search, and diagnostics.
+- Pantry/leftover FEFO selection and transactional material accounting.
+- Approved-plan occurrence confirmation against exact reviewed preparation profiles.
+- Deterministic dependency/resource preparation scheduling.
+- Task execution eligibility and terminality checks.
+- Greedy and bounded exact repair-proposal generation.
+- Lifecycle, replay, idempotency, concurrency, and recovery validators.
 
-### 2. **Health Outcome Predictor** (LSTM)
-**File:** `backend/ml/health_predictor.py`  
-**Weights:** `backend/ml/weights/health_predictor.pth`
+These algorithms still require environment-specific verification and must not be described as globally optimal unless an exact solver records an optimality proof or bound.
 
-**Architecture:**
-- **Backbone**: 2-Layer LSTM (128 hidden units)
-- **Sequence Length**: 30-day sliding window
-- **Outputs**: Weight Trajectory, HbA1c, Cholesterol
+## Experimental learned-model code
 
-**Training:**
-- **Method**: Time-Series Forecasting
-- **Epochs**: max 10,000 (Early Stopping triggered)
-- **Loss**: MSE
+The repository has historically included experimental implementations or placeholders in areas such as:
 
----
+- Taste or recipe preference scoring.
+- Health-related sequence prediction prototypes.
+- Reinforcement-learning meal-planning experiments.
+- Grocery or household-demand prediction.
+- Recipe text generation.
+- Food-image classification or estimation.
+- Online-learning orchestration.
 
-### 3. **RL Meal Planner** (PPO)
-**File:** `backend/ml/meal_planner_rl.py`  
-**Weights:** `backend/ml/weights/rl_planner.pth`
+Their presence must be interpreted as research code only. The former claims of “trained to convergence,” “95%+ accuracy,” production weights, 10,000+ successful episodes, or validated health-outcome prediction are not established by this inventory.
 
-**Architecture:**
-- **Algorithm**: Proximal Policy Optimization (PPO)
-- **Networks**: Actor (Policy) + Critic (Value)
-- **Reward**: Multi-objective (40% Taste, 30% Health, 30% Variety)
+## Required evidence per learned model
 
-**Training:**
-- **Simulations**: 10,000+ episodes
-- **Patience**: Converged when reward stabilized
+Every model promoted beyond an isolated experiment must include:
 
----
+1. **Purpose and boundary** — supported decision, prohibited uses, fallback, and human authority.
+2. **Data manifest** — source, license, consent, lineage, time range, schema, hashes, retention, and deletion semantics.
+3. **Split manifest** — household-disjoint and time-forward partitions with leakage checks.
+4. **Feature contract** — point-in-time availability, provenance, missingness, units, transformations, and version.
+5. **Baseline comparison** — deterministic heuristic and simple statistical baselines.
+6. **Training record** — code SHA, environment lock, seed, hyperparameters, hardware, duration, and immutable logs.
+7. **Artifact record** — weights hash, serialization format, dependency versions, and integrity checks.
+8. **Evaluation** — task metrics, calibration, abstention coverage, subgroup/worst-case behavior, robustness, latency, and cost.
+9. **Model card** — intended use, limitations, failure modes, safety boundary, and monitoring plan.
+10. **Approval and rollback** — named approver, shadow period, activation record, kill switch, and rollback evidence.
 
-### 4. **Grocery Predictor** (LSTM)
-**File:** `backend/ml/grocery_predictor.py`  
-**Weights:** `backend/ml/weights/grocery_predictor.pth`
+## Recommended implementation order
 
-**Architecture:**
-- **Backbone**: LSTM for purchase pattern recognition
-- **Outputs**: Quantity Needed, Days until empty, Purchase probability
+### Tier 0 — deterministic baselines
 
-**Training:**
-- **Data**: Historical purchase + consumption patterns
-- **Method**: Supervised Regression + Classification
+- Seasonal-naive and moving-average demand forecasts.
+- Croston and TSB intermittent-demand baselines.
+- Rule-based preference and substitution ranking.
+- Deterministic waste/expiry risk scoring.
+- Current bounded scheduler plus CP-SAT/MILP benchmarks.
 
----
+### Tier 1 — low-risk supervised experiments
 
-### 5. **Recipe Generator** (GPT-based)
-**File:** `backend/ml/recipe_generator_nlp.py`  
-**Model**: GPT-2 (Fine-tuned on RecipeDB)
+- Gradient-boosted demand and duration models.
+- Pairwise/listwise preference ranking with calibrated confidence.
+- Anomaly detection for data-quality review, never automatic user judgment.
+- Conformal prediction intervals and abstention.
 
-**Capabilities:**
-- Personalized recipe creation from available ingredients
-- Dietary constraint enforcement
-- Cuisine-specific generation
+### Tier 2 — retrieval and structured intelligence
 
----
+- Typed ingredient-substitution graph and evidence-aware retrieval.
+- OCR/barcode candidates with confidence and mandatory review below threshold.
+- Vision-assisted ingredient suggestions with no automatic safety or quantity authority.
 
-### 6. **Recipe Vision** (CNN)
-**File:** `backend/ml/recipe_vision.py`  
-**Backbone**: ResNet50
+### Tier 3 — advanced research only after evidence maturity
 
-**Capabilities:**
-- Food classification (101 categories)
-- Nutritional estimation from images (Calories, Macros)
+- Robust/stochastic optimization under uncertainty.
+- Contextual bandits with conservative constraints and offline evaluation.
+- Graph neural networks only when edge semantics, labels, and leakage controls justify them.
+- Generative recipe assistance only with hard post-generation validation, provenance, and human approval.
 
----
+## Prohibited inventory labels without evidence
 
-## 🔄 Online Learning Manager
-**File:** `backend/ml/online_learning_manager.py`
+Do not label any model as:
 
-- **Mini-batch updates**: Triggers after every 5 user interactions
-- **Versioning**: Automatic model checkpointing
-- **Diversity**: Palate fatigue detection and correction
+- production ready;
+- trained to convergence;
+- deployed;
+- clinically validated;
+- medically accurate;
+- food-safety certified;
+- guaranteed optimal;
+- guaranteed to improve health, retention, savings, waste, or engagement.
 
----
+## Current conclusion
 
-## 🚀 Training Regime
-All models follow a standardized training protocol implemented in `scripts/train_all_models.py`:
-- **Max Epochs**: 10,000
-- **Early Stopping**: Patience 10 (triggers when validation loss plateau)
-- **Device**: Automatic GPU/MPS/CPU detection via `device_config.py`
-
----
-
-**NutriFlavorOS: The most intelligent, personalized, and engaging nutrition platform ever built.** 🚀
+NutriFlavorOS has a broad research surface and mature deterministic workflow infrastructure, but this document does not certify any learned model as trained or deployable. Future model work should be promoted through the evidence gates above, one narrowly scoped decision at a time.
