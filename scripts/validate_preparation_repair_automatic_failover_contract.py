@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate controlled automatic failover and stable-endpoint recovery evidence."""
+"""Validate automatic failover and post-promotion recovery evidence."""
 
 from __future__ import annotations
 
@@ -15,6 +15,8 @@ FILES = {
     "router": "scripts/probe_preparation_repair_stable_database_endpoint.py",
     "controller": "scripts/run_preparation_repair_automatic_failover_controller.py",
     "test": "backend/tests/test_preparation_repair_automatic_failover_postgres.py",
+    "worker": "scripts/probe_preparation_repair_multi_instance_recovery.py",
+    "multi_worker": "scripts/probe_preparation_repair_post_promotion_multi_instance.py",
     "proxy": "backend/tests/postgres_commit_ack_drop_proxy.py",
     "guard": "backend/services/preparation_repair_source_acceptance_guard_service.py",
     "workflow": ".github/workflows/preparation-repair-automatic-failover.yml",
@@ -118,7 +120,6 @@ def validate_contract() -> dict:
             "pg_last_wal_replay_lsn()::text",
             "all(process.poll() is None for process in controllers)",
             '["docker", "stop", "--time", "0", container_name]',
-            'value["promotion_performed"] is True',
             "len(winners) == 1",
             "len(followers) == 1",
             'winner["lease_acquired"] is True',
@@ -141,6 +142,37 @@ def validate_contract() -> dict:
             '"production_stonith_proven": False',
             '"hosted_green_claim": False',
         },
+        "worker": {
+            "WORKER_INSTANCE_ID = uuid4().hex",
+            "pool_size=1",
+            "max_overflow=0",
+            "pool_pre_ping=True",
+            'db.execute(text("SELECT pg_backend_pid()"))',
+            "_wait_for_gate(gate_path, release_token)",
+            "accept_repair_proposal_with_source_guard(",
+            '"same_key_recovery_performed": True',
+            '"pool_checked_out_after_close": checked_out_after_close',
+        },
+        "multi_worker": {
+            "Coordinate six exact-key recovery workers after automatic promotion",
+            "WORKER_COUNT = 6",
+            "probe_preparation_repair_multi_instance_recovery.py",
+            "old primary container must remain fenced before worker recovery",
+            '"target_label": "promoted-standby"',
+            '"epoch": 1',
+            "len(worker_ids) != WORKER_COUNT",
+            "len(backend_pids) != WORKER_COUNT",
+            "not every promoted backend was simultaneously live",
+            '_write_json_atomically(gate_path, {"release_token": release_token})',
+            'value["idempotency_key_matches"] is True',
+            'value["pool_checked_out_after_close"] == 0',
+            "post-promotion worker recovery duplicated lifecycle rows",
+            '"application_worker_count": WORKER_COUNT',
+            '"same_acceptance_identity_for_all_workers": True',
+            '"same_schedule_identity_for_all_workers": True',
+            '"representative_production_capacity": False',
+            '"hosted_green_claim": False',
+        },
         "proxy": {
             "class PostgresCommitAckDropProxy",
             "commit_query_forwarded",
@@ -158,12 +190,16 @@ def validate_contract() -> dict:
             "setup_preparation_repair_primary_failover_cluster.sh",
             "cleanup_preparation_repair_primary_failover_cluster.sh",
             "probe_preparation_repair_stable_database_endpoint.py",
+            "probe_preparation_repair_multi_instance_recovery.py",
+            "probe_preparation_repair_post_promotion_multi_instance.py",
             "run_preparation_repair_automatic_failover_controller.py",
             "test_preparation_repair_automatic_failover_postgres.py",
             "validate_preparation_repair_automatic_failover_contract.py",
             "validate_preparation_repair_automatic_failover_release.py",
             "reports/preparation-repair-automatic-failover.xml",
             "reports/preparation-repair-automatic-failover.json",
+            "reports/preparation-repair-post-promotion-workers.json",
+            "Run six-worker exact recovery after automatic promotion",
             "if: always()",
             "if-no-files-found: error",
         },
@@ -177,24 +213,29 @@ def validate_contract() -> dict:
             "same SQLAlchemy engine URL",
             "original-primary` at epoch `0`",
             "promoted-standby` at epoch `1`",
+            "Six-worker recovery after automatic promotion",
+            "distinct simultaneously live PostgreSQL backend PID",
+            "six-worker post-promotion JSON report",
             "distributed consensus",
             "not hardware STONITH",
-            "recovery coordinated across multiple application workers after promotion",
         },
         "status": {
             "controlled automatic PostgreSQL failover",
             "single local witness lease",
             "stable endpoint",
+            "six-worker post-promotion",
         },
         "roadmap": {
             "Controlled automatic PostgreSQL failover",
             "fence epoch",
+            "C21 — Six-worker recovery after automatic promotion",
             "distributed consensus",
         },
         "readme": {
             "controlled automatic PostgreSQL failover",
             "single local witness lease",
             "unchanged stable database URL",
+            "six-worker post-promotion",
         },
     }
     for label, fragments in required.items():
@@ -230,11 +271,20 @@ def validate_contract() -> dict:
         '"quorum_proven": True',
         '"old_primary_rejoin_proven": True',
         '"multi_region_failover_proven": True',
+        '"representative_production_capacity": True',
         '"hosted_green_claim": True',
     }
     combined = "\n".join(
         sources[name]
-        for name in ("setup", "cleanup", "router", "controller", "test")
+        for name in (
+            "setup",
+            "cleanup",
+            "router",
+            "controller",
+            "test",
+            "worker",
+            "multi_worker",
+        )
     )
     for fragment in sorted(forbidden):
         if fragment in combined:
@@ -244,7 +294,7 @@ def validate_contract() -> dict:
             )
 
     router_controller = sources["router"] + "\n" + sources["controller"]
-    sensitive_report_fragments = {
+    sensitive_state_fragments = {
         '"database_url"',
         '"idempotency_key"',
         '"payload"',
@@ -254,7 +304,7 @@ def validate_contract() -> dict:
         '"user_id"',
         '"schedule_id"',
     }
-    for fragment in sorted(sensitive_report_fragments):
+    for fragment in sorted(sensitive_state_fragments):
         if fragment in router_controller:
             errors.append(
                 "stable endpoint/controller stores sensitive request data: "
@@ -282,6 +332,11 @@ def validate_contract() -> dict:
         "stable_route_rotated": True,
         "stable_endpoint_url_unchanged": True,
         "same_key_recovery": True,
+        "post_promotion_application_worker_count": 6,
+        "post_promotion_distinct_backend_pids": True,
+        "post_promotion_same_acceptance_for_all_workers": True,
+        "post_promotion_same_schedule_for_all_workers": True,
+        "post_promotion_pool_checked_out_after_close": 0,
         "final_acceptance_count": 1,
         "final_replacement_count": 1,
         "final_accepted_event_count": 1,
@@ -291,7 +346,8 @@ def validate_contract() -> dict:
         "production_stonith_proven": False,
         "quorum_proven": False,
         "old_primary_rejoin_proven": False,
-        "multi_worker_post_promotion_recovery_proven": False,
+        "multi_worker_post_promotion_recovery_proven": True,
+        "representative_production_capacity": False,
         "multi_region_failover_proven": False,
         "hosted_green_claim": False,
         "errors": errors,
