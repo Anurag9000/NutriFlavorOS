@@ -59,7 +59,7 @@ The viewer-authorized **Preparation schedule support export** endpoint, operator
 - The HTTP server always reports `automatic_retry_performed=false`.
 - Explicit bounded retry preserves the exact idempotency key and never automatically replays ambiguous connection outcomes.
 
-Real PostgreSQL evidence covers statement timeout, deadlock, lost response, **post-commit connection-loss recovery**, **checked-out pool connection recovery**, repeated serialization aborts, controlled pool exhaustion, worker recycling, process death, and one controlled COMMIT acknowledgement-loss timing.
+Real PostgreSQL evidence covers statement timeout, deadlock, lost response, **post-commit connection-loss recovery**, **checked-out pool connection recovery**, repeated serialization aborts, controlled pool exhaustion, worker recycling, process death, one controlled COMMIT acknowledgement-loss timing, and one-primary multi-instance convergence.
 
 The **controlled sustained pool pressure** corpus occupies a two-connection pool and runs three synchronized waves with eight callers per wave. All **24 checkout timeouts** produce zero lifecycle mutation, preserve `no_transaction_started=true`, and recover after capacity returns through the same exact idempotency key. The pool proves `checkedout() == 0` before and after recovery. This is not representative production capacity.
 
@@ -67,7 +67,9 @@ The **controlled application-worker recycle** boundary runs an old subprocess wi
 
 The **ungraceful application-worker crash** boundary uses real `SIGKILL` in two PostgreSQL cases. A worker killed while holding the only checkout leaves zero lifecycle mutation. A second worker is killed after production acceptance has flushed a complete **flushed open transaction** but before commit; transaction-local rows are visible only inside that worker, independent readers see zero, and PostgreSQL rollback leaves zero committed mutation. A fresh worker then repeats the same exact idempotency key and creates one replacement; a later retry returns the same acceptance and schedule identities. This crash boundary does not itself prove post-COMMIT ambiguity, container/node failure, or multi-node failover.
 
-The controlled **COMMIT acknowledgement loss** boundary uses a test-only PostgreSQL wire proxy. The transaction verifies `synchronous_commit=on`; the proxy arms the drop before forwarding the real COMMIT, observes PostgreSQL produce `CommandComplete(COMMIT)`, withholds that acknowledgement from the client, and closes the connection. The client receives `database_commit_outcome_unknown` with `retry_safe=false`, while independent direct reads prove one committed acceptance and replacement. Repeating the **same exact idempotency key** returns those existing identities without duplication. This single plaintext test connection does not prove encrypted-transport behavior, synchronous-replica durability, cross-replica coordination, or **multi-node failover**.
+The controlled **COMMIT acknowledgement loss** boundary uses a test-only PostgreSQL wire proxy. The transaction verifies `synchronous_commit=on`; the proxy arms the drop before forwarding the real COMMIT, observes PostgreSQL produce `CommandComplete(COMMIT)`, withholds that acknowledgement from the client, and closes the connection. The client receives `database_commit_outcome_unknown` with `retry_safe=false`, while independent direct reads prove one committed acceptance and replacement. Repeating the **same exact idempotency key** returns those existing identities without duplication. This single plaintext test connection does not prove encrypted-transport behavior, synchronous-replica durability, database-replica promotion, or **multi-node failover**.
+
+The **controlled multi-application-instance exact recovery** corpus starts after that ambiguous COMMIT result is already authoritative on **one PostgreSQL primary**. **six independent application workers** create distinct worker identities, private pools, sessions, and simultaneously live PostgreSQL backends, wait behind one release gate, and then repeat the exact same idempotency key together. All six return the same existing acceptance and draft schedule identities, close with zero checked-out connections, and leave exactly one acceptance, one replacement, one accepted event, and one created event. No distributed lock service or process-local leader is used. This is not database-replica promotion or multi-node failover evidence.
 
 ## Database recovery observability
 
@@ -89,13 +91,14 @@ Protected interfaces cover plan review, occurrence confirmation, calendars, sche
 
 Catalog `2026-08-01.3` defines 37 task contracts, 30 dataset families, 75 model or algorithm families, 29 experiment contracts, and 39 feature contracts. Catalog registration does not imply readiness.
 
-Configured direct-`main` workflows cover SQLite/PostgreSQL migrations, backend/static/OpenAPI contracts, frontend typecheck/Vitest, lifecycle races, migration rehearsal, support snapshot concurrency, timeout/deadlock recovery, connection termination, pool invalidation, serialization retry, controlled single-checkout exhaustion, controlled sustained pool pressure, controlled application-worker recycle, ungraceful worker crash recovery, controlled COMMIT acknowledgement loss, observability, and retained benchmark/JUnit/JSON evidence.
+Configured direct-`main` workflows cover SQLite/PostgreSQL migrations, backend/static/OpenAPI contracts, frontend typecheck/Vitest, lifecycle races, migration rehearsal, support snapshot concurrency, timeout/deadlock recovery, connection termination, pool invalidation, serialization retry, controlled single-checkout exhaustion, controlled sustained pool pressure, controlled application-worker recycle, ungraceful worker crash recovery, controlled COMMIT acknowledgement loss, controlled multi-application-instance exact recovery, observability, and retained benchmark/JUnit/JSON evidence.
 
 The exact latest hosted workflows and artifacts must be inspected before the current commit is described as green.
 
 ## Deliberately incomplete
 
-- Broader COMMIT-loss timings, encrypted-transport behavior, synchronous-replica acknowledgement, container/node failure, cross-replica coordination, multi-node failover, representative production capacity, and production-scale migration rehearsal.
+- Broader COMMIT-loss timings, encrypted-transport behavior, synchronous-replica acknowledgement, container/node failure, PostgreSQL replica promotion, connection-target rotation, multi-node failover, representative production capacity, and production-scale migration rehearsal.
+- Cross-application-instance convergence is covered only against one primary; database-replica coordination and failover remain open.
 - Authenticated production metrics aggregation and SLO operations.
 - PostgreSQL-backed Playwright and complete accessibility evidence.
 - Signed/encrypted/redacted support packages and retention/audit tooling.
@@ -135,6 +138,7 @@ PostgreSQL is recommended for concurrent or hosted deployments.
 - [Controlled Worker Recycle](docs/PREPARATION_REPAIR_WORKER_RECYCLE.md)
 - [Ungraceful Worker Crash Recovery](docs/PREPARATION_REPAIR_WORKER_CRASH.md)
 - [COMMIT Acknowledgement Loss](docs/PREPARATION_REPAIR_COMMIT_ACK_LOSS.md)
+- [Multi-Application-Instance Recovery](docs/PREPARATION_REPAIR_MULTI_INSTANCE_RECOVERY.md)
 - [Bounded Serialization Retry](docs/PREPARATION_REPAIR_SERIALIZATION_RETRY.md)
 - [Database Recovery Observability](docs/DATABASE_RECOVERY_OBSERVABILITY.md)
 - [Schedule Derivation Evidence](docs/PREPARATION_SCHEDULE_DERIVATION.md)
