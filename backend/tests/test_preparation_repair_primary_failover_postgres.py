@@ -5,6 +5,7 @@ import os
 import subprocess
 import time
 from pathlib import Path
+from typing import Any
 
 import pytest
 from sqlalchemy import create_engine, text
@@ -59,13 +60,12 @@ def _engine(database_url: str) -> Engine:
 
 
 def _session(engine: Engine) -> Session:
-    factory = sessionmaker(
+    return sessionmaker(
         bind=engine,
         autoflush=False,
         autocommit=False,
         expire_on_commit=False,
-    )
-    return factory()
+    )()
 
 
 def _proxy_database_url(database_url: str, proxy_port: int):
@@ -131,7 +131,7 @@ def _system_identifier(db: Session) -> str:
     )
 
 
-def _current_timeline(db: Session) -> str:
+def _timeline_from_session(db: Session) -> str:
     db.rollback()
     return str(
         db.execute(
@@ -143,11 +143,26 @@ def _current_timeline(db: Session) -> str:
     )
 
 
+def _checkpoint_and_timeline(engine: Engine) -> str:
+    with engine.connect().execution_options(
+        isolation_level="AUTOCOMMIT"
+    ) as connection:
+        connection.execute(text("CHECKPOINT"))
+        return str(
+            connection.execute(
+                text(
+                    "SELECT substring(pg_walfile_name(pg_current_wal_lsn()) "
+                    "from 1 for 8)"
+                )
+            ).scalar_one()
+        )
+
+
 def _commit_without_acknowledgement(
     *,
     primary_database_url: str,
     proposal_id: int,
-    payload,
+    payload: Any,
 ) -> OperationalError:
     direct_url = make_url(primary_database_url)
     proxy = PostgresCommitAckDropProxy(
@@ -155,6 +170,7 @@ def _commit_without_acknowledgement(
         upstream_port=int(direct_url.port or 5432),
     )
     captured_error: OperationalError | None = None
+
     with proxy:
         proxy.wait_until_ready()
         proxied_engine = create_engine(
@@ -165,10 +181,9 @@ def _commit_without_acknowledgement(
         worker = _session(proxied_engine)
         try:
             worker.execute(text("SET LOCAL synchronous_commit = on"))
-            assert (
-                worker.execute(text("SHOW synchronous_commit")).scalar_one()
-                == "on"
-            )
+            assert worker.execute(
+                text("SHOW synchronous_commit")
+            ).scalar_one() == "on"
             with pytest.raises(OperationalError) as caught:
                 accept_repair_proposal_with_source_guard(
                     worker,
@@ -184,12 +199,12 @@ def _commit_without_acknowledgement(
             proxied_engine.dispose()
 
     assert captured_error is not None
-    report = proxy.report()
-    assert report.commit_query_seen is True
-    assert report.commit_query_forwarded is True
-    assert report.commit_command_complete_seen is True
-    assert report.commit_acknowledgement_forwarded is False
-    assert report.proxy_threads_stopped is True
+    proxy_report = proxy.report()
+    assert proxy_report.commit_query_seen is True
+    assert proxy_report.commit_query_forwarded is True
+    assert proxy_report.commit_command_complete_seen is True
+    assert proxy_report.commit_acknowledgement_forwarded is False
+    assert proxy_report.proxy_threads_stopped is True
     return captured_error
 
 
@@ -201,6 +216,7 @@ def _wait_for_replay(
 ) -> str:
     deadline = time.monotonic() + timeout_seconds
     last_replay_lsn: str | None = None
+
     while time.monotonic() < deadline:
         with standby_engine.connect() as connection:
             in_recovery, replay_lsn, caught_up = connection.execute(
@@ -220,6 +236,7 @@ def _wait_for_replay(
             assert last_replay_lsn is not None
             return last_replay_lsn
         time.sleep(0.1)
+
     raise AssertionError(
         "standby did not replay the committed acceptance WAL position: "
         f"target={target_lsn}, observed={last_replay_lsn}"
@@ -227,23 +244,24 @@ def _wait_for_replay(
 
 
 def _stop_primary(container_name: str) -> None:
-    result = subprocess.run(
+    stopped = subprocess.run(
         ["docker", "stop", "--time", "0", container_name],
         check=False,
         capture_output=True,
         text=True,
         timeout=30,
     )
-    assert result.returncode == 0, result.stderr
-    inspection = subprocess.run(
+    assert stopped.returncode == 0, stopped.stderr
+
+    inspected = subprocess.run(
         ["docker", "inspect", "-f", "{{.State.Running}}", container_name],
         check=False,
         capture_output=True,
         text=True,
         timeout=15,
     )
-    assert inspection.returncode == 0, inspection.stderr
-    assert inspection.stdout.strip() == "false"
+    assert inspected.returncode == 0, inspected.stderr
+    assert inspected.stdout.strip() == "false"
 
 
 def _assert_primary_unavailable(primary_database_url: str) -> None:
@@ -260,14 +278,19 @@ def _promote_standby(standby_engine: Engine) -> None:
     with standby_engine.connect().execution_options(
         isolation_level="AUTOCOMMIT"
     ) as connection:
-        promoted = connection.execute(text("SELECT pg_promote(true, 60)")).scalar_one()
+        promoted = connection.execute(
+            text("SELECT pg_promote(true, 60)")
+        ).scalar_one()
     assert promoted is True
 
     deadline = time.monotonic() + 60
     while time.monotonic() < deadline:
         with standby_engine.connect() as connection:
-            if connection.execute(text("SELECT pg_is_in_recovery()" )).scalar_one() is False:
-                return
+            in_recovery = connection.execute(
+                text("SELECT pg_is_in_recovery()")
+            ).scalar_one()
+        if in_recovery is False:
+            return
         time.sleep(0.1)
     raise AssertionError("standby did not leave recovery after promotion")
 
@@ -290,159 +313,175 @@ def test_postgres_physical_standby_promotion_recovers_exact_committed_request():
 
     primary_engine = _engine(primary_database_url)
     standby_engine = _engine(standby_database_url)
-    primary_db = _session(primary_engine)
-    standby_db = _session(standby_engine)
 
     try:
-        assert primary_db.get_bind().dialect.name == "postgresql"
-        assert standby_db.get_bind().dialect.name == "postgresql"
-        assert primary_db.execute(text("SELECT pg_is_in_recovery()" )).scalar_one() is False
-        assert standby_db.execute(text("SELECT pg_is_in_recovery()" )).scalar_one() is True
+        primary_db = _session(primary_engine)
+        standby_db = _session(standby_engine)
+        try:
+            assert primary_db.get_bind().dialect.name == "postgresql"
+            assert standby_db.get_bind().dialect.name == "postgresql"
+            assert primary_db.execute(
+                text("SELECT pg_is_in_recovery()")
+            ).scalar_one() is False
+            assert standby_db.execute(
+                text("SELECT pg_is_in_recovery()")
+            ).scalar_one() is True
 
-        primary_system_identifier = _system_identifier(primary_db)
-        standby_system_identifier = _system_identifier(standby_db)
-        assert primary_system_identifier == standby_system_identifier
-        primary_timeline = _current_timeline(primary_db)
+            primary_system_identifier = _system_identifier(primary_db)
+            standby_system_identifier = _system_identifier(standby_db)
+            assert primary_system_identifier == standby_system_identifier
+            primary_timeline = _timeline_from_session(primary_db)
 
-        _, _, proposal = create_proposal(primary_db)
-        proposal_id = int(proposal.id)
-        idempotency_key = "pg-physical-failover-exact-key"
-        payload = acceptance_payload(proposal, key=idempotency_key)
+            _, _, proposal = create_proposal(primary_db)
+            proposal_id = int(proposal.id)
+            idempotency_key = "pg-physical-failover-exact-key"
+            payload = acceptance_payload(proposal, key=idempotency_key)
 
-        captured_error = _commit_without_acknowledgement(
-            primary_database_url=primary_database_url,
-            proposal_id=proposal_id,
-            payload=payload,
-        )
-        classification = classify_operational_error(captured_error)
-        assert classification["code"] == "database_commit_outcome_unknown"
-        assert classification["retryable"] is True
-        assert classification["retry_safe"] is False
-        assert classification["outcome_unknown"] is True
-        assert classification["automatic_retry_performed"] is False
-        assert captured_error.connection_invalidated is True
+            captured_error = _commit_without_acknowledgement(
+                primary_database_url=primary_database_url,
+                proposal_id=proposal_id,
+                payload=payload,
+            )
+            classification = classify_operational_error(captured_error)
+            assert classification["code"] == "database_commit_outcome_unknown"
+            assert classification["retryable"] is True
+            assert classification["retry_safe"] is False
+            assert classification["outcome_unknown"] is True
+            assert classification["automatic_retry_performed"] is False
+            assert captured_error.connection_invalidated is True
 
-        assert _accepted_counts(primary_db, proposal_id) == ONE_COUNTS
-        acceptance = (
-            primary_db.query(DBPreparationRepairProposalAcceptance)
-            .filter(DBPreparationRepairProposalAcceptance.proposal_id == proposal_id)
-            .one()
-        )
-        committed_acceptance_id = int(acceptance.id)
-        committed_schedule_id = int(acceptance.created_schedule_id)
-        target_lsn = str(
-            primary_db.execute(
-                text("SELECT pg_current_wal_flush_lsn()::text")
-            ).scalar_one()
-        )
+            assert _accepted_counts(primary_db, proposal_id) == ONE_COUNTS
+            acceptance = (
+                primary_db.query(DBPreparationRepairProposalAcceptance)
+                .filter(
+                    DBPreparationRepairProposalAcceptance.proposal_id
+                    == proposal_id
+                )
+                .one()
+            )
+            committed_acceptance_id = int(acceptance.id)
+            committed_schedule_id = int(acceptance.created_schedule_id)
+            target_lsn = str(
+                primary_db.execute(
+                    text("SELECT pg_current_wal_flush_lsn()::text")
+                ).scalar_one()
+            )
 
-        replay_lsn = _wait_for_replay(
-            standby_engine,
-            target_lsn=target_lsn,
-        )
-        standby_db.rollback()
-        assert _accepted_counts(standby_db, proposal_id) == ONE_COUNTS
-        replicated_acceptance = (
-            standby_db.query(DBPreparationRepairProposalAcceptance)
-            .filter(DBPreparationRepairProposalAcceptance.proposal_id == proposal_id)
-            .one()
-        )
-        assert int(replicated_acceptance.id) == committed_acceptance_id
-        assert int(replicated_acceptance.created_schedule_id) == committed_schedule_id
+            replay_lsn = _wait_for_replay(
+                standby_engine,
+                target_lsn=target_lsn,
+            )
+            assert _accepted_counts(standby_db, proposal_id) == ONE_COUNTS
+            replicated_acceptance = (
+                standby_db.query(DBPreparationRepairProposalAcceptance)
+                .filter(
+                    DBPreparationRepairProposalAcceptance.proposal_id
+                    == proposal_id
+                )
+                .one()
+            )
+            assert int(replicated_acceptance.id) == committed_acceptance_id
+            assert (
+                int(replicated_acceptance.created_schedule_id)
+                == committed_schedule_id
+            )
+        finally:
+            primary_db.close()
+            standby_db.close()
+            primary_engine.dispose()
+
+        _stop_primary(primary_container)
+        _assert_primary_unavailable(primary_database_url)
+        _promote_standby(standby_engine)
+
+        promoted_db = _session(standby_engine)
+        try:
+            assert promoted_db.execute(
+                text("SELECT pg_is_in_recovery()")
+            ).scalar_one() is False
+            assert promoted_db.execute(
+                text("SHOW transaction_read_only")
+            ).scalar_one() == "off"
+
+            promoted_system_identifier = _system_identifier(promoted_db)
+            assert promoted_system_identifier == primary_system_identifier
+            promoted_timeline = _checkpoint_and_timeline(standby_engine)
+            assert promoted_timeline != primary_timeline
+
+            replayed = accept_repair_proposal_with_source_guard(
+                promoted_db,
+                household_id=HOUSEHOLD_ID,
+                proposal_id=proposal_id,
+                actor_user_id=OWNER_ID,
+                payload=payload,
+            )
+            assert replayed.acceptance.id == committed_acceptance_id
+            assert replayed.acceptance.created_schedule_id == committed_schedule_id
+            assert replayed.acceptance.idempotency_key == idempotency_key
+            assert _accepted_counts(promoted_db, proposal_id) == ONE_COUNTS
+
+            proposal_row = promoted_db.get(DBPreparationRepairProposal, proposal_id)
+            assert proposal_row is not None
+            promoted_db.refresh(proposal_row)
+            assert proposal_row.status == "accepted"
+
+            accepted_schedule = promoted_db.get(
+                DBPersistedPreparationSchedule,
+                committed_schedule_id,
+            )
+            assert accepted_schedule is not None
+            assert accepted_schedule.status == "draft"
+            assert accepted_schedule.version == 1
+
+            proposal_events = (
+                promoted_db.query(DBPreparationRepairProposalEvent)
+                .filter(DBPreparationRepairProposalEvent.proposal_id == proposal_id)
+                .order_by(DBPreparationRepairProposalEvent.id)
+                .all()
+            )
+            assert [value.event_type for value in proposal_events] == [
+                "created",
+                "accepted",
+            ]
+
+            _write_report(
+                report_path,
+                {
+                    "valid": True,
+                    "postgresql_major": 16,
+                    "physical_streaming_replication": True,
+                    "primary_system_identifier": primary_system_identifier,
+                    "promoted_system_identifier": promoted_system_identifier,
+                    "shared_system_identifier": True,
+                    "primary_timeline": primary_timeline,
+                    "promoted_timeline": promoted_timeline,
+                    "timeline_advanced": promoted_timeline != primary_timeline,
+                    "target_flush_lsn": target_lsn,
+                    "standby_replay_lsn": replay_lsn,
+                    "standby_caught_up_before_primary_stop": True,
+                    "old_primary_stopped": True,
+                    "old_primary_endpoint_unavailable": True,
+                    "standby_promoted": True,
+                    "explicit_endpoint_rotation": True,
+                    "client_outcome_unknown_before_failover": True,
+                    "client_retry_safe": False,
+                    "server_automatic_retry": False,
+                    "same_key_recovery": True,
+                    "acceptance_count": 1,
+                    "replacement_count": 1,
+                    "accepted_event_count": 1,
+                    "created_event_count": 1,
+                    "automatic_dns_rotation": False,
+                    "automatic_failover_orchestrator": False,
+                    "old_primary_rejoin_proven": False,
+                    "split_brain_fencing_proven": False,
+                    "synchronous_replica_durability_proven": False,
+                    "multi_region_failover_proven": False,
+                    "hosted_green_claim": False,
+                },
+            )
+        finally:
+            promoted_db.close()
     finally:
-        primary_db.close()
-        standby_db.close()
         primary_engine.dispose()
-
-    _stop_primary(primary_container)
-    _assert_primary_unavailable(primary_database_url)
-
-    _promote_standby(standby_engine)
-    promoted_db = _session(standby_engine)
-    try:
-        assert promoted_db.execute(text("SELECT pg_is_in_recovery()" )).scalar_one() is False
-        assert promoted_db.execute(text("SHOW transaction_read_only")).scalar_one() == "off"
-        promoted_system_identifier = _system_identifier(promoted_db)
-        assert promoted_system_identifier == primary_system_identifier
-
-        promoted_db.rollback()
-        promoted_db.execute(text("CHECKPOINT"))
-        promoted_db.commit()
-        promoted_timeline = _current_timeline(promoted_db)
-        assert promoted_timeline != primary_timeline
-
-        replayed = accept_repair_proposal_with_source_guard(
-            promoted_db,
-            household_id=HOUSEHOLD_ID,
-            proposal_id=proposal_id,
-            actor_user_id=OWNER_ID,
-            payload=payload,
-        )
-        assert replayed.acceptance.id == committed_acceptance_id
-        assert replayed.acceptance.created_schedule_id == committed_schedule_id
-        assert replayed.acceptance.idempotency_key == idempotency_key
-        assert _accepted_counts(promoted_db, proposal_id) == ONE_COUNTS
-
-        proposal_row = promoted_db.get(DBPreparationRepairProposal, proposal_id)
-        assert proposal_row is not None
-        promoted_db.refresh(proposal_row)
-        assert proposal_row.status == "accepted"
-
-        accepted_schedule = promoted_db.get(
-            DBPersistedPreparationSchedule,
-            committed_schedule_id,
-        )
-        assert accepted_schedule is not None
-        assert accepted_schedule.status == "draft"
-        assert accepted_schedule.version == 1
-
-        proposal_events = (
-            promoted_db.query(DBPreparationRepairProposalEvent)
-            .filter(DBPreparationRepairProposalEvent.proposal_id == proposal_id)
-            .order_by(DBPreparationRepairProposalEvent.id)
-            .all()
-        )
-        assert [value.event_type for value in proposal_events] == [
-            "created",
-            "accepted",
-        ]
-
-        _write_report(
-            report_path,
-            {
-                "valid": True,
-                "postgresql_major": 16,
-                "physical_streaming_replication": True,
-                "primary_system_identifier": primary_system_identifier,
-                "promoted_system_identifier": promoted_system_identifier,
-                "shared_system_identifier": True,
-                "primary_timeline": primary_timeline,
-                "promoted_timeline": promoted_timeline,
-                "timeline_advanced": promoted_timeline != primary_timeline,
-                "target_flush_lsn": target_lsn,
-                "standby_replay_lsn": replay_lsn,
-                "standby_caught_up_before_primary_stop": True,
-                "old_primary_stopped": True,
-                "old_primary_endpoint_unavailable": True,
-                "standby_promoted": True,
-                "explicit_endpoint_rotation": True,
-                "client_outcome_unknown_before_failover": True,
-                "client_retry_safe": False,
-                "server_automatic_retry": False,
-                "same_key_recovery": True,
-                "acceptance_count": 1,
-                "replacement_count": 1,
-                "accepted_event_count": 1,
-                "created_event_count": 1,
-                "automatic_dns_rotation": False,
-                "automatic_failover_orchestrator": False,
-                "old_primary_rejoin_proven": False,
-                "split_brain_fencing_proven": False,
-                "synchronous_replica_durability_proven": False,
-                "multi_region_failover_proven": False,
-                "hosted_green_claim": False,
-            },
-        )
-    finally:
-        promoted_db.close()
         standby_engine.dispose()
