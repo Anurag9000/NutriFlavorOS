@@ -6,201 +6,119 @@
 **Current API:** `0.15.4`  
 **Current OpenAPI contract:** `2026-08-03.2`
 
-Catalog boundary: 37 task contracts, 30 dataset families, 75 model or algorithm families, 29 experiment contracts, and 39 feature contracts. Configured code or tests are not executed evidence by themselves.
+Catalog boundary: 37 task contracts, 30 dataset families, 75 model or algorithm families, 29 experiment contracts, and 39 feature contracts. Configured work is not executed evidence by itself.
 
 ## Completed milestones
 
 ### C1–C5 — Transactional household planning and deterministic preparation
 
-Authentication, household roles, pantry/leftover transactions, reservations, quantity-aware meal planning, plan lifecycle, reviewed preparation evidence, deterministic scheduling/replay, and minimal-change repair are implemented with optimistic versions, exact idempotency, provenance, hashes, and append-only evidence.
+Authentication, household roles, pantry/leftover transactions, reservations, quantity-aware meal planning, plan lifecycle, reviewed preparation evidence, deterministic scheduling/replay, hashes, optimistic versions, exact idempotency, and minimal-change repair are implemented.
 
 ### C6 — Repair proposal and accepted-draft lifecycle
 
-Immutable server-recomputed proposals, exact changed-task acknowledgement, one-new-draft-only acceptance, source immutability, separate method-aware owner approval, and append-only evidence are implemented. The **one-replacement-per-source invariant is implemented** by migration `20260802_0018` and a populated 64-lifecycle migration rehearsal.
+The **one-replacement-per-source invariant is implemented** by migration `20260802_0018`. Immutable proposals, exact changed-task acknowledgement, one-new-draft acceptance, source immutability, separate method-aware approval, append-only evidence, and the populated 64-lifecycle migration rehearsal are implemented.
 
 ### C7 — Derivation and execution authority
 
-**Schedule derivation evidence is implemented** through per-schedule and household coverage endpoints plus a protected inspector.
-
-**Task-execution eligibility is implemented** through a viewer endpoint and frontend gate. Replaced sources remain readable but cannot receive execution events or completion.
+**Schedule derivation evidence is implemented** through per-schedule and household coverage endpoints. **Task-execution eligibility is implemented** as backend authority. **Lowest-layer task terminality** prevents schedule completion before explicit terminal task evidence.
 
 ### C8 — Proposal invalidation authority
 
-**Owner-only proposal invalidation is implemented** through API, typed client, protected workspace, exact version/idempotency, stale-reason capture, append-only events, role enforcement, and PostgreSQL terminal-outcome races.
+**Owner-only proposal invalidation is implemented** with exact version/idempotency, stale-reason capture, append-only events, role enforcement, and PostgreSQL terminal-outcome races.
 
 ### C9 — Lowest-layer schedule completion authority
 
-**Lowest-layer task terminality** is implemented in exported `transition_schedule`. Direct completion requires explicit terminal task evidence, lower-level bypass is forbidden, and a PostgreSQL race proves completion cannot commit ahead of the final task event.
+Exported `transition_schedule` enforces task terminality and PostgreSQL race evidence prevents completion from committing ahead of the final task event.
 
 ### C10 — PostgreSQL lifecycle, migration, and recovery evidence
 
-Configured evidence includes lifecycle/dependency races, the populated `0017 → 0018` migration rehearsal, statement-timeout and deadlock recovery, discarded-response recovery, **post-commit connection-loss recovery**, **checked-out pool connection recovery**, and **bounded exact serialization retry**.
-
-A genuine `SERIALIZABLE` probe forces **three consecutive `40001` aborts** before the fourth exact-key attempt creates one acceptance and replacement. Connection ambiguity dominates nominal abort SQLSTATEs, and the HTTP server reports `automatic_retry_performed=false`.
+Configured evidence includes lifecycle races, `0017 → 0018` migration rehearsal, timeout/deadlock recovery, lost responses, **post-commit connection-loss recovery**, checked-out pool invalidation, and bounded exact serialization retry. Three consecutive `40001` aborts precede one exact result. Connection ambiguity remains `retry_safe=false`; the HTTP server reports `automatic_retry_performed=false`.
 
 ### C11 — Read-only support evidence export
 
-A viewer-authorized endpoint, operator CLI, typed GET-only client, and protected workspace provide hash-addressed schedule evidence. PostgreSQL uses `REPEATABLE READ`, `SET TRANSACTION READ ONLY`, snapshot-internal viewer authorization, and canonical hashing. A real concurrent-acceptance race proves snapshot consistency.
+A viewer-authorized endpoint, CLI, typed client, and protected workspace provide hash-addressed support evidence. PostgreSQL uses `REPEATABLE READ`, `SET TRANSACTION READ ONLY`, and snapshot-internal authorization.
 
 ### C12 — Database recovery observability foundation
 
-The **database recovery observability** foundation is implemented as privacy-preserving process-local metrics plus deterministic OpenMetrics rendering.
-
-- Only bounded error codes and SQLSTATE buckets are recorded.
-- SQL, parameters, exception messages, idempotency keys, domain IDs, food data, and request payloads are excluded.
-- Exact code/proof classification and finite numeric values are enforced before counters change.
-- Immutable snapshots expose error, retry, convergence, exhaustion, ambiguity, invalidated-connection, pool-timeout, and delay counters.
-- Thread-safe aggregation and deterministic alert evaluation include 1,600 concurrent updates.
-- OpenMetrics output rejects unreviewed labels and malformed values and exposes no HTTP endpoint.
-
-Persistent time windows, **cross-replica aggregation**, dashboards, paging, deduplication, ownership, runbooks, and SLOs remain.
+Privacy-preserving process metrics and deterministic OpenMetrics rendering use bounded labels, immutable snapshots, finite-value validation, alerts, and concurrent-update evidence. SQL, request data, keys, and domain IDs are excluded. Cross-replica aggregation, persistent windows, paging, SLOs, and runbooks remain.
 
 ### C13 — Controlled PostgreSQL pool exhaustion recovery
 
-A real **pool exhaustion** boundary is implemented.
-
-- SQLAlchemy `TimeoutError` maps to `database_pool_timeout`.
-- The response reports `no_transaction_started=true`, `retry_safe=true`, `transaction_aborted=false`, `outcome_unknown=false`, and `automatic_retry_performed=false`.
-- The explicit bounded utility retries only with the identical idempotency key.
-- A PostgreSQL `QueuePool` probe uses `pool_size=1`, `max_overflow=0`, and `pool_timeout=0.1`.
-- Independent reads prove zero acceptance, replacement schedule, and lifecycle-event mutation before checkout recovery.
-- Releasing the held connection permits exactly one accepted replacement; a later retry returns the same identities.
-- A dedicated direct-`main` workflow retains JUnit evidence.
-
-This proves controlled checkout-timeout recovery, not production pool sizing or sustained-load capacity.
+SQLAlchemy pool timeout maps to `database_pool_timeout`, `no_transaction_started=true`, and `retry_safe=true`. A one-connection PostgreSQL pool proves zero lifecycle mutation before exact-key recovery.
 
 ### C14 — Controlled sustained PostgreSQL pool pressure
 
-**Controlled sustained pool pressure** is implemented as a deterministic extension of C13.
-
-- A constrained `QueuePool` uses two connections, no overflow, a 0.12-second checkout timeout, and pre-ping.
-- Three synchronized waves run eight callers per wave against the same exact idempotent acceptance request.
-- All **24 checkout timeouts** prove `no_transaction_started=true`, `retry_safe=true`, and `outcome_unknown=false`.
-- Independent reads after every wave prove zero lifecycle mutation.
-- Metrics prove exactly 24 retry observations and exhausted single-attempt budgets, with no scheduled retries, ambiguity, or invalidated connections.
-- After releasing capacity, `checkedout() == 0`, one exact-key request creates one replacement, a later retry returns the same identities, and the pool returns to zero checked-out connections.
-
-This closes controlled repeated pressure and leak-free recovery. It does not establish **representative production capacity**, safe deployment sizing, real-traffic latency, fairness, or indefinite pressure handling.
+**Controlled sustained pool pressure** uses a two-connection pool, three synchronized waves, eight callers per wave, and 24 checkout timeouts. Every failure occurs before transaction start, leaves zero mutation, and releases to `checkedout() == 0`. This is not **representative production capacity**.
 
 ### C15 — Controlled application-worker recycle
 
-A **controlled application-worker recycle** is implemented under active pool exhaustion.
-
-- The old subprocess owns a one-connection pool and publishes a stable worker-instance identity plus a live PostgreSQL backend PID.
-- Guarded acceptance times out before transaction start and leaves exactly zero lifecycle mutation.
-- The parent requests an orderly recycle through stdin.
-- The old worker closes its connection, reports zero checked-out connections, disposes its engine, and exits successfully.
-- The parent proves the old PostgreSQL backend disappears from `pg_stat_activity`.
-- A fresh worker process publishes a different worker-instance identity and backend PID, performs the same exact-key acceptance once, and closes without a pool leak.
-- A final retry returns the same acceptance and schedule identities.
+A **controlled application-worker recycle** closes its occupied pool, proves the old backend disappears, starts a distinct worker/backend, recovers the exact request, and leaks no checkout.
 
 ### C16 — Controlled ungraceful application-worker crash
 
-A real **ungraceful application-worker crash** boundary is implemented with `SIGKILL`.
-
-- Checkout-holder case: the worker holds the only pool connection, the exact acceptance times out before transaction start, and committed reads prove zero lifecycle mutation before and after process death.
-- Flushed-open-transaction case: production acceptance flushes one acceptance, replacement schedule, accepted proposal event, and created schedule event inside the worker transaction; an independent committed reader simultaneously sees zero and the proposal remains `proposed`.
-- The parent kills the worker with `SIGKILL`, waits for the old PostgreSQL backend to disappear, and proves the flushed but uncommitted lifecycle is fully rolled back.
-- A fresh worker with a different worker-instance identity and backend PID repeats the same exact idempotency key and creates one accepted replacement. The operating-system PID remains diagnostic only because **OS PID reuse** is legal.
-- A final retry returns the same acceptance and schedule identities and preserves `created → accepted` proposal-event order.
-
-This closes controlled application-process death during checkout and before commit. It does not establish operating-system/container/node failure behavior or automatic multi-node failover.
+A real **ungraceful application-worker crash** corpus uses `SIGKILL` during checkout and after a flushed open transaction but before COMMIT. PostgreSQL rolls the uncommitted lifecycle back; a fresh worker recovers once.
 
 ### C17 — PostgreSQL COMMIT acknowledgement loss
 
-A controlled **COMMIT acknowledgement loss** boundary is implemented with a test-only PostgreSQL wire proxy.
-
-- The proxied production acceptance transaction sets `synchronous_commit=on`.
-- The proxy parses simple-query and extended-protocol messages, arms the drop before forwarding COMMIT, and proves the complete COMMIT frame is forwarded upstream.
-- PostgreSQL emits `CommandComplete(COMMIT)`; the proxy withholds that acknowledgement and closes both proxied sockets.
-- The client receives an invalidated `OperationalError` classified as `database_commit_outcome_unknown`, `retry_safe=false`, and `automatic_retry_performed=false`.
-- Independent direct reads prove one committed acceptance, one draft replacement, and exactly one accepted/created event pair.
-- A fresh request with the same exact idempotency key returns the existing acceptance and schedule identities without duplication.
-- The proxy proves both forwarding threads terminate without leakage.
-
-This closes one controlled acknowledgement-withheld timing after server-side COMMIT completion. It does not establish all possible network-loss timings, encrypted transport interception, or synchronous-replica durability.
+A controlled **COMMIT acknowledgement loss** proxy forwards the complete COMMIT, observes `CommandComplete(COMMIT)`, withholds the acknowledgement, returns outcome-unknown semantics, and proves exact same-key recovery without duplication.
 
 ### C18 — Controlled multi-application-instance exact recovery
 
-**Controlled multi-application-instance exact recovery** is implemented after one ambiguous COMMIT result is already authoritative on one PostgreSQL primary.
-
-- The existing proxy creates one committed lifecycle while withholding the initiating client acknowledgement.
-- **six independent application workers** each establish a distinct worker-instance identity, SQLAlchemy pool, session, and simultaneously live PostgreSQL backend.
-- The parent waits until all six workers are ready behind one release gate.
-- Every worker repeats the exact original idempotency key through the production source-level acceptance guard.
-- All six return the same existing acceptance and draft replacement schedule identities.
-- All six close with zero checked-out connections.
-- Final counts remain one acceptance, one replacement, one accepted event, and one created event in `created → accepted` order.
-- No distributed lock service or process-local leader participates.
-
-This closes controlled cross-application-instance convergence on one primary.
+Six independent application workers establish distinct identities, pools, sessions, and simultaneously live PostgreSQL backends on one primary. One gate releases the exact request; all workers return one shared acceptance and replacement identity and close without pool leakage.
 
 ### C19 — Controlled PostgreSQL physical-standby promotion
 
-**Controlled PostgreSQL physical-standby promotion** is implemented with two PostgreSQL 16 containers and separate data volumes.
-
-- The standby is initialized from the primary with `pg_basebackup -Fp -Xs -R` and physical streaming replication.
-- Primary and standby expose the same nonempty cluster `system_identifier`; the standby starts with `pg_is_in_recovery() = true`.
-- An acknowledgement-withheld production acceptance commits on the primary with `synchronous_commit=on`, leaving the caller outcome-unknown and not retry-safe.
-- The test records `pg_current_wal_flush_lsn()` and waits until `pg_last_wal_replay_lsn()` reaches that exact position.
-- Hot-standby reads prove the exact acceptance, replacement, and event identities before primary loss.
-- The original primary is stopped with zero grace and its endpoint becomes unavailable.
-- The standby is promoted with `pg_promote(true, 60)`, becomes writable, preserves the cluster system identifier, and advances onto a **new WAL timeline**.
-- The application performs explicit endpoint rotation and repeats the exact idempotency key through the production guard.
-- The promoted primary returns the same acceptance and replacement identities with all authoritative counts remaining one.
-- A dedicated direct-`main` workflow retains JUnit, JSON, and failure diagnostics and always removes containers, volumes, and network resources.
-
-This closes one caught-up asynchronous physical-standby promotion with explicit endpoint rotation.
+**Controlled PostgreSQL physical-standby promotion** uses PostgreSQL 16 physical streaming replication, one shared system identifier, observed sender/receiver streaming state, replay-LSN catch-up, original-primary stop, promoted writable standby, a **new WAL timeline**, and exact recovery after explicit endpoint rotation. It does not by itself establish **automatic failover** or **split-brain** prevention.
 
 ### C20 — Controlled automatic PostgreSQL failover
 
-**Controlled automatic PostgreSQL failover** is implemented as a single-host extension of C19.
+**Controlled automatic PostgreSQL failover** keeps one stable application URL for fresh connections. Two controllers require three consecutive failed probes. A **single local witness lease** selects one winner, advances the **fence epoch** from `0` to `1`, removes the stopped old-primary container while retaining its data volume, promotes the caught-up standby, and atomically routes epoch `1` to the promoted primary. The losing controller performs no topology mutation. Exact-key recovery returns the original identities.
 
-- One stable TCP database endpoint routes fresh connections to the original primary at epoch `0`.
-- Two independent controllers monitor the healthy primary and require three consecutive failed probes before failover authority is considered.
-- A **single local witness lease** uses nonblocking exclusive `flock`; one controller becomes the promotion winner and the other reports contention or an already-completed no-op.
-- The winner advances the **fence epoch** from `0` to `1` and writes a `promotion_in_progress` witness state.
-- Promotion is forbidden while the old primary is running. The winner removes the stopped old-primary container, verifies that it is absent, retains the old data volume, and proves the old endpoint is unavailable.
-- The winner promotes the caught-up standby, verifies writable state, preserves the cluster system identifier, and observes a new WAL timeline.
-- The winner atomically rotates the stable route to `promoted-standby` at epoch `1`; the losing controller performs no route mutation.
-- The stable endpoint records successful connections to both epochs and reports no leaked connection threads.
-- The application reuses the unchanged stable database URL and the same SQLAlchemy engine object for a new connection after promotion.
-- The exact original idempotency key returns the original acceptance and replacement identities with all authoritative counts remaining one.
-- The topology controllers never perform application mutation retry.
+This is one single-host control-plane corpus, not **distributed consensus**, replicated quorum, production STONITH, partition-safe fencing, safe old-primary rejoin, or managed-service behavior.
 
-This closes one controlled automatic promotion and route-rotation corpus. It does not establish **distributed consensus**, replicated witness or quorum correctness, production STONITH, partition-safe split-brain prevention, safe old-primary rewind/rejoin, continuity of already-open connections, managed-service behavior, multiple-standby selection, or multi-region failover.
+### C21 — Six-worker recovery after automatic promotion
+
+A **six-worker post-promotion** corpus runs on the same C20 promoted cluster before teardown.
+
+- The old-primary container remains absent.
+- A fresh stable route targets `promoted-standby` at epoch `1`.
+- Six independent workers create distinct identities, private pools, sessions, and simultaneously live promoted-primary backend PIDs.
+- One gate releases all exact-key requests through the production source guard.
+- Every worker returns the original acceptance and replacement identities, confirms the key, and closes with zero checked-out connections.
+- Final lifecycle and event counts remain exactly one.
+- A sanitized post-promotion JSON report is retained beside the automatic-failover JUnit and topology report.
+
+This closes controlled multi-application-instance convergence after automatic promotion. Six workers remain a correctness corpus, not representative production capacity.
 
 ## P0 — Observe and repair exact hosted verification
 
-Inspect exact latest `main` workflow runs and artifacts, record exact commit/run/artifact identities, repair every failure without skip or weakening, and never report green until exact current evidence is observed.
+Inspect exact latest `main` workflow runs and artifacts, record commit/run/artifact identities, repair every failure without skips or weakening, and never report green without exact current evidence.
 
 ## P0 — Remaining PostgreSQL operational recovery
 
-- Broader network-loss timings around COMMIT, including encrypted transport and loss after acknowledgement reaches lower client buffers.
-- Operating-system, container-runtime, Kubernetes pod, and node failure behavior beyond the controlled worker `SIGKILL` corpus.
-- Distributed/replicated witness or quorum authority, production-grade STONITH, asymmetric-partition fencing, and stale-primary write rejection.
-- Safe old-primary `pg_rewind`, rebuild, demotion, and rejoin after promotion.
-- DNS/service-discovery, virtual-IP, service-mesh, managed-proxy, and cloud-database endpoint behavior.
-- Continuity and pool invalidation for already-open sessions during route transition.
-- Synchronous-standby acknowledgement and durability, multiple standby selection, cascading replication, managed/cloud PostgreSQL, regional failure, and multi-region failover.
-- Multi-application-instance recovery after promotion; C18 proves six workers on one primary, while C20 performs one recovering request through the stable endpoint.
-- Representative production capacity under realistic concurrent traffic, queueing, latency, process counts, pool sizing, connection lifetime/recycle behavior, and duration beyond the controlled 24-timeout corpus.
-- Production-snapshot or production-scale migration rehearsal beyond the 64-lifecycle corpus.
-- Authenticated production monitoring with rates, cross-replica aggregation, dashboards, alerts, paging, SLOs, and runbooks.
+- Broader COMMIT-loss timing, encrypted transport, and lower client-buffer behavior.
+- Operating-system, container-runtime, Kubernetes pod, and node failure evidence beyond controlled process death.
+- Synchronous-standby acknowledgement and durability.
+- Distributed or replicated witness/quorum authority, production STONITH, asymmetric-partition fencing, stale-primary write rejection, and safe old-primary `pg_rewind`/rejoin.
+- Continuity, invalidation, and pool replacement for already-open sessions during endpoint transition.
+- DNS/service-discovery, virtual-IP, service-mesh, managed-proxy, cloud PostgreSQL, multiple standby selection, regional failure, **multi-node failover**, and multi-region recovery.
+- Representative RPO, RTO, latency, throughput, traffic, process counts, connection lifetimes, pool sizing, duration, and production capacity.
+- Production-snapshot migration rehearsal, backup/restore, and PITR.
+- Authenticated production monitoring with rates, cross-replica aggregation, dashboards, paging, SLOs, and runbooks.
 
-The HTTP server never performs automatic mutation retries. Explicit callers may use bounded retry only when `retry_safe=true`; connection ambiguity remains `retry_safe=false` and requires authoritative same-key outcome recovery.
+The HTTP server never performs automatic mutation retries. Explicit callers retry only when `retry_safe=true`; outcome-unknown requests require authoritative same-key recovery.
 
 ## P0 — Browser, accessibility, and support packaging
 
-Add authenticated PostgreSQL-backed Playwright and axe evidence for the complete lifecycle; keyboard-only, focus, error-summary, live-region, label, table, reduced-motion, zoom/reflow, and contrast evidence; configurable redaction; least-privilege support roles; signed/encrypted packages; verification tooling; secure storage/retention/revocation; support-case and download audit linkage; streaming/size limits; household bundles; and production load evidence.
+Add authenticated PostgreSQL-backed Playwright and axe evidence; keyboard, focus, live-region, label, table, reduced-motion, reflow, and contrast evidence; least-privilege support roles; signed/encrypted/redacted packages; retention, revocation, audit linkage, size limits, and production load evidence.
 
 ## P1 — Execution-aware and joint repair
 
-Treat task events as immutable facts, preserve actual history, replan only remaining work, race execution onset against proposal/acceptance/approval, and jointly repair meals, servings, pantry allocations, reservations, shopping, leftovers, and preparation tasks while preserving approved history and explicit human acceptance.
+Preserve actual task history, replan only remaining work, race execution onset against proposal lifecycle, and jointly repair meals, servings, inventory, reservations, shopping, leftovers, and preparation tasks with explicit human acceptance.
 
 ## P2/P3 — Research, operations, and blocked high-risk areas
 
-Continue reviewed evidence, forecasting, constrained ranking, backup/PITR, release engineering, observability/SLOs, and incident response. Clinical nutrition, medication decisions, allergy-safety guarantees, contamination or food-safety conclusions, autonomous appliance control, autonomous procurement/payment, and verified sustainability claims remain disabled without specialist review and qualified evidence.
+Continue reviewed evidence, forecasting, constrained ranking, backup/PITR, release engineering, observability, and incident response. Clinical nutrition, medication decisions, allergy guarantees, contamination or food-safety conclusions, autonomous appliance control, autonomous payment, and verified sustainability claims remain disabled without qualified review.
 
 ## Non-negotiable release rules
 
@@ -209,12 +127,11 @@ Continue reviewed evidence, forecasting, constrained ranking, backup/PITR, relea
 - Acceptance creates one new draft and never implies approval, execution, or completion.
 - Invalidation creates no schedule and permanently prevents later acceptance.
 - Repair-derived approval requires exact acceptance evidence and method-aware replay.
-- Replaced sources remain readable but cannot receive new execution events.
-- Completion requires explicit task terminality at the lowest exported authority.
-- Support export is read-only, hash-addressed, snapshot-authorized, and never upgrades user-entered evidence into execution or safety verification.
-- `retry_safe=true` is reserved for proven transaction aborts or proof that no transaction started; connection ambiguity remains `retry_safe=false`.
-- The server always reports `automatic_retry_performed=false`.
-- Database recovery metrics never store SQL, request contents, idempotency keys, or domain identifiers.
-- Frontend preflight never replaces server authority.
-- No clinical, food-safety, global-optimality, model-readiness, representative-capacity, exhaustive-commit-loss, node-failure, distributed-consensus, production-STONITH, old-primary-rejoin, multi-region, or green-build claim without exact supporting evidence.
+- Replaced sources remain readable but cannot receive execution events.
+- Completion requires lowest-layer terminal task evidence.
+- Support export is read-only, hash-addressed, and snapshot-authorized.
+- `retry_safe=true` is reserved for proven aborts or proof that no transaction started.
+- Connection ambiguity remains `retry_safe=false`; `automatic_retry_performed=false` remains authoritative.
+- Recovery metrics never store SQL, request contents, keys, or domain identifiers.
+- No clinical, food-safety, global-optimality, representative-capacity, exhaustive-network, distributed-consensus, production-STONITH, old-primary-rejoin, multi-region, or green-build claim without exact supporting evidence.
 - No force push, history rewrite, feature branch, or feature PR.
