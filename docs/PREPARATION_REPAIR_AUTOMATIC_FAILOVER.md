@@ -3,13 +3,15 @@
 ## Purpose
 
 This boundary extends the controlled physical-standby promotion corpus with
-failure-triggered promotion and automatic application-endpoint rotation.
+failure-triggered promotion, automatic application-endpoint rotation, and
+coordinated recovery by multiple application workers after promotion.
 
 It verifies one PostgreSQL 16 physical primary and standby, one test-only stable
 TCP endpoint, two competing failover-controller processes, one local witness
 lease, a monotonically increasing fence epoch, destructive removal of the
-stopped old-primary container, automatic standby promotion, and exact same-key
-recovery through the unchanged application database URL.
+stopped old-primary container, automatic standby promotion, exact same-key
+recovery through the unchanged application database URL, and a staged
+six-worker convergence corpus on the promoted primary.
 
 The implementation uses production migrations and the production
 `accept_repair_proposal_with_source_guard` service. It does not fabricate
@@ -171,27 +173,65 @@ Final authoritative counts remain exactly one acceptance, one replacement, one
 proposal `accepted` event, and one replacement `created` event, with proposal
 event order `created → accepted`.
 
+## Six-worker recovery after automatic promotion
+
+The workflow keeps the same promoted cluster alive after the first recovery
+request. A second integration probe requires the fenced old-primary container to
+remain absent and connects directly to the promoted server to discover the one
+persisted acceptance lifecycle.
+
+It then starts a fresh stable endpoint whose route is fixed to
+`promoted-standby` at epoch `1`. Six independent application worker processes
+reuse the reviewed multi-instance recovery helper. Each worker creates:
+
+- a distinct 32-character worker-instance identity;
+- a private SQLAlchemy engine, one-connection pool, and session;
+- a distinct simultaneously live PostgreSQL backend PID;
+- the exact original acceptance payload and idempotency key.
+
+All six workers wait behind one parent-controlled release gate. The gate opens
+once, and every worker invokes the production source-level guard concurrently
+through the promoted stable endpoint.
+
+The corpus requires all workers to return:
+
+- the same original acceptance ID;
+- the same original replacement schedule ID;
+- schedule status `draft` and version `1`;
+- confirmation that the original idempotency key was preserved;
+- `pool_checked_out_after_close = 0`.
+
+Final authoritative counts remain one acceptance, one replacement, one accepted
+proposal event, and one created schedule event. The stable endpoint event ledger
+must show every worker connection using `promoted-standby` at epoch `1`, and the
+router must report zero leaked connection threads.
+
+This proves controlled multi-application-instance convergence after automatic
+promotion. Six workers are a deterministic correctness corpus, not
+representative production traffic, availability, throughput, or capacity.
+
 ## Deterministic process and infrastructure cleanup
 
-The test collects each controller's stdout and stderr exactly once with bounded
-timeouts. Any remaining controller or router process is killed and reaped during
-failure cleanup.
+The tests collect every controller and worker subprocess output exactly once
+with bounded timeouts. Any remaining controller, worker, or router process is
+killed and reaped during failure cleanup.
 
-The stable router reports zero leaked connection threads. The workflow always
-removes the standby container, retained old-primary volume, standby volume, and
-private Docker network. The primary container may already be absent because the
-winner fenced it.
+Both stable-router stages report zero leaked connection threads. The workflow
+always removes the standby container, retained old-primary volume, standby
+volume, and private Docker network. The primary container may already be absent
+because the winner fenced it.
 
 ## Retained evidence
 
 The dedicated workflow retains:
 
-- JUnit integration evidence;
+- JUnit automatic-failover integration evidence;
 - a sanitized automatic-failover JSON report;
+- a sanitized six-worker post-promotion JSON report;
 - Docker process inventory on failure;
 - primary and standby logs when available.
 
-The JSON report contains no database URL, password, SQL, request payload,
+The JSON reports contain no database URL, password, SQL, request payload,
 idempotency key, or household/user/proposal/schedule identifier.
 
 Configured evidence is not a hosted-green claim until the exact workflow run
@@ -211,13 +251,13 @@ This controlled automatic failover does **not** establish:
 - continuity of already-open connections or transparent transaction replay;
 - synchronous-standby acknowledgement or zero-loss durability without the
   explicit replay-LSN check;
-- recovery coordinated across multiple application workers after promotion;
 - multiple-standby selection, cascading replicas, or multi-region failover;
 - representative RPO, RTO, availability, latency, throughput, or capacity;
 - production operations readiness, clinical validity, food safety, or actual
   preparation execution;
 - current hosted workflow success without exact observed evidence.
 
-The corpus proves one failure-triggered, single-witness, destructively fenced
-promotion from a caught-up physical standby, followed by automatic stable-route
-rotation and exact idempotent recovery through the unchanged application URL.
+The combined corpus proves one failure-triggered, single-witness, destructively
+fenced promotion from a caught-up physical standby, automatic stable-route
+rotation, exact idempotent recovery through the unchanged application URL, and
+six-worker exact convergence on the promoted primary.
