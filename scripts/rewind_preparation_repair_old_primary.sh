@@ -25,6 +25,24 @@ promoted_recovery="$(
 docker volume inspect "$FAILOVER_PRIMARY_VOLUME" >/dev/null
 docker rm -f "$FAILOVER_REJOIN_CONTAINER" >/dev/null 2>&1 || true
 
+# The old primary was stopped with zero grace. Recover it only in single-user
+# mode on an isolated network, checkpoint it, and exit before pg_rewind. This
+# cleans the target without making the stale primary reachable or writable by
+# any application process.
+docker run --rm \
+  --network none \
+  -v "${FAILOVER_PRIMARY_VOLUME}:/var/lib/postgresql/data" \
+  --entrypoint bash \
+  "$FAILOVER_POSTGRES_IMAGE" -euc '
+    chown -R postgres:postgres /var/lib/postgresql/data
+    rm -f /var/lib/postgresql/data/postmaster.pid
+    printf "CHECKPOINT;\n" | \
+      gosu postgres postgres --single \
+        -D /var/lib/postgresql/data \
+        -c listen_addresses= \
+        template1
+  '
+
 docker run --rm \
   --network "$FAILOVER_NETWORK" \
   -e PGPASSWORD=postgres \
@@ -32,12 +50,17 @@ docker run --rm \
   --entrypoint bash \
   "$FAILOVER_POSTGRES_IMAGE" -euc "
     chown -R postgres:postgres /var/lib/postgresql/data
-    rm -f /var/lib/postgresql/data/postmaster.pid
     gosu postgres pg_rewind \\
       --target-pgdata=/var/lib/postgresql/data \\
       --source-server='host=${FAILOVER_STANDBY_CONTAINER} port=5432 user=postgres dbname=nutriflavor_test sslmode=disable' \\
       --progress
-    rm -f /var/lib/postgresql/data/recovery.signal
+    rm -f \\
+      /var/lib/postgresql/data/recovery.signal \\
+      /var/lib/postgresql/data/postmaster.pid
+    sed -i \\
+      -e '/^[[:space:]]*primary_conninfo[[:space:]]*=/d' \\
+      -e '/^[[:space:]]*primary_slot_name[[:space:]]*=/d' \\
+      /var/lib/postgresql/data/postgresql.auto.conf
     touch /var/lib/postgresql/data/standby.signal
     printf \"%s\\n\" \\
       \"primary_conninfo = 'host=${FAILOVER_STANDBY_CONTAINER} port=5432 user=replicator application_name=rewound-old-primary sslmode=disable'\" \\
@@ -116,6 +139,8 @@ rejoin_system_identifier="$(
 [[ -n "$promoted_system_identifier" ]]
 [[ "$promoted_system_identifier" == "$rejoin_system_identifier" ]]
 
+printf 'isolated_target_crash_recovery=true\n'
+printf 'stale_recovery_settings_normalized=true\n'
 printf 'pg_rewind_completed=true\n'
 printf 'rejoin_container=%s\n' "$FAILOVER_REJOIN_CONTAINER"
 printf 'rejoin_in_recovery=%s\n' "$rejoin_recovery"
