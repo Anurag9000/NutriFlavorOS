@@ -139,7 +139,7 @@ def validate_contract() -> dict:
             "read-only streaming standby",
         },
         "status": {
-            "controlled old-primary rewind and rejoin",
+            "Controlled old-primary rewind and rejoin",
             "wal_log_hints=on",
             "rewound-old-primary",
         },
