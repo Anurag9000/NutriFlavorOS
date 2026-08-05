@@ -51,13 +51,16 @@ def _wait_for_ready_files(
 ) -> list[dict[str, Any]]:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
-        failed = [
+        exited = [
             (controller_ids[index], process.returncode)
             for index, process in enumerate(processes)
-            if process.poll() is not None and process.returncode != 0
+            if process.poll() is not None
         ]
-        if failed:
-            raise RuntimeError(f"automatic-rejoin controller exited before ready: {failed}")
+        if exited:
+            raise RuntimeError(
+                "automatic-rejoin controller exited before publishing readiness: "
+                f"{exited}"
+            )
         ready_paths = [directory / f"{controller_id}.json" for controller_id in controller_ids]
         if all(path.is_file() for path in ready_paths):
             reports = [_read_json(path) for path in ready_paths]
@@ -146,6 +149,13 @@ def _validate_controller_reports(
         raise RuntimeError("automatic-rejoin follower performed rewind")
     if follower.get("verification_performed") is not False:
         raise RuntimeError("automatic-rejoin follower performed verification")
+    follower_contended = follower.get("lease_contended") is True
+    follower_observed_completed = follower.get("already_rejoined") is True
+    if follower_contended == follower_observed_completed:
+        raise RuntimeError(
+            "automatic-rejoin follower must prove exactly one no-op path: "
+            f"{follower!r}"
+        )
 
     if witness.get("status") != "rejoined":
         raise RuntimeError(f"automatic-rejoin witness did not complete: {witness!r}")
@@ -297,6 +307,8 @@ def main() -> int:
                 "acceptance_count": 1,
                 "replacement_count": 1,
                 "follower_topology_mutation_performed": False,
+                "follower_lease_contended": follower_contended,
+                "follower_observed_completed_witness": follower_observed_completed,
                 "winner_controller_id": winner["controller_id"],
                 "follower_controller_id": follower["controller_id"],
                 "distributed_consensus_proven": False,
