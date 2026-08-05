@@ -104,7 +104,7 @@ A real **ungraceful application-worker crash** boundary is implemented with `SIG
 - A fresh worker with a different worker-instance identity and backend PID repeats the same exact idempotency key and creates one accepted replacement. The operating-system PID remains diagnostic only because **OS PID reuse** is legal.
 - A final retry returns the same acceptance and schedule identities and preserves `created → accepted` proposal-event order.
 
-This closes controlled application-process death during checkout and before commit. It does not establish operating-system/container/node failure behavior, database-replica recovery, or **multi-node failover**.
+This closes controlled application-process death during checkout and before commit. It does not establish operating-system/container/node failure behavior or automatic multi-node failover.
 
 ### C17 — PostgreSQL COMMIT acknowledgement loss
 
@@ -118,7 +118,7 @@ A controlled **COMMIT acknowledgement loss** boundary is implemented with a test
 - A fresh request with the same exact idempotency key returns the existing acceptance and schedule identities without duplication.
 - The proxy proves both forwarding threads terminate without leakage.
 
-This closes one controlled acknowledgement-withheld timing after server-side COMMIT completion. It does not establish all possible network-loss timings, encrypted transport interception, synchronous-replica durability, database-replica coordination, or **multi-node failover**.
+This closes one controlled acknowledgement-withheld timing after server-side COMMIT completion. It does not establish all possible network-loss timings, encrypted transport interception, or synchronous-replica durability.
 
 ### C18 — Controlled multi-application-instance exact recovery
 
@@ -133,7 +133,24 @@ This closes one controlled acknowledgement-withheld timing after server-side COM
 - Final counts remain one acceptance, one replacement, one accepted event, and one created event in `created → accepted` order.
 - No distributed lock service or process-local leader participates.
 
-This closes controlled cross-application-instance convergence on one primary. PostgreSQL replica promotion, endpoint rotation, service discovery, synchronous-replica acknowledgement, and multi-node failover remain open.
+This closes controlled cross-application-instance convergence on one primary.
+
+### C19 — Controlled PostgreSQL physical-standby promotion
+
+**Controlled PostgreSQL physical-standby promotion** is implemented with two PostgreSQL 16 containers and separate data volumes.
+
+- The standby is initialized from the primary with `pg_basebackup -Fp -Xs -R` and physical streaming replication.
+- Primary and standby expose the same nonempty cluster `system_identifier`; the standby starts with `pg_is_in_recovery() = true`.
+- An acknowledgement-withheld production acceptance commits on the primary with `synchronous_commit=on`, leaving the caller outcome-unknown and not retry-safe.
+- The test records `pg_current_wal_flush_lsn()` and waits until `pg_last_wal_replay_lsn()` reaches that exact position.
+- Hot-standby reads prove the exact acceptance, replacement, and event identities before primary loss.
+- The original primary is stopped with zero grace and its endpoint becomes unavailable.
+- The standby is promoted with `pg_promote(true, 60)`, becomes writable, preserves the cluster system identifier, and advances onto a **new WAL timeline**.
+- The application performs explicit endpoint rotation and repeats the exact idempotency key through the production guard.
+- The promoted primary returns the same acceptance and replacement identities with all authoritative counts remaining one.
+- A dedicated direct-`main` workflow retains JUnit, JSON, and failure diagnostics and always removes containers, volumes, and network resources.
+
+This closes one caught-up asynchronous physical-standby promotion with explicit endpoint rotation. It does not establish automatic failover, service-discovery rotation, fencing, split-brain prevention, safe old-primary rejoin, synchronous-standby durability, multiple-standby selection, or multi-region recovery.
 
 ## P0 — Observe and repair exact hosted verification
 
@@ -143,8 +160,10 @@ Inspect exact latest `main` workflow runs and artifacts, record exact commit/run
 
 - Broader network-loss timings around COMMIT, including encrypted transport and loss after acknowledgement reaches lower client buffers.
 - Operating-system, container-runtime, Kubernetes pod, and node failure behavior beyond the controlled worker `SIGKILL` corpus.
-- PostgreSQL primary loss, replica promotion, DNS/service-discovery changes, synchronous-replica acknowledgement, and multi-node failover.
-- Connection-target rotation and recovery across actual database replicas or promoted primaries; C18 covers application workers against one primary only.
+- Automatic failure detection and promotion, DNS/service-discovery or virtual-IP rotation, connection-pool target replacement, and retry behavior during endpoint transition.
+- Fencing, quorum, STONITH, split-brain prevention, safe old-primary rewind/rejoin, and stale-primary write rejection.
+- Synchronous-standby acknowledgement and durability, multiple standby selection, cascading replication, managed/cloud PostgreSQL, regional failure, and multi-region failover.
+- Multi-application-instance recovery after promotion; C18 proves six workers on one primary, while C19 performs one explicit recovery request on the promoted primary.
 - Representative production capacity under realistic concurrent traffic, queueing, latency, process counts, pool sizing, connection lifetime/recycle behavior, and duration beyond the controlled 24-timeout corpus.
 - Production-snapshot or production-scale migration rehearsal beyond the 64-lifecycle corpus.
 - Authenticated production monitoring with rates, cross-replica aggregation, dashboards, alerts, paging, SLOs, and runbooks.
@@ -177,5 +196,5 @@ Continue reviewed evidence, forecasting, constrained ranking, backup/PITR, relea
 - The server always reports `automatic_retry_performed=false`.
 - Database recovery metrics never store SQL, request contents, idempotency keys, or domain identifiers.
 - Frontend preflight never replaces server authority.
-- No clinical, food-safety, global-optimality, model-readiness, representative-capacity, exhaustive-commit-loss, node-failure, database-replica, failover, or green-build claim without exact supporting evidence.
+- No clinical, food-safety, global-optimality, model-readiness, representative-capacity, exhaustive-commit-loss, node-failure, automatic-failover, fencing, old-primary-rejoin, multi-region, or green-build claim without exact supporting evidence.
 - No force push, history rewrite, feature branch, or feature PR.
