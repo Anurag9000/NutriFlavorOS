@@ -50,7 +50,7 @@ After the acknowledgement-withheld acceptance commits, the primary flush LSN is 
 
 ## Controlled automatic PostgreSQL failover
 
-The **controlled automatic PostgreSQL failover** corpus keeps one **unchanged stable database URL** for fresh application connections.
+The **controlled automatic PostgreSQL failover** corpus keeps one **unchanged stable database URL** and one stable endpoint for fresh application connections.
 
 - Two controllers require three consecutive failed old-primary probes.
 - A **single local witness lease** permits exactly one promotion winner.
