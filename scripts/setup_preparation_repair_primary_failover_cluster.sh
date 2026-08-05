@@ -32,12 +32,12 @@ wait_for_streaming_replication() {
   while (( SECONDS < deadline )); do
     primary_streaming_count="$(
       docker exec "$FAILOVER_PRIMARY_CONTAINER" \
-        psql -At -U postgres -d nutriflavor_test \
+        gosu postgres psql -At -U postgres -d nutriflavor_test \
         -c "SELECT count(*) FROM pg_stat_replication WHERE state = 'streaming'"
     )"
     standby_receiver_status="$(
       docker exec "$FAILOVER_STANDBY_CONTAINER" \
-        psql -At -U postgres -d nutriflavor_test \
+        gosu postgres psql -At -U postgres -d nutriflavor_test \
         -c "SELECT COALESCE(status, '') FROM pg_stat_wal_receiver"
     )"
     if [[ "$primary_streaming_count" == "1" && "$standby_receiver_status" == "streaming" ]]; then
@@ -88,7 +88,7 @@ wait_for_container "$FAILOVER_PRIMARY_CONTAINER"
 
 docker exec "$FAILOVER_PRIMARY_CONTAINER" bash -euc '
   printf "%s\n" "host replication replicator 0.0.0.0/0 trust" >> "$PGDATA/pg_hba.conf"
-  psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
+  gosu postgres psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
     -c "CREATE ROLE replicator WITH REPLICATION LOGIN"
   gosu postgres pg_ctl reload -D "$PGDATA"
 '
@@ -121,20 +121,22 @@ wait_for_streaming_replication
 
 primary_recovery="$(
   docker exec "$FAILOVER_PRIMARY_CONTAINER" \
-    psql -At -U postgres -d nutriflavor_test -c 'SELECT pg_is_in_recovery()'
+    gosu postgres psql -At -U postgres -d nutriflavor_test \
+    -c 'SELECT pg_is_in_recovery()'
 )"
 standby_recovery="$(
   docker exec "$FAILOVER_STANDBY_CONTAINER" \
-    psql -At -U postgres -d nutriflavor_test -c 'SELECT pg_is_in_recovery()'
+    gosu postgres psql -At -U postgres -d nutriflavor_test \
+    -c 'SELECT pg_is_in_recovery()'
 )"
 primary_system_identifier="$(
   docker exec "$FAILOVER_PRIMARY_CONTAINER" \
-    psql -At -U postgres -d nutriflavor_test \
+    gosu postgres psql -At -U postgres -d nutriflavor_test \
     -c 'SELECT system_identifier::text FROM pg_control_system()'
 )"
 standby_system_identifier="$(
   docker exec "$FAILOVER_STANDBY_CONTAINER" \
-    psql -At -U postgres -d nutriflavor_test \
+    gosu postgres psql -At -U postgres -d nutriflavor_test \
     -c 'SELECT system_identifier::text FROM pg_control_system()'
 )"
 
