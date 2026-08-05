@@ -185,6 +185,7 @@ def _commit_once_without_acknowledgement(db, proposal, payload) -> OperationalEr
         worker = Session()
         try:
             worker.execute(text("SET LOCAL synchronous_commit = on"))
+            assert worker.execute(text("SHOW synchronous_commit")).scalar_one() == "on"
             with pytest.raises(OperationalError) as caught:
                 accept_repair_proposal_with_source_guard(
                     worker,
