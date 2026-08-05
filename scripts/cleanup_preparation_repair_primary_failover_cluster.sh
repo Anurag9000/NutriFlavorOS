@@ -13,7 +13,12 @@ for variable_name in \
   fi
 done
 
-for container_name in "$FAILOVER_PRIMARY_CONTAINER" "$FAILOVER_STANDBY_CONTAINER"; do
+containers=("$FAILOVER_PRIMARY_CONTAINER" "$FAILOVER_STANDBY_CONTAINER")
+if [[ -n "${FAILOVER_REJOIN_CONTAINER:-}" ]]; then
+  containers+=("$FAILOVER_REJOIN_CONTAINER")
+fi
+
+for container_name in "${containers[@]}"; do
   docker rm -f "$container_name" >/dev/null 2>&1 || true
 done
 
