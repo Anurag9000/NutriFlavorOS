@@ -103,7 +103,7 @@ The retained fenced old-primary data volume is rebuilt with PostgreSQL `pg_rewin
 - Acceptance and replacement identities and lifecycle counts remain exactly one on both nodes.
 - A controlled `pg_switch_wal()` creates a new flush position, and the rejoined standby must replay at least that exact LSN while remaining in recovery.
 
-This closes one controlled old-primary rewind/rejoin path. C23 adds controlled **Automatic rejoin orchestration**; partition-safe stale-primary rejection, missing-WAL fallback, base-backup rebuild, multiple-node lifecycle management, and representative recovery time remain open.
+This closes one controlled old-primary rewind/rejoin path. C23 adds controlled **automatic rejoin orchestration**; partition-safe stale-primary rejection, missing-WAL fallback, base-backup rebuild, multiple-node lifecycle management, and representative recovery time remain open.
 
 ### C23 — Controlled automatic old-primary rejoin
 
