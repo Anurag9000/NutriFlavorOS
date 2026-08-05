@@ -58,7 +58,7 @@ docker exec "$FAILOVER_PRIMARY_CONTAINER" bash -euc '
   printf "%s\n" "host replication replicator 0.0.0.0/0 trust" >> "$PGDATA/pg_hba.conf"
   psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
     -c "CREATE ROLE replicator WITH REPLICATION LOGIN"
-  pg_ctl reload -D "$PGDATA"
+  gosu postgres pg_ctl reload -D "$PGDATA"
 '
 
 docker run --rm \
