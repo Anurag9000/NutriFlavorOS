@@ -272,6 +272,8 @@ def main() -> int:
         reports = [_read_json(path) for path in report_paths]
         witness = _read_json(witness_path)
         winner, follower = _validate_controller_reports(reports, witness)
+        follower_contended = follower.get("lease_contended") is True
+        follower_observed_completed = follower.get("already_rejoined") is True
         verification = _read_json(verification_report)
         if verification.get("valid") is not True:
             raise RuntimeError("automatic-rejoin underlying verification report is invalid")
