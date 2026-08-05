@@ -1,0 +1,113 @@
+name: validate-preparation-repair-primary-failover
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-preparation-repair-primary-failover-main
+  cancel-in-progress: true
+
+jobs:
+  physical-standby-promotion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FAILOVER_POSTGRES_IMAGE: postgres:16
+      FAILOVER_NETWORK: nutriflavor-failover-${{ github.run_id }}-${{ github.run_attempt }}
+      FAILOVER_PRIMARY_CONTAINER: nutriflavor-primary-${{ github.run_id }}-${{ github.run_attempt }}
+      FAILOVER_STANDBY_CONTAINER: nutriflavor-standby-${{ github.run_id }}-${{ github.run_attempt }}
+      FAILOVER_PRIMARY_VOLUME: nutriflavor-primary-data-${{ github.run_id }}-${{ github.run_attempt }}
+      FAILOVER_STANDBY_VOLUME: nutriflavor-standby-data-${{ github.run_id }}-${{ github.run_attempt }}
+      FAILOVER_PRIMARY_PORT: "55432"
+      FAILOVER_STANDBY_PORT: "55433"
+      FAILOVER_PRIMARY_DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:55432/nutriflavor_test
+      FAILOVER_STANDBY_DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:55433/nutriflavor_test
+      FAILOVER_REPORT_PATH: reports/preparation-repair-primary-failover.json
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:55432/nutriflavor_test
+      JWT_SECRET: primary-failover-ci-secret-at-least-32-bytes
+      AUTO_CREATE_SCHEMA: "false"
+      SEED_REVIEWED_STORAGE_POLICIES: "false"
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r backend/requirements.txt
+      - run: pip check
+      - run: docker version
+
+      - name: Compile physical standby promotion evidence
+        run: >-
+          python -m compileall -q
+          backend/main.py
+          backend/api/database_error_handlers.py
+          backend/services/preparation_repair_source_acceptance_guard_service.py
+          backend/tests/postgres_commit_ack_drop_proxy.py
+          backend/tests/test_preparation_repair_primary_failover_postgres.py
+          scripts/validate_preparation_repair_primary_failover_contract.py
+          scripts/validate_preparation_repair_primary_failover_release.py
+          scripts/validate_repair_release_identity.py
+
+      - name: Validate failover shell syntax
+        run: |
+          bash -n scripts/setup_preparation_repair_primary_failover_cluster.sh
+          bash -n scripts/cleanup_preparation_repair_primary_failover_cluster.sh
+
+      - name: Create PostgreSQL primary and physical standby
+        run: bash scripts/setup_preparation_repair_primary_failover_cluster.sh
+
+      - name: Upgrade original primary to reviewed head 0018
+        run: |
+          alembic upgrade head
+          python - <<'PY'
+          from backend.database import engine
+          from backend.schema_revision import CURRENT_ALEMBIC_REVISION
+          from backend.schema_verification import verify_runtime_schema
+
+          assert engine.dialect.name == "postgresql", engine.dialect.name
+          assert CURRENT_ALEMBIC_REVISION == "20260802_0018"
+          verify_runtime_schema()
+          PY
+
+      - name: Validate physical standby promotion contract
+        run: python scripts/validate_preparation_repair_primary_failover_contract.py
+
+      - name: Validate physical standby promotion release
+        run: python scripts/validate_preparation_repair_primary_failover_release.py
+
+      - name: Validate synchronized repair release identity
+        run: python scripts/validate_repair_release_identity.py
+
+      - name: Run real PostgreSQL physical standby promotion evidence
+        run: >-
+          pytest -q
+          backend/tests/test_preparation_repair_primary_failover_postgres.py
+          --junitxml=reports/preparation-repair-primary-failover.xml
+
+      - name: Capture PostgreSQL failover diagnostics
+        if: failure()
+        run: |
+          mkdir -p reports
+          docker ps -a > reports/preparation-repair-primary-failover-docker-ps.txt || true
+          docker logs "$FAILOVER_PRIMARY_CONTAINER" > reports/preparation-repair-primary.log 2>&1 || true
+          docker logs "$FAILOVER_STANDBY_CONTAINER" > reports/preparation-repair-standby.log 2>&1 || true
+
+      - name: Upload physical standby promotion evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: preparation-repair-primary-failover-evidence
+          path: reports/
+          if-no-files-found: error
+
+      - name: Remove failover containers, volumes, and network
+        if: always()
+        run: bash scripts/cleanup_preparation_repair_primary_failover_cluster.sh
