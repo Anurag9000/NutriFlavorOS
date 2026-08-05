@@ -63,6 +63,7 @@ def validate_contract() -> dict:
         "rewind": {
             "old primary container still exists; rewind authority is denied",
             "docker volume inspect",
+            "rm -f /var/lib/postgresql/data/postmaster.pid",
             "gosu postgres pg_rewind",
             "--target-pgdata=/var/lib/postgresql/data",
             "--source-server=",
@@ -87,6 +88,8 @@ def validate_contract() -> dict:
             "pg_last_wal_replay_lsn()::text",
             "rewound standby acceptance identity drifted",
             "rewound standby schedule identity drifted",
+            '"replay_lsn_verified": True',
+            '"observed_replay_lsn": replay_lsn',
             '"application_write_route_changed": False',
             '"rejoined_node_promoted": False',
             '"automatic_rejoin_orchestration": False',
@@ -147,6 +150,7 @@ def validate_contract() -> dict:
         "sqlite://",
         "docker start",
         "host replication replicator 0.0.0.0/0",
+        '"replay_lsn_verified": replay_lsn',
         '"application_write_route_changed": True',
         '"rejoined_node_promoted": True',
         '"automatic_rejoin_orchestration": True',
@@ -154,7 +158,9 @@ def validate_contract() -> dict:
         '"representative_recovery_time_proven": True',
         '"hosted_green_claim": True',
     }
-    combined = "\n".join(sources[name] for name in ("setup", "cleanup", "rewind", "probe"))
+    combined = "\n".join(
+        sources[name] for name in ("setup", "cleanup", "rewind", "probe")
+    )
     for fragment in sorted(forbidden):
         if fragment in combined:
             errors.append(
@@ -167,6 +173,7 @@ def validate_contract() -> dict:
         "postgresql_major": 16,
         "wal_log_hints_enabled": True,
         "old_primary_container_absent_before_rewind": True,
+        "stale_postmaster_pid_removed_after_fence": True,
         "old_primary_volume_retained": True,
         "pg_rewind_completed": True,
         "distinct_rejoin_container": True,
@@ -176,6 +183,8 @@ def validate_contract() -> dict:
         "promoted_sender_count": 1,
         "shared_system_identifier": True,
         "post_rejoin_wal_position_verified": True,
+        "typed_replay_proof": True,
+        "observed_replay_lsn_reported_separately": True,
         "acceptance_identity_preserved": True,
         "schedule_identity_preserved": True,
         "final_acceptance_count": 1,
