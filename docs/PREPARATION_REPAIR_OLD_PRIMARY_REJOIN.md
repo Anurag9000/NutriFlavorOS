@@ -6,11 +6,12 @@ This boundary extends the controlled automatic-failover corpus after the old
 primary has been stopped, fenced by container removal, and replaced by the
 promoted physical standby.
 
-It verifies that the retained old-primary data volume can be rebuilt with
-PostgreSQL `pg_rewind`, configured as a read-only physical standby of the
-promoted primary, returned to active streaming replication, and caught up to a
-new WAL position without changing the authoritative application write route or
-duplicating the preparation-repair lifecycle.
+It verifies that the retained old-primary data volume can be recovered in
+network isolation, rebuilt with PostgreSQL `pg_rewind`, configured as a
+read-only physical standby of the promoted primary, returned to active
+streaming replication, and caught up to a new WAL position without changing the
+authoritative application write route or duplicating the preparation-repair
+lifecycle.
 
 ## Rewind prerequisite
 
@@ -45,26 +46,52 @@ The rewind stage runs only after:
 
 If the old-primary container still exists, rewind authority is denied.
 
+## Isolated target crash recovery
+
+The old primary is stopped with zero grace during the automatic-failover corpus.
+The retained target can therefore contain crash-recovery state and a stale
+`postmaster.pid`.
+
+Before `pg_rewind`, a one-shot PostgreSQL 16 container mounts the retained data
+volume with Docker `--network none`. It:
+
+1. changes ownership only to the PostgreSQL operating-system user;
+2. removes the stale `postmaster.pid` after container-absence authority has
+   already been proven;
+3. starts PostgreSQL in single-user mode;
+4. executes `CHECKPOINT`;
+5. exits before any network-enabled process sees the target volume.
+
+This creates a cleanly stopped rewind target without making the stale primary
+reachable by an application, controller, or peer database. It is controlled
+target preparation, not evidence of production crash-recovery orchestration.
+
 ## `pg_rewind` operation
 
-A one-shot PostgreSQL 16 container mounts the retained old-primary data volume
-and runs `pg_rewind` as the PostgreSQL operating-system user.
+A separate one-shot PostgreSQL 16 container mounts the clean retained target and
+runs `pg_rewind` as the PostgreSQL operating-system user. Only this rewind
+container joins the private failover network because it must contact the
+promoted source.
 
 The source server is the promoted primary. The rewind operation uses a normal
 superuser database connection with a finite test credential supplied through
 the process environment. The generated standby configuration uses the reviewed
 `replicator` role and the existing private-network replication rule.
 
-After rewind:
+After rewind, the bootstrap normalizes recovery settings before startup:
 
-- any stale `recovery.signal` is removed;
+- stale `recovery.signal` and `postmaster.pid` files are removed;
+- existing `primary_conninfo` and `primary_slot_name` assignments are deleted
+  from `postgresql.auto.conf`;
 - `standby.signal` is created;
-- `primary_conninfo` targets the promoted primary container;
+- one new `primary_conninfo` targets the promoted primary container;
 - the application name is `rewound-old-primary`;
 - the old data volume is started under a distinct rejoin container name and
   host port.
 
-The original fenced container is not restarted.
+Normalizing the copied settings prevents the rewound node from following the
+retired old-primary endpoint or retaining an unrelated slot assignment. The
+original fenced container is not restarted.
 
 ## Streaming rejoin proof
 
@@ -98,6 +125,11 @@ The promoted primary then executes a controlled `pg_switch_wal()` and records
 `pg_current_wal_flush_lsn()`. The rejoined standby must advance
 `pg_last_wal_replay_lsn()` to at least that exact position while remaining in
 recovery. Lifecycle counts must still remain one after catch-up.
+
+The retained report separates proof from observation:
+
+- `replay_lsn_verified=true` records the comparison result;
+- `observed_replay_lsn` records the bounded PostgreSQL LSN string.
 
 This proves continuing replication after rejoin, rather than only successful
 startup from a rewound snapshot.
@@ -144,7 +176,8 @@ This controlled rewind and rejoin does **not** establish:
 - managed-service, regional, or multi-region behavior;
 - current hosted workflow success without exact observed evidence.
 
-The corpus proves one fenced old-primary data volume can be rewound against the
-promoted PostgreSQL 16 primary, restarted under a distinct identity as a
-read-only streaming standby, and caught up to a new WAL position while the one
-accepted preparation-repair lifecycle remains authoritative.
+The corpus proves one fenced old-primary data volume can be recovered in
+network isolation, rewound against the promoted PostgreSQL 16 primary,
+restarted under a distinct identity as a read-only streaming standby, and
+caught up to a new WAL position while the one accepted preparation-repair
+lifecycle remains authoritative.
