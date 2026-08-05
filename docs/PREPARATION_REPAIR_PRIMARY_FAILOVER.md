@@ -26,7 +26,13 @@ The dedicated workflow creates:
   and hot-standby reads;
 - host ports dedicated to the old-primary and standby endpoints.
 
-The setup requires:
+The setup does not infer streaming from configuration alone. Before migrations
+begin, a bounded readiness loop requires both observed runtime states:
+
+- exactly one primary row in `pg_stat_replication` with `state = 'streaming'`;
+- standby `pg_stat_wal_receiver.status = 'streaming'`.
+
+The setup additionally requires:
 
 - `pg_is_in_recovery() = false` on the original primary;
 - `pg_is_in_recovery() = true` on the standby;
@@ -34,7 +40,9 @@ The setup requires:
   servers.
 
 A shared system identifier proves that the standby is a physical descendant of
-the primary rather than an independently seeded database.
+the primary rather than an independently seeded database. The observed sender
+and receiver states prove an active physical replication connection before the
+reviewed schema and test lifecycle are written.
 
 ## Ambiguous committed request before failover
 
