@@ -150,7 +150,25 @@ This closes controlled cross-application-instance convergence on one primary.
 - The promoted primary returns the same acceptance and replacement identities with all authoritative counts remaining one.
 - A dedicated direct-`main` workflow retains JUnit, JSON, and failure diagnostics and always removes containers, volumes, and network resources.
 
-This closes one caught-up asynchronous physical-standby promotion with explicit endpoint rotation. It does not establish automatic failover, service-discovery rotation, fencing, split-brain prevention, safe old-primary rejoin, synchronous-standby durability, multiple-standby selection, or multi-region recovery.
+This closes one caught-up asynchronous physical-standby promotion with explicit endpoint rotation.
+
+### C20 — Controlled automatic PostgreSQL failover
+
+**Controlled automatic PostgreSQL failover** is implemented as a single-host extension of C19.
+
+- One stable TCP database endpoint routes fresh connections to the original primary at epoch `0`.
+- Two independent controllers monitor the healthy primary and require three consecutive failed probes before failover authority is considered.
+- A **single local witness lease** uses nonblocking exclusive `flock`; one controller becomes the promotion winner and the other reports contention or an already-completed no-op.
+- The winner advances the **fence epoch** from `0` to `1` and writes a `promotion_in_progress` witness state.
+- Promotion is forbidden while the old primary is running. The winner removes the stopped old-primary container, verifies that it is absent, retains the old data volume, and proves the old endpoint is unavailable.
+- The winner promotes the caught-up standby, verifies writable state, preserves the cluster system identifier, and observes a new WAL timeline.
+- The winner atomically rotates the stable route to `promoted-standby` at epoch `1`; the losing controller performs no route mutation.
+- The stable endpoint records successful connections to both epochs and reports no leaked connection threads.
+- The application reuses the unchanged stable database URL and the same SQLAlchemy engine object for a new connection after promotion.
+- The exact original idempotency key returns the original acceptance and replacement identities with all authoritative counts remaining one.
+- The topology controllers never perform application mutation retry.
+
+This closes one controlled automatic promotion and route-rotation corpus. It does not establish **distributed consensus**, replicated witness or quorum correctness, production STONITH, partition-safe split-brain prevention, safe old-primary rewind/rejoin, continuity of already-open connections, managed-service behavior, multiple-standby selection, or multi-region failover.
 
 ## P0 — Observe and repair exact hosted verification
 
@@ -160,10 +178,12 @@ Inspect exact latest `main` workflow runs and artifacts, record exact commit/run
 
 - Broader network-loss timings around COMMIT, including encrypted transport and loss after acknowledgement reaches lower client buffers.
 - Operating-system, container-runtime, Kubernetes pod, and node failure behavior beyond the controlled worker `SIGKILL` corpus.
-- Automatic failure detection and promotion, DNS/service-discovery or virtual-IP rotation, connection-pool target replacement, and retry behavior during endpoint transition.
-- Fencing, quorum, STONITH, split-brain prevention, safe old-primary rewind/rejoin, and stale-primary write rejection.
+- Distributed/replicated witness or quorum authority, production-grade STONITH, asymmetric-partition fencing, and stale-primary write rejection.
+- Safe old-primary `pg_rewind`, rebuild, demotion, and rejoin after promotion.
+- DNS/service-discovery, virtual-IP, service-mesh, managed-proxy, and cloud-database endpoint behavior.
+- Continuity and pool invalidation for already-open sessions during route transition.
 - Synchronous-standby acknowledgement and durability, multiple standby selection, cascading replication, managed/cloud PostgreSQL, regional failure, and multi-region failover.
-- Multi-application-instance recovery after promotion; C18 proves six workers on one primary, while C19 performs one explicit recovery request on the promoted primary.
+- Multi-application-instance recovery after promotion; C18 proves six workers on one primary, while C20 performs one recovering request through the stable endpoint.
 - Representative production capacity under realistic concurrent traffic, queueing, latency, process counts, pool sizing, connection lifetime/recycle behavior, and duration beyond the controlled 24-timeout corpus.
 - Production-snapshot or production-scale migration rehearsal beyond the 64-lifecycle corpus.
 - Authenticated production monitoring with rates, cross-replica aggregation, dashboards, alerts, paging, SLOs, and runbooks.
@@ -196,5 +216,5 @@ Continue reviewed evidence, forecasting, constrained ranking, backup/PITR, relea
 - The server always reports `automatic_retry_performed=false`.
 - Database recovery metrics never store SQL, request contents, idempotency keys, or domain identifiers.
 - Frontend preflight never replaces server authority.
-- No clinical, food-safety, global-optimality, model-readiness, representative-capacity, exhaustive-commit-loss, node-failure, automatic-failover, fencing, old-primary-rejoin, multi-region, or green-build claim without exact supporting evidence.
+- No clinical, food-safety, global-optimality, model-readiness, representative-capacity, exhaustive-commit-loss, node-failure, distributed-consensus, production-STONITH, old-primary-rejoin, multi-region, or green-build claim without exact supporting evidence.
 - No force push, history rewrite, feature branch, or feature PR.
