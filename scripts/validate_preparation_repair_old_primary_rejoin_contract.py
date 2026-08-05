@@ -111,10 +111,11 @@ def validate_contract() -> dict:
             "FAILOVER_REJOIN_REPORT_PATH",
             "rewind_preparation_repair_old_primary.sh",
             "probe_preparation_repair_old_primary_rejoin.py",
+            "probe_preparation_repair_automatic_old_primary_rejoin.py",
             "validate_preparation_repair_old_primary_rejoin_contract.py",
             "validate_preparation_repair_old_primary_rejoin_release.py",
             "reports/preparation-repair-old-primary-rejoin.json",
-            "Rewind and rejoin fenced old primary",
+            "Automatically rewind and rejoin fenced old primary",
         },
         "docs": {
             "Controlled Old-Primary Rewind and Standby Rejoin",
