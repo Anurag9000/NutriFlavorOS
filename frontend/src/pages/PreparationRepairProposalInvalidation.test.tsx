@@ -188,7 +188,7 @@ describe("Preparation repair proposal invalidation administration", () => {
         name: "Proposal invalidation administration",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("target calendar not active")).toBeInTheDocument();
+    expect(await screen.findByText("target calendar not active")).toBeInTheDocument();
     expect(screen.getByText("source schedule version changed")).toBeInTheDocument();
     const button = screen.getByRole("button", { name: "Invalidate proposal" });
     expect(button).toBeDisabled();
@@ -202,7 +202,7 @@ describe("Preparation repair proposal invalidation administration", () => {
         name: /keeps immutable history, creates no schedule/i,
       }),
     );
-    expect(button).toBeEnabled();
+    await waitFor(() => expect(button).toBeEnabled());
   });
 
   it("submits exact owner historical-only invalidation evidence", async () => {
@@ -217,7 +217,9 @@ describe("Preparation repair proposal invalidation administration", () => {
         name: /keeps immutable history, creates no schedule/i,
       }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Invalidate proposal" }));
+    const button = screen.getByRole("button", { name: "Invalidate proposal" });
+    await waitFor(() => expect(button).toBeEnabled());
+    fireEvent.click(button);
 
     await waitFor(() => expect(mocks.invalidate).toHaveBeenCalledTimes(1));
     expect(mocks.invalidate).toHaveBeenCalledWith("home-1", 11, {
@@ -234,7 +236,9 @@ describe("Preparation repair proposal invalidation administration", () => {
       },
     });
     expect(
-      await screen.findByText("The record is historical-only. No replacement schedule was created."),
+      await screen.findByText(
+        "The record is historical-only. No replacement schedule was created.",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -255,9 +259,7 @@ describe("Preparation repair proposal invalidation administration", () => {
   it("shows append-only history without invoking other lifecycle mutations", async () => {
     renderPage();
 
-    expect(
-      await screen.findByText(createdEvent.reason),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(createdEvent.reason)).toBeInTheDocument();
     expect(screen.getByText("Version 0 → 1")).toBeInTheDocument();
     expect(mocks.invalidate).not.toHaveBeenCalled();
   });
