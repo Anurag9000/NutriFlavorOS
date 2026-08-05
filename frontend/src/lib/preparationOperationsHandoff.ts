@@ -241,17 +241,20 @@ export async function buildPreparationOperationsHandoff(options: {
 
 export function storePreparationOperationsHandoff(
   handoff: PreparationOperationsHandoff,
+  storage: Storage = window.sessionStorage,
 ): void {
-  sessionStorage.setItem(
+  storage.setItem(
     PREPARATION_OPERATIONS_HANDOFF_KEY,
     JSON.stringify(handoff),
   );
 }
 
-export function consumePreparationOperationsHandoff(): PreparationOperationsHandoff | null {
-  const raw = sessionStorage.getItem(PREPARATION_OPERATIONS_HANDOFF_KEY);
+export function consumePreparationOperationsHandoff(
+  storage: Storage = window.sessionStorage,
+): PreparationOperationsHandoff | null {
+  const raw = storage.getItem(PREPARATION_OPERATIONS_HANDOFF_KEY);
   if (!raw) return null;
-  sessionStorage.removeItem(PREPARATION_OPERATIONS_HANDOFF_KEY);
+  storage.removeItem(PREPARATION_OPERATIONS_HANDOFF_KEY);
   const parsed = JSON.parse(raw) as PreparationOperationsHandoff;
   if (
     parsed.document_version !== "preparation-operations-handoff-v2"
