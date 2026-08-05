@@ -1,6 +1,6 @@
 # NutriFlavorOS Implementation Status
 
-**Status date:** 2026-08-04  
+**Status date:** 2026-08-05  
 **Development policy:** coherent direct commits to `main`; no feature pull requests or development branches; no history rewriting.  
 **Database migration head:** `20260802_0018`  
 **API version:** `0.15.4`  
@@ -120,7 +120,21 @@ A real **COMMIT acknowledgement loss** boundary uses a test-only PostgreSQL wire
 - A fresh request with the **same exact idempotency key** returns the already-created acceptance and schedule identities and preserves counts at one.
 - The proxy proves both forwarding threads terminate without leakage.
 
-This closes one controlled acknowledgement-withheld timing after server-side COMMIT completion. It does not establish every network-loss timing, encrypted-protocol interception, synchronous-replica durability, cross-replica coordination, or multi-node failover recovery.
+This closes one controlled acknowledgement-withheld timing after server-side COMMIT completion. It does not establish every network-loss timing, encrypted-protocol interception, synchronous-replica durability, database-replica promotion, or multi-node failover recovery.
+
+### Controlled multi-application-instance exact recovery
+
+A **controlled multi-application-instance exact recovery** corpus extends the ambiguous COMMIT result across **one PostgreSQL primary**.
+
+- The proxy first commits exactly one acceptance lifecycle while withholding `CommandComplete(COMMIT)` from the initiating client.
+- Independent direct reads prove the acceptance and draft replacement are already authoritative before recovery workers start.
+- **six independent worker processes** each create a distinct 32-character worker-instance identity, private SQLAlchemy pool, session, and live PostgreSQL backend.
+- The parent waits until all six workers and six backend PIDs are simultaneously ready behind one release gate.
+- The gate opens once; every worker invokes the production source-level guard with the exact same idempotency key.
+- All workers return the same acceptance ID and same draft replacement schedule ID, verify the original key, close with `pool_checked_out_after_close=0`, and exit successfully.
+- Final authoritative counts remain one acceptance, one replacement, one accepted proposal event, and one created schedule event in `created → accepted` order.
+
+No separate distributed lock service, process-local leader, or fabricated lifecycle row coordinates convergence. This proves application-instance coordination on one primary only; PostgreSQL replica promotion, connection-target rotation, and multi-node failover remain open.
 
 ## Database recovery observability
 
@@ -141,14 +155,15 @@ This is an adapter foundation, not production monitoring. Time windows, persiste
 
 ## PostgreSQL concurrency evidence
 
-Configured PostgreSQL-only coverage includes duplicate/competing acceptance, acceptance versus rejection/invalidation/source execution, plan cancellation and calendar supersession races, repaired approval races, final-task versus schedule completion, repeatable-read support export, lost responses, statement timeout, deadlock, post-commit backend termination, checked-out pool invalidation, repeated serialization retry, controlled single-checkout exhaustion, controlled sustained pool pressure, controlled application-worker recycle, controlled ungraceful worker crash, controlled COMMIT acknowledgement loss, populated migration rehearsal, and exact migration/dialect assertions with retained JUnit/JSON evidence.
+Configured PostgreSQL-only coverage includes duplicate/competing acceptance, acceptance versus rejection/invalidation/source execution, plan cancellation and calendar supersession races, repaired approval races, final-task versus schedule completion, repeatable-read support export, lost responses, statement timeout, deadlock, post-commit backend termination, checked-out pool invalidation, repeated serialization retry, controlled single-checkout exhaustion, controlled sustained pool pressure, controlled application-worker recycle, controlled ungraceful worker crash, controlled COMMIT acknowledgement loss, controlled multi-application-instance exact recovery, populated migration rehearsal, and exact migration/dialect assertions with retained JUnit/JSON evidence.
 
 The exact latest hosted executions and artifacts have not been observed in this context. Configured tests are not reported green until inspected.
 
 ## Remaining P0/P1 work
 
 - Observe and repair exact current hosted workflows and artifacts.
-- Test broader network-loss timings around COMMIT, encrypted transport behavior, operating-system/container/node failure, cross-replica process replacement, synchronous-replica acknowledgement, and multi-node failover.
+- Test broader network-loss timings around COMMIT, encrypted transport behavior, operating-system/container/node failure, synchronous-replica acknowledgement, PostgreSQL replica promotion, connection-target rotation, and multi-node failover.
+- Extend one-primary application-instance coordination to real database failover and service-discovery changes; the six-worker corpus is not a database-replica proof.
 - Establish representative production capacity under realistic concurrent traffic, queueing, latency, pool sizing, process counts, and duration; the 24-timeout controlled pressure corpus is not representative production capacity.
 - Connect process metrics to authenticated production monitoring with cross-replica rates, dashboards, alerts, paging, SLOs, and runbooks.
 - Add production-snapshot or production-scale migration rehearsal, backup/restore, and point-in-time recovery.
@@ -157,4 +172,4 @@ The exact latest hosted executions and artifacts have not been observed in this 
 
 ## Non-claims
 
-NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, exhaustive COMMIT-loss recovery, encrypted-transport interception, synchronous-replica durability, operating-system/container/node crash recovery, cross-replica recovery, multi-node failover recovery, representative production capacity, production pool sizing or sustained-load capacity, signed/export-retention guarantees, production monitoring completeness, or current hosted green-build status.
+NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination state, temperature compliance, actual task performance, human presence, appliance condition, global repair optimality, exhaustive COMMIT-loss recovery, encrypted-transport interception, synchronous-replica durability, operating-system/container/node crash recovery, database-replica promotion or cross-replica recovery beyond one-primary application-instance coordination, multi-node failover recovery, representative production capacity, production pool sizing or sustained-load capacity, signed/export-retention guarantees, production monitoring completeness, or current hosted green-build status.
