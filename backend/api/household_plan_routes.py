@@ -8,6 +8,10 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from backend.database import DBUser, get_db
+from backend.domain.approved_plan_preparation import (
+    ApprovedPlanPreparationCompileRequest,
+    ApprovedPlanPreparationCompileView,
+)
 from backend.domain.household_access import HouseholdRole
 from backend.domain.household_plan_lifecycle import (
     HouseholdPlanEventType,
@@ -20,6 +24,9 @@ from backend.domain.household_plan_occurrences import (
     ApprovedPlanOccurrenceCandidatesView,
     ConfirmedPlanOccurrenceSetView,
     ConfirmPlanOccurrenceSetRequest,
+)
+from backend.services.approved_plan_preparation_service import (
+    compile_approved_plan_preparation,
 )
 from backend.services.household_access_service import require_household_access
 from backend.services.household_plan_lifecycle_service import (
@@ -151,6 +158,28 @@ def confirm_approved_plan_occurrence_set_route(
 ):
     _authorize(db, household_id, current_user.id, HouseholdRole.EDITOR)
     return confirm_approved_plan_occurrence_set(
+        db,
+        household_id=household_id,
+        plan_id=plan_id,
+        payload=payload,
+    )
+
+
+@router.post(
+    "/{plan_id}/preparation-occurrences/compile",
+    response_model=ApprovedPlanPreparationCompileView,
+)
+def compile_approved_plan_preparation_route(
+    household_id: str,
+    plan_id: int,
+    payload: ApprovedPlanPreparationCompileRequest,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    """Compile confirmed occurrences without persisting an operations schedule."""
+
+    _authorize(db, household_id, current_user.id, HouseholdRole.EDITOR)
+    return compile_approved_plan_preparation(
         db,
         household_id=household_id,
         plan_id=plan_id,
