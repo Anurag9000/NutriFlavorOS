@@ -94,6 +94,28 @@ def _worker_environment(repo_root: Path) -> dict[str, str]:
     return environment
 
 
+def _collect_process(
+    process: subprocess.Popen[str],
+    *,
+    timeout_seconds: float = 45.0,
+) -> tuple[str, str]:
+    try:
+        return process.communicate(timeout=timeout_seconds)
+    except subprocess.TimeoutExpired as exc:
+        process.kill()
+        stdout, stderr = process.communicate(timeout=15)
+        raise AssertionError(
+            "multi-instance recovery worker did not terminate within its bound: "
+            f"stdout={stdout!r}, stderr={stderr!r}"
+        ) from exc
+
+
+def _ensure_process_stopped(process: subprocess.Popen[str]) -> None:
+    if process.poll() is None:
+        process.kill()
+        process.communicate(timeout=15)
+
+
 def _proxy_database_url(db, proxy_port: int):
     direct_url = db.get_bind().url
     query = dict(direct_url.query)
@@ -314,11 +336,11 @@ def test_postgres_ambiguous_commit_converges_across_six_application_instances(
         _write_json_atomically(gate_path, {"release_token": release_token})
 
         for process in processes:
-            return_code = process.wait(timeout=45)
-            if return_code != 0:
-                stderr = process.stderr.read() if process.stderr is not None else ""
+            stdout, stderr = _collect_process(process)
+            if process.returncode != 0:
                 raise AssertionError(
-                    f"multi-instance recovery worker failed: {return_code}: {stderr}"
+                    "multi-instance recovery worker failed: "
+                    f"{process.returncode}: stdout={stdout!r}, stderr={stderr!r}"
                 )
 
         result_reports = [
@@ -330,9 +352,7 @@ def test_postgres_ambiguous_commit_converges_across_six_application_instances(
         ]
     finally:
         for process in processes:
-            if process.poll() is None:
-                process.kill()
-                process.wait(timeout=15)
+            _ensure_process_stopped(process)
 
     assert len(result_reports) == WORKER_COUNT
     assert {int(value["acceptance_id"]) for value in result_reports} == {
