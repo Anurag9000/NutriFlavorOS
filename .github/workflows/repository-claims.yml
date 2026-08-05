@@ -1,0 +1,40 @@
+name: validate-repository-claims
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "AUDIT_SUMMARY.md"
+      - "ML_MODELS_INVENTORY.md"
+      - "FUTURE_ML_MODELS.md"
+      - "docs/EXHAUSTIVE_MISSION_AUDIT.md"
+      - "scripts/validate_repository_claims.py"
+      - ".github/workflows/repository-claims.yml"
+  pull_request:
+    paths:
+      - "AUDIT_SUMMARY.md"
+      - "ML_MODELS_INVENTORY.md"
+      - "FUTURE_ML_MODELS.md"
+      - "docs/EXHAUSTIVE_MISSION_AUDIT.md"
+      - "scripts/validate_repository_claims.py"
+      - ".github/workflows/repository-claims.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-repository-claims-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  claims:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Validate evidence and safety claims
+        run: python scripts/validate_repository_claims.py
