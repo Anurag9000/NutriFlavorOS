@@ -74,7 +74,7 @@ Six independent application workers establish distinct identities, pools, sessio
 
 **Controlled automatic PostgreSQL failover** keeps one stable application URL for fresh connections. Two controllers require three consecutive failed probes. A **single local witness lease** selects one winner, advances the **fence epoch** from `0` to `1`, removes the stopped old-primary container while retaining its data volume, promotes the caught-up standby, and atomically routes epoch `1` to the promoted primary. The losing controller performs no topology mutation. Exact-key recovery returns the original identities.
 
-This is one single-host control-plane corpus, not **distributed consensus**, replicated quorum, production STONITH, partition-safe fencing, automatic old-primary rejoin, or managed-service behavior.
+This is one single-host control-plane corpus, not **distributed consensus**, replicated quorum, production STONITH, partition-safe fencing, cross-host old-primary rejoin, or managed-service behavior.
 
 ### C21 — Six-worker recovery after automatic promotion
 
@@ -103,7 +103,21 @@ The retained fenced old-primary data volume is rebuilt with PostgreSQL `pg_rewin
 - Acceptance and replacement identities and lifecycle counts remain exactly one on both nodes.
 - A controlled `pg_switch_wal()` creates a new flush position, and the rejoined standby must replay at least that exact LSN while remaining in recovery.
 
-This closes one controlled old-primary rewind/rejoin path. **Automatic rejoin orchestration**, partition-safe stale-primary rejection, missing-WAL fallback, base-backup rebuild, multiple-node lifecycle management, and representative recovery time remain open.
+This closes one controlled old-primary rewind/rejoin path. C23 adds controlled **Automatic rejoin orchestration**; partition-safe stale-primary rejection, missing-WAL fallback, base-backup rebuild, multiple-node lifecycle management, and representative recovery time remain open.
+
+### C23 — Controlled automatic old-primary rejoin
+
+Two simultaneous rejoin controllers automate the reviewed C22 path after the C20/C21 promoted topology is authoritative.
+
+- Both controllers require the old-primary container to remain absent, the promoted primary to be running and writable, the retained old-primary volume to exist, and the rejoin container to be absent.
+- Both write atomic ready records and wait behind one release gate.
+- One nonblocking local filesystem lease selects one winner and one follower.
+- The winner advances rejoin epoch `1`, writes `rejoin_in_progress`, and alone invokes isolated single-user target recovery, `pg_rewind`, stale recovery-setting normalization, standby startup, and the authoritative C22 verifier.
+- The follower performs no rewind, no verification, and no topology mutation; it observes the winner identity and completed `rejoined` witness.
+- The underlying C22 report remains orchestration-neutral, while the separate C23 summary records automatic orchestration.
+- Rejoined read-only streaming state, shared cluster identity, fresh WAL replay, exact acceptance/schedule identities, and lifecycle counts of one remain authoritative.
+
+This closes one single-host automatic rejoin orchestration corpus. It does not establish **distributed consensus**, replicated witness/quorum authority, a cross-host lease, production STONITH, partition-safe stale-primary rejection, controller crash recovery during rewind, missing-WAL/base-backup fallback, or production recovery objectives.
 
 ## P0 — Observe and repair exact hosted verification
 
@@ -114,7 +128,7 @@ Inspect exact latest `main` workflow runs and artifacts, record commit/run/artif
 - Broader COMMIT-loss timing, encrypted transport, and lower client-buffer behavior.
 - Operating-system, container-runtime, Kubernetes pod, and node failure evidence beyond controlled process death.
 - Synchronous-standby acknowledgement and durability.
-- Distributed or replicated witness/quorum authority, production STONITH, asymmetric-partition fencing, stale-primary write rejection, automatic rejoin orchestration, and missing-WAL/base-backup recovery.
+- Distributed or replicated witness/quorum authority, production STONITH, asymmetric-partition fencing, stale-primary write rejection, cross-host rejoin authority, controller crash recovery during rewind, and missing-WAL/base-backup recovery.
 - Continuity, invalidation, and pool replacement for already-open sessions during endpoint transition.
 - DNS/service-discovery, virtual-IP, service-mesh, managed-proxy, cloud PostgreSQL, multiple standby selection, regional failure, **multi-node failover**, and multi-region recovery.
 - Representative RPO, RTO, latency, throughput, traffic, process counts, connection lifetimes, pool sizing, duration, and production capacity.
@@ -148,5 +162,5 @@ Continue reviewed evidence, forecasting, constrained ranking, backup/PITR, relea
 - `retry_safe=true` is reserved for proven aborts or proof that no transaction started.
 - Connection ambiguity remains `retry_safe=false`; `automatic_retry_performed=false` remains authoritative.
 - Recovery metrics never store SQL, request contents, keys, or domain identifiers.
-- No clinical, food-safety, global-optimality, representative-capacity, exhaustive-network, distributed-consensus, production-STONITH, automatic-rejoin, multi-region, or green-build claim without exact supporting evidence.
+- No clinical, food-safety, global-optimality, representative-capacity, exhaustive-network, distributed-consensus, production-STONITH, cross-host-automatic-rejoin, multi-region, or green-build claim without exact supporting evidence.
 - No force push, history rewrite, feature branch, or feature PR.
