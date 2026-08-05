@@ -32,6 +32,7 @@ docker run --rm \
   --entrypoint bash \
   "$FAILOVER_POSTGRES_IMAGE" -euc "
     chown -R postgres:postgres /var/lib/postgresql/data
+    rm -f /var/lib/postgresql/data/postmaster.pid
     gosu postgres pg_rewind \\
       --target-pgdata=/var/lib/postgresql/data \\
       --source-server='host=${FAILOVER_STANDBY_CONTAINER} port=5432 user=postgres dbname=nutriflavor_test sslmode=disable' \\
