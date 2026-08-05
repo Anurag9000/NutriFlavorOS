@@ -15,7 +15,7 @@ concurrency:
 jobs:
   automatic-fenced-failover:
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 85
     env:
       FAILOVER_POSTGRES_IMAGE: postgres:16
       FAILOVER_NETWORK: nutriflavor-auto-failover-${{ github.run_id }}-${{ github.run_attempt }}
@@ -30,6 +30,7 @@ jobs:
       FAILOVER_STANDBY_DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:55433/nutriflavor_test
       FAILOVER_STABLE_DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:55434/nutriflavor_test
       FAILOVER_AUTOMATIC_REPORT_PATH: reports/preparation-repair-automatic-failover.json
+      FAILOVER_MULTI_WORKER_REPORT_PATH: reports/preparation-repair-post-promotion-workers.json
       DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:55432/nutriflavor_test
       JWT_SECRET: automatic-failover-ci-secret-at-least-32-bytes
       AUTO_CREATE_SCHEMA: "false"
@@ -56,6 +57,8 @@ jobs:
           backend/tests/postgres_commit_ack_drop_proxy.py
           backend/tests/test_preparation_repair_automatic_failover_postgres.py
           scripts/probe_preparation_repair_stable_database_endpoint.py
+          scripts/probe_preparation_repair_multi_instance_recovery.py
+          scripts/probe_preparation_repair_post_promotion_multi_instance.py
           scripts/run_preparation_repair_automatic_failover_controller.py
           scripts/validate_preparation_repair_automatic_failover_contract.py
           scripts/validate_preparation_repair_automatic_failover_release.py
@@ -96,6 +99,9 @@ jobs:
           pytest -q
           backend/tests/test_preparation_repair_automatic_failover_postgres.py
           --junitxml=reports/preparation-repair-automatic-failover.xml
+
+      - name: Run six-worker exact recovery after automatic promotion
+        run: python scripts/probe_preparation_repair_post_promotion_multi_instance.py
 
       - name: Capture automatic failover diagnostics
         if: failure()
