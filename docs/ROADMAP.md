@@ -48,7 +48,7 @@ SQLAlchemy pool timeout maps to `database_pool_timeout`, `no_transaction_started
 
 ### C14 — Controlled sustained PostgreSQL pool pressure
 
-**Controlled sustained pool pressure** uses a two-connection pool, three synchronized waves, eight callers per wave, and 24 checkout timeouts. Every failure occurs before transaction start, leaves zero mutation, and releases to `checkedout() == 0`. This is not **representative production capacity**.
+The **controlled sustained pool pressure** corpus uses a two-connection pool, three synchronized waves, eight callers per wave, and 24 checkout timeouts. Every failure occurs before transaction start, leaves zero mutation, and releases to `checkedout() == 0`. This is not **representative production capacity**.
 
 ### C15 — Controlled application-worker recycle
 
