@@ -77,6 +77,7 @@ docker run -d \
   -v "${FAILOVER_PRIMARY_VOLUME}:/var/lib/postgresql/data" \
   "$POSTGRES_IMAGE" \
   -c wal_level=replica \
+  -c wal_log_hints=on \
   -c max_wal_senders=10 \
   -c max_replication_slots=10 \
   -c wal_keep_size=256MB \
@@ -139,13 +140,20 @@ standby_system_identifier="$(
     gosu postgres psql -At -U postgres -d nutriflavor_test \
     -c 'SELECT system_identifier::text FROM pg_control_system()'
 )"
+wal_log_hints="$(
+  docker exec "$FAILOVER_PRIMARY_CONTAINER" \
+    gosu postgres psql -At -U postgres -d nutriflavor_test \
+    -c 'SHOW wal_log_hints'
+)"
 
 [[ "$primary_recovery" == "f" ]]
 [[ "$standby_recovery" == "t" ]]
 [[ -n "$primary_system_identifier" ]]
 [[ "$primary_system_identifier" == "$standby_system_identifier" ]]
+[[ "$wal_log_hints" == "on" ]]
 
 printf 'primary_container=%s\n' "$FAILOVER_PRIMARY_CONTAINER"
 printf 'standby_container=%s\n' "$FAILOVER_STANDBY_CONTAINER"
 printf 'primary_system_identifier=%s\n' "$primary_system_identifier"
 printf 'standby_in_recovery=%s\n' "$standby_recovery"
+printf 'wal_log_hints=%s\n' "$wal_log_hints"
