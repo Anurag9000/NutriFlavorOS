@@ -126,6 +126,14 @@ server-to-client threads. The final report requires:
 
 Any protocol parser error or leaked thread fails the test.
 
+## Multi-application-instance extension
+
+The separate [Controlled Multi-Application-Instance Exact Recovery](PREPARATION_REPAIR_MULTI_INSTANCE_RECOVERY.md) corpus begins after this same ambiguous COMMIT outcome is already visible as committed on one PostgreSQL primary.
+
+It launches six independent application workers with distinct worker-instance identities, private pools, sessions, and simultaneously live PostgreSQL backend PIDs. All workers wait behind one release gate and then repeat the same exact idempotency key through the production source-level guard.
+
+Every worker must return the same existing acceptance and draft schedule identities, close with zero checked-out connections, and leave the authoritative lifecycle counts at one. This extends exact recovery across application processes on one primary; it does not establish PostgreSQL replica promotion or multi-node failover.
+
 ## Verification gate
 
 A dedicated PostgreSQL workflow compiles and runs:
@@ -133,9 +141,10 @@ A dedicated PostgreSQL workflow compiles and runs:
 - the protocol proxy;
 - the protocol parser unit tests;
 - the real commit-acknowledgement-loss test;
+- the six-worker multi-application-instance recovery helper and test;
 - the transient database-error classifier;
 - the production source-acceptance guard;
-- the protocol contract;
+- the protocol and multi-instance contracts;
 - the focused and broad synchronized release validators.
 
 The workflow upgrades PostgreSQL to migration head `20260802_0018`, verifies the
@@ -152,7 +161,7 @@ This is one **single controlled proxy connection** and does not prove:
 - TLS- or GSS-encrypted protocol interception;
 - synchronous-replica acknowledgement or replication durability;
 - PostgreSQL primary loss, replica promotion, DNS changes, or service discovery;
-- cross-replica application retry coordination;
+- coordination after a connection target changes to a promoted database primary;
 - representative production latency, throughput, capacity, or proxy behavior;
 - operating-system, container, Kubernetes, or node failure;
 - global correctness for non-idempotent mutations;
