@@ -24,6 +24,38 @@ wait_for_container() {
   done
 }
 
+wait_for_streaming_replication() {
+  local deadline=$((SECONDS + 90))
+  local primary_streaming_count="0"
+  local standby_receiver_status=""
+
+  while (( SECONDS < deadline )); do
+    primary_streaming_count="$(
+      docker exec "$FAILOVER_PRIMARY_CONTAINER" \
+        psql -At -U postgres -d nutriflavor_test \
+        -c "SELECT count(*) FROM pg_stat_replication WHERE state = 'streaming'"
+    )"
+    standby_receiver_status="$(
+      docker exec "$FAILOVER_STANDBY_CONTAINER" \
+        psql -At -U postgres -d nutriflavor_test \
+        -c "SELECT COALESCE(status, '') FROM pg_stat_wal_receiver"
+    )"
+    if [[ "$primary_streaming_count" == "1" && "$standby_receiver_status" == "streaming" ]]; then
+      printf 'primary_streaming_replica_count=%s\n' "$primary_streaming_count"
+      printf 'standby_wal_receiver_status=%s\n' "$standby_receiver_status"
+      return 0
+    fi
+    sleep 1
+  done
+
+  docker logs "$FAILOVER_PRIMARY_CONTAINER" >&2 || true
+  docker logs "$FAILOVER_STANDBY_CONTAINER" >&2 || true
+  echo "physical standby did not enter streaming state" >&2
+  echo "primary_streaming_count=$primary_streaming_count" >&2
+  echo "standby_receiver_status=$standby_receiver_status" >&2
+  return 1
+}
+
 for container_name in "$FAILOVER_PRIMARY_CONTAINER" "$FAILOVER_STANDBY_CONTAINER"; do
   docker rm -f "$container_name" >/dev/null 2>&1 || true
 done
@@ -85,6 +117,7 @@ docker run -d \
   -c listen_addresses='*' >/dev/null
 
 wait_for_container "$FAILOVER_STANDBY_CONTAINER"
+wait_for_streaming_replication
 
 primary_recovery="$(
   docker exec "$FAILOVER_PRIMARY_CONTAINER" \
