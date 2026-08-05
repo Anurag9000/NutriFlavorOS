@@ -40,7 +40,7 @@ Configured real PostgreSQL evidence includes:
 - **Controlled ungraceful application-worker crash** using real `SIGKILL`, including a **flushed but uncommitted** lifecycle that PostgreSQL rolls back;
 - controlled **COMMIT acknowledgement loss**, where PostgreSQL emits `CommandComplete(COMMIT)` and recovery uses the **same exact idempotency key**;
 - one-primary six-worker convergence with distinct worker identities, pools, and PostgreSQL backends;
-- controlled physical replication, manual promotion, automatic promotion, and six-worker recovery after promotion.
+- controlled physical replication, manual promotion, automatic promotion, six-worker recovery after promotion, and controlled old-primary rewind/rejoin.
 
 ## Controlled physical-standby promotion
 
@@ -76,6 +76,21 @@ The **six-worker post-promotion** corpus runs on the same automatically promoted
 
 This closes controlled multi-application-instance convergence after automatic promotion. It is not **representative production capacity**.
 
+## Controlled old-primary rewind and rejoin
+
+The **controlled old-primary rewind and rejoin** stage runs after C20 and C21 while the old-primary container remains absent and its data volume is retained.
+
+- The original cluster starts with and verifies `wal_log_hints=on`.
+- PostgreSQL `pg_rewind` uses the promoted primary as source and the retained old-primary volume as target.
+- The rewound data starts under a distinct container identity with `standby.signal` and replication application name `rewound-old-primary`.
+- The node remains in recovery, reports `transaction_read_only=on`, and operates as a **read-only streaming standby**.
+- The promoted primary exposes exactly one matching streaming sender; both nodes share the same system identifier.
+- Acceptance, replacement schedule, and accepted/created event identities and counts remain exactly one on both nodes.
+- A controlled `pg_switch_wal()` creates a new source position, and the rejoined standby must replay at least that exact flush LSN while remaining read-only.
+- The application write route remains on the promoted primary; the rejoined node is never promoted.
+
+This closes one controlled rewind/rejoin path. Automatic rejoin orchestration, missing-WAL fallback, base-backup rebuild, partition-safe stale-primary rejection, production lifecycle management, and representative recovery time remain open.
+
 ## Database recovery observability
 
 The **database recovery observability** foundation provides privacy-preserving process metrics and deterministic OpenMetrics rendering.
@@ -89,17 +104,17 @@ Persistence, time windows, **cross-replica aggregation**, dashboards, paging, ow
 
 ## PostgreSQL evidence inventory
 
-Configured PostgreSQL-only coverage includes lifecycle races, migration rehearsal, support-export snapshot concurrency, timeout/deadlock recovery, backend termination, pool invalidation, repeated serialization, pool exhaustion and pressure, worker recycle and crash, COMMIT acknowledgement loss, one-primary multi-instance recovery, physical-standby promotion, automatic fenced failover, and six-worker post-promotion recovery. JUnit and sanitized JSON artifacts are configured, but the exact latest hosted executions have not been observed here.
+Configured PostgreSQL-only coverage includes lifecycle races, migration rehearsal, support-export snapshot concurrency, timeout/deadlock recovery, backend termination, pool invalidation, repeated serialization, pool exhaustion and pressure, worker recycle and crash, COMMIT acknowledgement loss, one-primary multi-instance recovery, physical-standby promotion, automatic fenced failover, six-worker post-promotion recovery, and old-primary rewind/rejoin. JUnit and sanitized JSON artifacts are configured, but the exact latest hosted executions have not been observed here.
 
 ## Remaining P0/P1 work
 
 - Observe and repair exact current hosted workflows and artifacts.
 - Broaden COMMIT-loss timing and encrypted-transport evidence.
-- Add synchronous-standby acknowledgement, operating-system/container/node failure evidence, distributed or replicated witness/quorum authority, production STONITH, asymmetric-partition fencing, stale-primary write rejection, and safe old-primary `pg_rewind`/rejoin.
+- Add synchronous-standby acknowledgement, operating-system/container/node failure evidence, distributed or replicated witness/quorum authority, production STONITH, asymmetric-partition fencing, stale-primary write rejection, automatic rejoin orchestration, and missing-WAL/base-backup fallback.
 - Exercise continuity and invalidation of already-open sessions, DNS/service-discovery and managed-proxy behavior, multiple standby selection, managed/cloud PostgreSQL, regional failure, and **multi-node failover** or multi-region recovery.
 - Establish representative traffic, capacity, RPO, RTO, latency, throughput, duration, backup/restore, PITR, and production-scale migration evidence.
 - Complete authenticated production monitoring, browser/axe/accessibility evidence, signed/redacted support packages, retention/audit linkage, and execution-aware joint repair.
 
 ## Non-claims
 
-NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination or temperature compliance, actual task performance, human presence, appliance state, global repair optimality, exhaustive COMMIT-loss recovery, encrypted-transport interception, synchronous-standby durability, distributed consensus, replicated quorum or witness correctness, production STONITH, asymmetric-partition split-brain prevention, safe old-primary rejoin, already-open-session continuity, managed-database or multi-region behavior, representative production capacity, production pool sizing, signed-package guarantees, production monitoring completeness, or current hosted green-build status.
+NutriFlavorOS does not establish clinical validity, allergy or medication safety, food safety, contamination or temperature compliance, actual task performance, human presence, appliance state, global repair optimality, exhaustive COMMIT-loss recovery, encrypted-transport interception, synchronous-standby durability, distributed consensus, replicated quorum or witness correctness, production STONITH, asymmetric-partition split-brain prevention, automatic or production old-primary rejoin, already-open-session continuity, managed-database or multi-region behavior, representative production capacity, production pool sizing, signed-package guarantees, production monitoring completeness, or current hosted green-build status.
