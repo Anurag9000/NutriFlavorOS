@@ -71,6 +71,7 @@ def validate_release() -> dict:
         "setup": {
             "postgres:16",
             "wal_level=replica",
+            "host replication replicator samenet trust",
             "gosu postgres psql",
             "gosu postgres pg_basebackup",
             "wait_for_streaming_replication",
@@ -100,6 +101,7 @@ def validate_release() -> dict:
         },
         "contract": {
             '"physical_streaming_replication": True',
+            '"replication_trust_scope": "private_samenet"',
             '"primary_streaming_sender_observed": True',
             '"standby_streaming_receiver_observed": True',
             '"shared_system_identifier": True',
@@ -174,6 +176,7 @@ def validate_release() -> dict:
         "migration_head": CURRENT_ALEMBIC_REVISION,
         "postgresql_major": 16,
         "physical_streaming_replication": True,
+        "replication_trust_scope": "private_samenet",
         "primary_streaming_sender_observed": True,
         "standby_streaming_receiver_observed": True,
         "shared_system_identifier": True,
