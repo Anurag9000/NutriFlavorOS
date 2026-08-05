@@ -71,7 +71,13 @@ def validate_release() -> dict:
         "setup": {
             "postgres:16",
             "wal_level=replica",
+            "gosu postgres psql",
             "gosu postgres pg_basebackup",
+            "wait_for_streaming_replication",
+            "pg_stat_replication WHERE state = 'streaming'",
+            "pg_stat_wal_receiver",
+            "primary_streaming_replica_count=",
+            "standby_wal_receiver_status=",
             "system_identifier::text FROM pg_control_system()",
         },
         "cleanup": {
@@ -94,6 +100,8 @@ def validate_release() -> dict:
         },
         "contract": {
             '"physical_streaming_replication": True',
+            '"primary_streaming_sender_observed": True',
+            '"standby_streaming_receiver_observed": True',
             '"shared_system_identifier": True',
             '"standby_replay_lsn_verified": True',
             '"standby_promoted": True',
@@ -166,6 +174,8 @@ def validate_release() -> dict:
         "migration_head": CURRENT_ALEMBIC_REVISION,
         "postgresql_major": 16,
         "physical_streaming_replication": True,
+        "primary_streaming_sender_observed": True,
+        "standby_streaming_receiver_observed": True,
         "shared_system_identifier": True,
         "standby_replay_position_verified": True,
         "original_primary_stopped": True,
