@@ -1,6 +1,6 @@
 # NutriFlavorOS Engineering and Research Roadmap
 
-**Roadmap date:** 2026-08-04  
+**Roadmap date:** 2026-08-05  
 **Execution rule:** implement directly on `main` in coherent commits; keep code, tests, migrations, contracts, frontend clients, CI, and documentation synchronized; never rewrite history.  
 **Current migration head:** `20260802_0018`  
 **Current API:** `0.15.4`  
@@ -104,7 +104,7 @@ A real **ungraceful application-worker crash** boundary is implemented with `SIG
 - A fresh worker with a different worker-instance identity and backend PID repeats the same exact idempotency key and creates one accepted replacement. The operating-system PID remains diagnostic only because **OS PID reuse** is legal.
 - A final retry returns the same acceptance and schedule identities and preserves `created → accepted` proposal-event order.
 
-This closes controlled application-process death during checkout and before commit. It does not establish operating-system/container/node failure behavior, cross-replica recovery, or **multi-node failover**.
+This closes controlled application-process death during checkout and before commit. It does not establish operating-system/container/node failure behavior, database-replica recovery, or **multi-node failover**.
 
 ### C17 — PostgreSQL COMMIT acknowledgement loss
 
@@ -118,7 +118,22 @@ A controlled **COMMIT acknowledgement loss** boundary is implemented with a test
 - A fresh request with the same exact idempotency key returns the existing acceptance and schedule identities without duplication.
 - The proxy proves both forwarding threads terminate without leakage.
 
-This closes one controlled acknowledgement-withheld timing after server-side COMMIT completion. It does not establish all possible network-loss timings, encrypted transport interception, synchronous-replica durability, cross-replica coordination, or **multi-node failover**.
+This closes one controlled acknowledgement-withheld timing after server-side COMMIT completion. It does not establish all possible network-loss timings, encrypted transport interception, synchronous-replica durability, database-replica coordination, or **multi-node failover**.
+
+### C18 — Controlled multi-application-instance exact recovery
+
+**Controlled multi-application-instance exact recovery** is implemented after one ambiguous COMMIT result is already authoritative on one PostgreSQL primary.
+
+- The existing proxy creates one committed lifecycle while withholding the initiating client acknowledgement.
+- **six independent application workers** each establish a distinct worker-instance identity, SQLAlchemy pool, session, and simultaneously live PostgreSQL backend.
+- The parent waits until all six workers are ready behind one release gate.
+- Every worker repeats the exact original idempotency key through the production source-level acceptance guard.
+- All six return the same existing acceptance and draft replacement schedule identities.
+- All six close with zero checked-out connections.
+- Final counts remain one acceptance, one replacement, one accepted event, and one created event in `created → accepted` order.
+- No distributed lock service or process-local leader participates.
+
+This closes controlled cross-application-instance convergence on one primary. PostgreSQL replica promotion, endpoint rotation, service discovery, synchronous-replica acknowledgement, and multi-node failover remain open.
 
 ## P0 — Observe and repair exact hosted verification
 
@@ -129,7 +144,7 @@ Inspect exact latest `main` workflow runs and artifacts, record exact commit/run
 - Broader network-loss timings around COMMIT, including encrypted transport and loss after acknowledgement reaches lower client buffers.
 - Operating-system, container-runtime, Kubernetes pod, and node failure behavior beyond the controlled worker `SIGKILL` corpus.
 - PostgreSQL primary loss, replica promotion, DNS/service-discovery changes, synchronous-replica acknowledgement, and multi-node failover.
-- Cross-replica retry coordination and process replacement across multiple application instances.
+- Connection-target rotation and recovery across actual database replicas or promoted primaries; C18 covers application workers against one primary only.
 - Representative production capacity under realistic concurrent traffic, queueing, latency, process counts, pool sizing, connection lifetime/recycle behavior, and duration beyond the controlled 24-timeout corpus.
 - Production-snapshot or production-scale migration rehearsal beyond the 64-lifecycle corpus.
 - Authenticated production monitoring with rates, cross-replica aggregation, dashboards, alerts, paging, SLOs, and runbooks.
@@ -162,5 +177,5 @@ Continue reviewed evidence, forecasting, constrained ranking, backup/PITR, relea
 - The server always reports `automatic_retry_performed=false`.
 - Database recovery metrics never store SQL, request contents, idempotency keys, or domain identifiers.
 - Frontend preflight never replaces server authority.
-- No clinical, food-safety, global-optimality, model-readiness, representative-capacity, exhaustive-commit-loss, node-failure, cross-replica, failover, or green-build claim without exact supporting evidence.
+- No clinical, food-safety, global-optimality, model-readiness, representative-capacity, exhaustive-commit-loss, node-failure, database-replica, failover, or green-build claim without exact supporting evidence.
 - No force push, history rewrite, feature branch, or feature PR.
