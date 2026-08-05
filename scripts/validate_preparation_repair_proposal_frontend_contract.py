@@ -5,9 +5,18 @@ from __future__ import annotations
 
 import json
 
-from scripts.validate_preparation_repair_acceptance_frontend import (
-    validate_frontend_acceptance,
-)
+if __package__:
+    from scripts.validate_preparation_repair_acceptance_frontend import (
+        validate_frontend_acceptance,
+    )
+else:
+    # GitHub Actions executes this file directly as
+    # ``python scripts/validate_preparation_repair_proposal_frontend_contract.py``.
+    # In that mode Python places ``scripts/`` rather than the repository root at
+    # the front of ``sys.path``, so the package-qualified import is unavailable.
+    from validate_preparation_repair_acceptance_frontend import (
+        validate_frontend_acceptance,
+    )
 
 
 def validate_frontend_contract() -> dict:
