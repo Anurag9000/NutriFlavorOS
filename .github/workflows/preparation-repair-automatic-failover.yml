@@ -15,22 +15,26 @@ concurrency:
 jobs:
   automatic-fenced-failover:
     runs-on: ubuntu-latest
-    timeout-minutes: 85
+    timeout-minutes: 100
     env:
       FAILOVER_POSTGRES_IMAGE: postgres:16
       FAILOVER_NETWORK: nutriflavor-auto-failover-${{ github.run_id }}-${{ github.run_attempt }}
       FAILOVER_PRIMARY_CONTAINER: nutriflavor-auto-primary-${{ github.run_id }}-${{ github.run_attempt }}
       FAILOVER_STANDBY_CONTAINER: nutriflavor-auto-standby-${{ github.run_id }}-${{ github.run_attempt }}
+      FAILOVER_REJOIN_CONTAINER: nutriflavor-auto-rejoin-${{ github.run_id }}-${{ github.run_attempt }}
       FAILOVER_PRIMARY_VOLUME: nutriflavor-auto-primary-data-${{ github.run_id }}-${{ github.run_attempt }}
       FAILOVER_STANDBY_VOLUME: nutriflavor-auto-standby-data-${{ github.run_id }}-${{ github.run_attempt }}
       FAILOVER_PRIMARY_PORT: "55432"
       FAILOVER_STANDBY_PORT: "55433"
       FAILOVER_STABLE_PORT: "55434"
+      FAILOVER_REJOIN_PORT: "55435"
       FAILOVER_PRIMARY_DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:55432/nutriflavor_test
       FAILOVER_STANDBY_DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:55433/nutriflavor_test
       FAILOVER_STABLE_DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:55434/nutriflavor_test
+      FAILOVER_REJOIN_DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:55435/nutriflavor_test
       FAILOVER_AUTOMATIC_REPORT_PATH: reports/preparation-repair-automatic-failover.json
       FAILOVER_MULTI_WORKER_REPORT_PATH: reports/preparation-repair-post-promotion-workers.json
+      FAILOVER_REJOIN_REPORT_PATH: reports/preparation-repair-old-primary-rejoin.json
       DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:55432/nutriflavor_test
       JWT_SECRET: automatic-failover-ci-secret-at-least-32-bytes
       AUTO_CREATE_SCHEMA: "false"
@@ -59,15 +63,19 @@ jobs:
           scripts/probe_preparation_repair_stable_database_endpoint.py
           scripts/probe_preparation_repair_multi_instance_recovery.py
           scripts/probe_preparation_repair_post_promotion_multi_instance.py
+          scripts/probe_preparation_repair_old_primary_rejoin.py
           scripts/run_preparation_repair_automatic_failover_controller.py
           scripts/validate_preparation_repair_automatic_failover_contract.py
           scripts/validate_preparation_repair_automatic_failover_release.py
+          scripts/validate_preparation_repair_old_primary_rejoin_contract.py
+          scripts/validate_preparation_repair_old_primary_rejoin_release.py
           scripts/validate_repair_release_identity.py
 
       - name: Validate failover shell syntax
         run: |
           bash -n scripts/setup_preparation_repair_primary_failover_cluster.sh
           bash -n scripts/cleanup_preparation_repair_primary_failover_cluster.sh
+          bash -n scripts/rewind_preparation_repair_old_primary.sh
 
       - name: Create PostgreSQL primary and physical standby
         run: bash scripts/setup_preparation_repair_primary_failover_cluster.sh
@@ -91,6 +99,12 @@ jobs:
       - name: Validate automatic fenced failover release
         run: python scripts/validate_preparation_repair_automatic_failover_release.py
 
+      - name: Validate old-primary rejoin contract
+        run: python scripts/validate_preparation_repair_old_primary_rejoin_contract.py
+
+      - name: Validate old-primary rejoin release
+        run: python scripts/validate_preparation_repair_old_primary_rejoin_release.py
+
       - name: Validate synchronized repair release identity
         run: python scripts/validate_repair_release_identity.py
 
@@ -103,12 +117,19 @@ jobs:
       - name: Run six-worker exact recovery after automatic promotion
         run: python scripts/probe_preparation_repair_post_promotion_multi_instance.py
 
+      - name: Rewind and rejoin fenced old primary
+        run: bash scripts/rewind_preparation_repair_old_primary.sh
+
+      - name: Verify rewound old primary as streaming standby
+        run: python scripts/probe_preparation_repair_old_primary_rejoin.py
+
       - name: Capture automatic failover diagnostics
         if: failure()
         run: |
           docker ps -a > reports/preparation-repair-automatic-failover-docker-ps.txt || true
           docker logs "$FAILOVER_PRIMARY_CONTAINER" > reports/preparation-repair-automatic-primary.log 2>&1 || true
           docker logs "$FAILOVER_STANDBY_CONTAINER" > reports/preparation-repair-automatic-standby.log 2>&1 || true
+          docker logs "$FAILOVER_REJOIN_CONTAINER" > reports/preparation-repair-rejoined-standby.log 2>&1 || true
 
       - name: Upload automatic fenced failover evidence
         if: always()
