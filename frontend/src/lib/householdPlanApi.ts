@@ -1,5 +1,9 @@
 import { apiRequest } from "@/lib/http";
-import type { PreparationOccurrenceSetDocument } from "@/lib/preparationOperationsApi";
+import type {
+  PreparationOccurrenceSetDocument,
+  PreparationScheduleRequest,
+  PreparationScheduleResponse,
+} from "@/lib/preparationOperationsApi";
 
 const request = apiRequest;
 const encode = encodeURIComponent;
@@ -145,6 +149,30 @@ export interface ConfirmedPlanOccurrenceSetView {
   warnings: string[];
 }
 
+export interface ApprovedPlanPreparationCompileRequest {
+  expected_plan_version: number;
+  calendar_version_id: number;
+  occurrence_set: PreparationOccurrenceSetDocument;
+  profile_versions: Record<string, string>;
+  granularity_minutes: number;
+}
+
+export interface ApprovedPlanPreparationCompileView {
+  household_id: string;
+  source_plan_id: number;
+  source_plan_version: number;
+  calendar_version_id: number;
+  calendar_version: string;
+  calendar_content_hash: string;
+  occurrence_set: PreparationOccurrenceSetDocument;
+  profile_versions: Record<string, string>;
+  schedule_request: PreparationScheduleRequest;
+  schedule_response: PreparationScheduleResponse;
+  partial: boolean;
+  execution_status: string;
+  warnings: string[];
+}
+
 const base = (householdId: string) =>
   `/households/${encode(householdId)}/plans`;
 
@@ -198,6 +226,15 @@ export const householdPlanApi = {
   ) =>
     request<ConfirmedPlanOccurrenceSetView>(
       `${base(householdId)}/${planId}/preparation-occurrences/confirm`,
+      { method: "POST", body: body(payload) },
+    ),
+  compilePreparation: (
+    householdId: string,
+    planId: number,
+    payload: ApprovedPlanPreparationCompileRequest,
+  ) =>
+    request<ApprovedPlanPreparationCompileView>(
+      `${base(householdId)}/${planId}/preparation-occurrences/compile`,
       { method: "POST", body: body(payload) },
     ),
 };
