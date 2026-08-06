@@ -26,6 +26,7 @@ from backend.engines.prep_schedule_repair import (
     repair_preparation_schedule,
 )
 from backend.preparation_repair_proposal_models import DBPreparationRepairProposal
+from backend.preparation_task_execution_models import DBPreparationTaskExecutionEvent
 from backend.services.household_plan_lifecycle_service import assert_approved_source_plan
 from backend.services.preparation_operations_service import (
     _assert_schedule_matches_calendar,
@@ -105,6 +106,33 @@ def create_repair_proposal(
                 "code": "repair_source_status_not_supported",
                 "message": "Only replayable draft or approved schedules can be repaired",
                 "status": source.status,
+            },
+        )
+
+    # Ordinary minimal-change repair assumes the entire source schedule remains
+    # mutable. Once any task execution event exists, already-started or terminal
+    # work, actual timing, and irreversible side effects must participate in the
+    # repair objective and authority checks. Execution-aware repair is not
+    # implemented, so reject before loading or computing a candidate.
+    execution_event = (
+        db.query(DBPreparationTaskExecutionEvent)
+        .filter(DBPreparationTaskExecutionEvent.schedule_id == source.id)
+        .with_for_update()
+        .first()
+    )
+    if execution_event is not None:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "repair_source_has_execution_history",
+                "message": (
+                    "Execution-aware repair is not implemented; schedules with "
+                    "task execution history cannot use ordinary repair"
+                ),
+                "source_schedule_id": source.id,
+                "first_execution_event_id": execution_event.id,
+                "first_execution_task_id": execution_event.task_id,
+                "first_execution_event_type": execution_event.event_type,
             },
         )
 
