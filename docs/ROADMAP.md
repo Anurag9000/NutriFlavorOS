@@ -40,7 +40,7 @@ A viewer-authorized endpoint, CLI, typed client, and protected workspace provide
 
 ### C12 — Database recovery observability foundation
 
-Privacy-preserving process metrics and deterministic OpenMetrics rendering use bounded labels, immutable snapshots, finite-value validation, alerts, and concurrent-update evidence. SQL, request data, keys, and domain IDs are excluded. Cross-replica aggregation, persistent windows, paging, SLOs, and runbooks remain.
+The **database recovery observability** foundation uses privacy-preserving process metrics and deterministic OpenMetrics rendering with bounded labels, immutable snapshots, finite-value validation, alerts, and concurrent-update evidence. SQL, request data, keys, and domain IDs are excluded. Cross-replica aggregation, persistent windows, paging, SLOs, and runbooks remain.
 
 ### C13 — Controlled PostgreSQL pool exhaustion recovery
 
