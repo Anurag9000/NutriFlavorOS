@@ -155,13 +155,36 @@ def _assert_contradictory_version_conflicts() -> None:
         assert len(rows) == 1
 
 
-def _assert_concurrent_new_versions_keep_one_active_review() -> None:
+def _assert_concurrent_new_versions_fail_closed_with_one_active_review() -> None:
+    """One active-version race winner commits; the loser is an explicit conflict.
+
+    Returning two apparent successes would be false because the database can retain
+    only one active reviewed profile per recipe. The losing transaction is rolled
+    back completely and may be resubmitted later after the caller reviews current
+    evidence state.
+    """
+
     results = _run_pair(
         lambda: _register(_payload("successor-a")),
         lambda: _register(_payload("successor-b")),
     )
+    successes = [
+        value for _, value in results if not isinstance(value, Exception)
+    ]
     errors = [value for _, value in results if isinstance(value, Exception)]
-    assert errors == [], errors
+    assert len(successes) == 1, results
+    assert len(errors) == 1, results
+    assert isinstance(errors[0], ValueError)
+    assert (
+        "Preparation profile registration conflicted with concurrent evidence state"
+        in str(errors[0])
+    )
+
+    winner = successes[0]
+    assert winner.profile_version in {"successor-a", "successor-b"}
+    assert winner.active is True
+    assert winner.evidence_status.value == "reviewed"
+
     with SessionLocal() as db:
         rows = (
             db.query(DBRecipePreparationProfile)
@@ -175,21 +198,14 @@ def _assert_concurrent_new_versions_keep_one_active_review() -> None:
             if value.active and value.evidence_status == "reviewed"
         ]
         assert len(active) == 1
-        assert active[0].profile_version in {"successor-a", "successor-b"}
-        active_versions = {
-            value.profile_version
-            for value in rows
-            if value.profile_version in {"successor-a", "successor-b"}
-        }
-        assert active_versions == {"successor-a", "successor-b"}
-        superseded_new = [
+        assert active[0].id == winner.id
+        successor_rows = [
             value
             for value in rows
             if value.profile_version in {"successor-a", "successor-b"}
-            and not value.active
         ]
-        assert len(superseded_new) == 1
-        assert active[0].supersedes_profile_id == superseded_new[0].id
+        assert len(successor_rows) == 1
+        assert successor_rows[0].id == winner.id
 
 
 def main() -> int:
@@ -197,7 +213,7 @@ def main() -> int:
     try:
         _assert_identical_retry_collapses()
         _assert_contradictory_version_conflicts()
-        _assert_concurrent_new_versions_keep_one_active_review()
+        _assert_concurrent_new_versions_fail_closed_with_one_active_review()
         print("Preparation evidence PostgreSQL concurrency probe passed")
         return 0
     finally:
