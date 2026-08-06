@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   householdGet: vi.fn(),
   schedules: vi.fn(),
   taskExecution: vi.fn(),
+  eligibility: vi.fn(),
   startTask: vi.fn(),
   completeTask: vi.fn(),
   skipTask: vi.fn(),
@@ -41,6 +42,12 @@ vi.mock("@/lib/preparationOperationsApi", () => ({
     completeTask: mocks.completeTask,
     skipTask: mocks.skipTask,
     complete: mocks.completeSchedule,
+  },
+}));
+
+vi.mock("@/lib/preparationTaskExecutionEligibilityApi", () => ({
+  preparationTaskExecutionEligibilityApi: {
+    get: mocks.eligibility,
   },
 }));
 
@@ -136,6 +143,23 @@ function overview(value: ReturnType<typeof schedule>) {
   };
 }
 
+function eligibleSchedule(id: number) {
+  return {
+    schedule_id: id,
+    household_id: household.id,
+    schedule_version: 2,
+    schedule_status: "approved" as const,
+    eligible: true,
+    reason_code: "eligible" as const,
+    task_event_count: 0,
+    accepted_proposal_id: null,
+    acceptance_id: null,
+    replacement_schedule_id: null,
+    replacement_schedule_status: null,
+    replacement_schedule_version: null,
+  };
+}
+
 function renderPage({ retry = false }: { retry?: boolean } = {}) {
   const client = new QueryClient({
     defaultOptions: {
@@ -154,6 +178,7 @@ function renderPage({ retry = false }: { retry?: boolean } = {}) {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "fixed-uuid") });
   mocks.householdList.mockResolvedValue([household]);
   mocks.householdGet.mockResolvedValue({
     household,
@@ -166,6 +191,9 @@ beforeEach(() => {
   mocks.taskExecution.mockImplementation(async (_householdId: string, id: number) =>
     overview(id === secondSchedule.id ? secondSchedule : firstSchedule),
   );
+  mocks.eligibility.mockImplementation(async (_householdId: string, id: number) =>
+    eligibleSchedule(id),
+  );
   mocks.completeTask.mockResolvedValue({});
   mocks.skipTask.mockResolvedValue({});
   mocks.completeSchedule.mockResolvedValue({});
@@ -175,6 +203,7 @@ describe("Preparation task execution isolation", () => {
   it("clears actual minute, reason, and notes when schedules share a task ID", async () => {
     renderPage();
     expect(await screen.findByText(/Planned minute 10–25/)).toBeInTheDocument();
+    await screen.findByText("execution eligible");
 
     fireEvent.change(screen.getByLabelText("Actual horizon minute"), {
       target: { value: "17" },
@@ -235,6 +264,7 @@ describe("Preparation task execution isolation", () => {
       .mockResolvedValueOnce(success);
     renderPage({ retry: true });
     await screen.findByText(/Planned minute 10–25/);
+    await screen.findByText("execution eligible");
 
     fireEvent.click(screen.getByRole("button", { name: "Confirm start" }));
 
