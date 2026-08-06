@@ -44,7 +44,7 @@ class PreparationScheduleDerivationEvidenceView(StrictRepairModel):
     accepted_by_user_id: Optional[str]
     accepted_at: Optional[str]
     acceptance_reason: Optional[str]
-    warnings: List[str] = Field(default_factory=list)
+    warnings: List[str]
     created_at: str
     updated_at: str
 
