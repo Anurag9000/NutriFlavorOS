@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from fastapi import HTTPException
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
@@ -54,6 +55,25 @@ def _write_json_atomically(path: Path, payload: dict[str, Any]) -> None:
 def _enum_or_string(value: object) -> str:
     enum_value = getattr(value, "value", None)
     return str(enum_value if enum_value is not None else value)
+
+
+def _safe_error(exc: Exception) -> dict[str, Any]:
+    """Return bounded, credential-free subprocess diagnostics."""
+
+    detail: object = None
+    if isinstance(exc, HTTPException):
+        detail = exc.detail
+    if isinstance(detail, dict):
+        code = detail.get("code")
+        message = detail.get("message")
+    else:
+        code = None
+        message = detail if isinstance(detail, str) else str(exc)
+    return {
+        "error_type": type(exc).__name__,
+        "error_code": str(code)[:160] if code is not None else None,
+        "error_message": str(message)[:500] if message else None,
+    }
 
 
 def _wait_for_gate(path: Path, token: str) -> None:
@@ -171,8 +191,8 @@ def main() -> int:
             {
                 "worker_instance_id": WORKER_INSTANCE_ID,
                 "worker_pid": os.getpid(),
-                "error_type": type(exc).__name__,
                 "success": False,
+                **_safe_error(exc),
             },
         )
         return 1
