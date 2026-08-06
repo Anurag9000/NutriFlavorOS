@@ -31,6 +31,7 @@ FILES = {
     "status": "docs/IMPLEMENTATION_STATUS.md",
     "roadmap": "docs/ROADMAP.md",
 }
+PROSE_LABELS = {"docs", "multi_docs", "readme", "status", "roadmap"}
 
 
 def _read(relative: str, errors: list[str]) -> str:
@@ -48,8 +49,15 @@ def _normalized(value: str) -> str:
     return " ".join(value.split())
 
 
-def _contains(source: str, fragment: str) -> bool:
-    return fragment in source or _normalized(fragment) in _normalized(source)
+def _contains(source: str, fragment: str, *, case_sensitive: bool = True) -> bool:
+    normalized_source = _normalized(source)
+    normalized_fragment = _normalized(fragment)
+    if not case_sensitive:
+        source = source.casefold()
+        fragment = fragment.casefold()
+        normalized_source = normalized_source.casefold()
+        normalized_fragment = normalized_fragment.casefold()
+    return fragment in source or normalized_fragment in normalized_source
 
 
 def validate_release() -> dict:
@@ -243,7 +251,11 @@ def validate_release() -> dict:
     }
     for label, fragments in required.items():
         for fragment in sorted(fragments):
-            if not _contains(sources[label], fragment):
+            if not _contains(
+                sources[label],
+                fragment,
+                case_sensitive=label not in PROSE_LABELS,
+            ):
                 errors.append(
                     f"{FILES[label]} lacks COMMIT/multi-instance release fragment: {fragment}"
                 )
