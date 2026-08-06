@@ -62,6 +62,11 @@ def test_guarded_completion_rejects_corrupted_terminal_history(db):
         .first()
     )
     last.planned_finish_minute += 1
+    # Keep the intentionally corrupted row internally valid under the database
+    # deviation/reason constraints. The authoritative completion service must be
+    # the layer that detects the immutable plan-snapshot mismatch.
+    last.deviation_minutes = last.actual_minute - last.planned_finish_minute
+    last.reason = "Deliberate structurally valid terminal snapshot corruption"
     db.add(last)
     db.commit()
 
