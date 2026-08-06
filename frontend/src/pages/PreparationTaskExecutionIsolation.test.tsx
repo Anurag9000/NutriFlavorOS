@@ -265,8 +265,10 @@ describe("Preparation task execution isolation", () => {
     renderPage({ retry: true });
     await screen.findByText(/Planned minute 10–25/);
     await screen.findByText("execution eligible");
+    const startButton = screen.getByRole("button", { name: "Confirm start" });
+    await waitFor(() => expect(startButton).toBeEnabled());
 
-    fireEvent.click(screen.getByRole("button", { name: "Confirm start" }));
+    fireEvent.click(startButton);
 
     await waitFor(() => expect(mocks.startTask).toHaveBeenCalledTimes(2));
     const firstPayload = mocks.startTask.mock.calls[0][3];
