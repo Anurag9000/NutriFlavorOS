@@ -26,6 +26,9 @@ from backend.domain.preparation_evidence import DurationPolicy
 from backend.domain.preparation_operations import CalendarEvidenceStatus
 from backend.engines.prep_resource_scheduler import build_preparation_schedule
 from backend.preparation_models import DBRecipePreparationProfile
+from backend.services.approved_plan_occurrence_validation_service import (
+    validate_occurrence_set_against_approved_plan,
+)
 from backend.services.preparation_operations_service import get_resource_calendar
 
 
@@ -305,6 +308,14 @@ def compile_approved_plan_preparation(
         household_id=household_id,
         plan_id=plan_id,
         expected_version=payload.expected_plan_version,
+    )
+    validate_occurrence_set_against_approved_plan(
+        db,
+        household_id=household_id,
+        plan_id=plan_id,
+        expected_version=payload.expected_plan_version,
+        occurrence_set=payload.occurrence_set,
+        lock=False,
     )
     calendar = get_resource_calendar(
         db,
