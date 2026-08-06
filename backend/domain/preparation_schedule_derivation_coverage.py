@@ -27,7 +27,7 @@ class PreparationScheduleDerivationCoverageView(StrictRepairModel):
     derivation_coverage_ratio: float = Field(ge=0, le=1)
     repair_acceptance_link_coverage_ratio: float = Field(ge=0, le=1)
     latest_acceptance_at: Optional[str]
-    warnings: List[str] = Field(default_factory=list)
+    warnings: List[str]
 
     @model_validator(mode="after")
     def validate_denominators(self):
