@@ -106,6 +106,13 @@ class PreparationRepairDiagnostics(StrictRepairModel):
     tie_break_rule: str
     limitations: List[str] = Field(default_factory=list)
 
+    @field_validator("strategy", mode="before")
+    @classmethod
+    def parse_strategy(cls, value):
+        """Keep persisted diagnostic JSON replayable under strict validation."""
+
+        return _parse_repair_strategy(value)
+
 
 class PreparationScheduleRepairResult(StrictRepairModel):
     model_config = ConfigDict(
