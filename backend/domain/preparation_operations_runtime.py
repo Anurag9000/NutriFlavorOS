@@ -43,7 +43,7 @@ class PersistedScheduleCreateRequest(StrictPreparationOperationsModel):
     source_plan_id: Optional[int] = Field(default=None, ge=1)
     source_plan_version: Optional[int] = Field(default=None, ge=1)
     occurrence_set: PreparationOccurrenceSetDocument
-    profile_versions: Dict[str, str] = Field(default_factory=dict, max_length=1000)
+    profile_versions: Dict[str, str] = Field(..., max_length=1000)
     schedule_request: PreparationScheduleRequest
     schedule_response: PreparationScheduleResponse
     notes: Optional[str] = Field(default=None, max_length=4000)
