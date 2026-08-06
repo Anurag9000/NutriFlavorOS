@@ -53,7 +53,8 @@ Before invoking production acceptance, the proxied transaction executes:
 
 `SET LOCAL synchronous_commit = on`
 
-and verifies `SHOW synchronous_commit` returns `on`.
+and verifies `SHOW synchronous_commit` returns `on`. The effective
+transaction-local setting is therefore `synchronous_commit=on`.
 
 The proxy therefore withholds `CommandComplete(COMMIT)` only after PostgreSQL
 has completed the local synchronous commit boundary for this transaction. This
