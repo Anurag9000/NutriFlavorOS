@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   APPROVED_PLAN_OCCURRENCE_HANDOFF_KEY,
@@ -42,7 +42,13 @@ function confirmed(): ConfirmedPlanOccurrenceSetView {
 }
 
 beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(NOW));
   sessionStorage.clear();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("approved-plan occurrence handoff", () => {
