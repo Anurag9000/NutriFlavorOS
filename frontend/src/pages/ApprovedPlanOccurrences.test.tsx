@@ -187,14 +187,16 @@ describe("Approved-plan occurrence confirmation", () => {
     expect(
       await screen.findByText("Approved-plan preparation occurrences"),
     ).toBeInTheDocument();
-    expect(mocks.planList).toHaveBeenCalledWith(household.id, ["approved"]);
-    expect(mocks.occurrenceCandidates).toHaveBeenCalledWith(
-      household.id,
-      approvedPlan.id,
-      approvedPlan.version,
-    );
+    await waitFor(() => {
+      expect(mocks.planList).toHaveBeenCalledWith(household.id, ["approved"]);
+      expect(mocks.occurrenceCandidates).toHaveBeenCalledWith(
+        household.id,
+        approvedPlan.id,
+        approvedPlan.version,
+      );
+    });
 
-    const compatible = screen.getByText("Compatible dinner").closest("fieldset");
+    const compatible = (await screen.findByText("Compatible dinner")).closest("fieldset");
     expect(compatible).not.toBeNull();
     expect(
       within(compatible as HTMLElement).getByLabelText("Include this occurrence"),
