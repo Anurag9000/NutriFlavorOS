@@ -51,6 +51,8 @@ vi.mock("@/lib/preparationTaskExecutionEligibilityApi", () => ({
   },
 }));
 
+const ASYNC_QUERY_TIMEOUT_MS = 5_000;
+
 const household = {
   id: "home-1",
   owner_user_id: "owner@example.test",
@@ -181,6 +183,18 @@ function renderPage(role: "owner" | "editor" | "viewer" = "editor") {
   );
 }
 
+async function waitForEligibility(label: string) {
+  await waitFor(
+    () => expect(mocks.eligibility).toHaveBeenCalledWith("home-1", 7),
+    { timeout: ASYNC_QUERY_TIMEOUT_MS },
+  );
+  return screen.findByText(
+    label,
+    {},
+    { timeout: ASYNC_QUERY_TIMEOUT_MS },
+  );
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "fixed-uuid") });
@@ -233,9 +247,15 @@ describe("Preparation task execution workspace", () => {
       await screen.findByText("Preparation task execution"),
     ).toBeInTheDocument();
     expect(screen.getByText("Human-confirmed evidence only")).toBeInTheDocument();
-    expect(screen.getByText("dinner.prep")).toBeInTheDocument();
+    expect(await waitForEligibility("execution eligible")).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "dinner.prep",
+        {},
+        { timeout: ASYNC_QUERY_TIMEOUT_MS },
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Planned minute 10–25/)).toBeInTheDocument();
-    expect(await screen.findByText("execution eligible")).toBeInTheDocument();
     expect(mocks.taskExecution).toHaveBeenCalledWith("home-1", 7);
     expect(mocks.eligibility).toHaveBeenCalledWith("home-1", 7);
     expect(mocks.startTask).not.toHaveBeenCalled();
@@ -246,7 +266,7 @@ describe("Preparation task execution workspace", () => {
 
   it("submits the exact optimistic schedule version and horizon minute", async () => {
     renderPage();
-    await screen.findByText("execution eligible");
+    await waitForEligibility("execution eligible");
 
     fireEvent.click(screen.getByRole("button", { name: "Confirm start" }));
 
@@ -266,7 +286,7 @@ describe("Preparation task execution workspace", () => {
 
   it("requires a reason before a skipped task or timing deviation", async () => {
     renderPage();
-    await screen.findByText("execution eligible");
+    await waitForEligibility("execution eligible");
 
     fireEvent.change(screen.getByLabelText("Actual horizon minute"), {
       target: { value: "15" },
@@ -289,7 +309,7 @@ describe("Preparation task execution workspace", () => {
 
   it("keeps task mutations read-only for viewers", async () => {
     renderPage("viewer");
-    await screen.findByText("execution eligible");
+    await waitForEligibility("execution eligible");
 
     expect(screen.getByRole("button", { name: "Confirm start" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Confirm skip" })).toBeDisabled();
@@ -310,7 +330,7 @@ describe("Preparation task execution workspace", () => {
     renderPage();
 
     expect(
-      await screen.findByText("Execution blocked by accepted replacement"),
+      await waitForEligibility("Execution blocked by accepted replacement"),
     ).toBeInTheDocument();
     expect(screen.getByText(/repair proposal #31/)).toBeInTheDocument();
     expect(screen.getByText(/acceptance #41/)).toBeInTheDocument();
@@ -327,10 +347,12 @@ describe("Preparation task execution workspace", () => {
     );
     renderPage();
 
-    await screen.findByText("execution eligible");
-    const button = await screen.findByRole("button", {
-      name: "Complete schedule",
-    });
+    await waitForEligibility("execution eligible");
+    const button = await screen.findByRole(
+      "button",
+      { name: "Complete schedule" },
+      { timeout: ASYNC_QUERY_TIMEOUT_MS },
+    );
     expect(button).toBeEnabled();
     fireEvent.click(button);
 
