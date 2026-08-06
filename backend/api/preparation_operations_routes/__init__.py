@@ -58,7 +58,9 @@ from backend.services.preparation_task_completion_service import (
 )
 from backend.services.preparation_task_execution_authoritative_service import (
     get_task_execution_overview,
-    record_task_execution_event,
+)
+from backend.services.preparation_task_execution_replacement_guard_service import (
+    record_task_execution_event_with_replacement_guard as record_task_execution_event,
 )
 from backend.utils.security import get_current_user
 
