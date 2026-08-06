@@ -72,7 +72,11 @@ class DBUser(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
 
     plans = relationship(
-        "DBMealPlan", back_populates="user", cascade="all, delete-orphan", passive_deletes=True
+        "DBMealPlan",
+        back_populates="user",
+        foreign_keys="DBMealPlan.user_id",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     owned_households = relationship(
         "DBHousehold", back_populates="owner", cascade="all, delete-orphan", passive_deletes=True
@@ -114,7 +118,7 @@ class DBMealPlan(Base):
     plan_data = Column(JSON, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
 
-    user = relationship("DBUser", back_populates="plans")
+    user = relationship("DBUser", back_populates="plans", foreign_keys=[user_id])
 
 
 class DBFeedback(Base):
