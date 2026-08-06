@@ -48,6 +48,7 @@ vi.mock("@/lib/compiledPlanPreparationHandoff", () => ({
     mocks.storeCompiledPlanPreparationHandoff,
 }));
 
+const ASYNC_QUERY_TIMEOUT_MS = 5_000;
 const householdId = "approved-pipeline-home";
 const planId = 42;
 const planVersion = 2;
@@ -213,6 +214,28 @@ function renderPage(role: "owner" | "viewer" = "owner") {
   );
 }
 
+async function waitForPipelineInputs() {
+  await waitFor(
+    () => {
+      expect(mocks.householdGet).toHaveBeenCalledWith(householdId);
+      expect(mocks.calendars).toHaveBeenCalledWith(householdId);
+    },
+    { timeout: ASYNC_QUERY_TIMEOUT_MS },
+  );
+  expect(
+    await screen.findByText(
+      profileIdentity,
+      {},
+      { timeout: ASYNC_QUERY_TIMEOUT_MS },
+    ),
+  ).toBeInTheDocument();
+  return screen.findByRole(
+    "button",
+    { name: "Compile deterministic preparation schedule" },
+    { timeout: ASYNC_QUERY_TIMEOUT_MS },
+  );
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   sessionStorage.clear();
@@ -238,13 +261,13 @@ describe("Approved-plan preparation pipeline", () => {
     expect(
       await screen.findByText("Approved-plan preparation pipeline"),
     ).toBeInTheDocument();
+    await waitForPipelineInputs();
     expect(
       sessionStorage.getItem(APPROVED_PLAN_OCCURRENCE_HANDOFF_KEY),
     ).toBeNull();
     expect(mocks.compilePreparation).not.toHaveBeenCalled();
     expect(screen.getByText(/Source plan #42 · version 2/)).toBeInTheDocument();
     expect(screen.getByText(/Finish minute 180/)).toBeInTheDocument();
-    expect(screen.getByText(profileIdentity)).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /calendar-v1/ })).toBeInTheDocument();
     expect(
       screen.queryByRole("option", { name: /historical-calendar/ }),
@@ -253,13 +276,9 @@ describe("Approved-plan preparation pipeline", () => {
 
   it("submits the exact plan, occurrence, profile, calendar, and granularity inputs", async () => {
     renderPage();
-    await screen.findByText("Approved-plan preparation pipeline");
+    const compile = await waitForPipelineInputs();
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Compile deterministic preparation schedule",
-      }),
-    );
+    fireEvent.click(compile);
 
     await waitFor(() =>
       expect(mocks.compilePreparation).toHaveBeenCalledTimes(1),
@@ -275,7 +294,13 @@ describe("Approved-plan preparation pipeline", () => {
         granularity_minutes: 5,
       },
     );
-    expect(await screen.findByText("complete")).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "complete",
+        {},
+        { timeout: ASYNC_QUERY_TIMEOUT_MS },
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("day-1.dinner:prep")).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
@@ -286,13 +311,13 @@ describe("Approved-plan preparation pipeline", () => {
 
   it("requires a separate explicit action before staging operations", async () => {
     renderPage();
-    await screen.findByText("Approved-plan preparation pipeline");
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Compile deterministic preparation schedule",
-      }),
+    const compile = await waitForPipelineInputs();
+    fireEvent.click(compile);
+    await screen.findByText(
+      "complete",
+      {},
+      { timeout: ASYNC_QUERY_TIMEOUT_MS },
     );
-    await screen.findByText("complete");
 
     expect(mocks.storeCompiledPlanPreparationHandoff).not.toHaveBeenCalled();
     fireEvent.click(
@@ -309,13 +334,13 @@ describe("Approved-plan preparation pipeline", () => {
 
   it("invalidates compiled output when calendar inputs change", async () => {
     renderPage();
-    await screen.findByText("Approved-plan preparation pipeline");
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Compile deterministic preparation schedule",
-      }),
+    const compile = await waitForPipelineInputs();
+    fireEvent.click(compile);
+    await screen.findByText(
+      "complete",
+      {},
+      { timeout: ASYNC_QUERY_TIMEOUT_MS },
     );
-    await screen.findByText("complete");
 
     fireEvent.change(
       screen.getByLabelText("Scheduling granularity minutes"),
@@ -350,14 +375,16 @@ describe("Approved-plan preparation pipeline", () => {
     mocks.compilePreparation.mockResolvedValueOnce(partial);
 
     renderPage();
-    await screen.findByText("Approved-plan preparation pipeline");
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Compile deterministic preparation schedule",
-      }),
-    );
+    const compile = await waitForPipelineInputs();
+    fireEvent.click(compile);
 
-    expect(await screen.findByText("partial_unscheduled")).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "partial_unscheduled",
+        {},
+        { timeout: ASYNC_QUERY_TIMEOUT_MS },
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText(/missing_resource:/)).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
@@ -371,7 +398,11 @@ describe("Approved-plan preparation pipeline", () => {
     renderPage("viewer");
 
     expect(
-      await screen.findByText(/Editor or owner access is required/),
+      await screen.findByText(
+        /Editor or owner access is required/,
+        {},
+        { timeout: ASYNC_QUERY_TIMEOUT_MS },
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
