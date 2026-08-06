@@ -36,7 +36,7 @@ Configured real PostgreSQL evidence includes:
 - statement timeout, deadlock, lost-response replay, **post-commit connection-loss evidence**, and **checked-out pool connection invalidation evidence**;
 - **bounded exact serialization retry** with **three consecutive `40001` aborts** before one exact result;
 - controlled pool exhaustion and **controlled sustained pool pressure** with **24 checkout timeouts** and **zero lifecycle mutation** before recovery;
-- **controlled application-worker recycle** with backend disappearance and same-key recovery;
+- **controlled application-worker recycle** where the **old PostgreSQL backend disappears** before a **fresh worker process** performs same-key recovery;
 - **Controlled ungraceful application-worker crash** using real `SIGKILL`, including a **flushed but uncommitted** lifecycle that PostgreSQL rolls back;
 - controlled **COMMIT acknowledgement loss**, where PostgreSQL emits `CommandComplete(COMMIT)` and recovery uses the **same exact idempotency key**;
 - one-primary six-worker convergence with distinct worker identities, pools, and PostgreSQL backends;
