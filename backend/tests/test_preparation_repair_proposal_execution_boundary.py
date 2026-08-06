@@ -7,7 +7,7 @@ from backend.domain.preparation_operations import ScheduleStateTransitionRequest
 from backend.domain.preparation_task_execution import (
     PreparationTaskExecutionEventType,
 )
-from backend.preparation_operations_models import DBResourceCalendarVersion
+from backend.services.preparation_operations_service import get_resource_calendar
 from backend.services.preparation_repair_proposal_acceptance_service import (
     accept_repair_proposal,
 )
@@ -39,9 +39,11 @@ from backend.tests.test_preparation_task_execution_service import (
 
 
 def _calendar(db, schedule):
-    value = db.get(DBResourceCalendarVersion, schedule.calendar_version_id)
-    assert value is not None
-    return value
+    return get_resource_calendar(
+        db,
+        household_id=HOUSEHOLD_ID,
+        calendar_id=schedule.calendar_version_id,
+    )
 
 
 def _start_first_task(db, schedule, *, key: str):
