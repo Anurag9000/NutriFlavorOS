@@ -297,16 +297,16 @@ describe("Preparation task execution workspace", () => {
   });
 
   it("blocks a source after accepted replacement and exposes exact identities", async () => {
-    mocks.eligibility.mockResolvedValueOnce({
+    mocks.eligibility.mockImplementation(async () => ({
       ...eligible,
       eligible: false,
-      reason_code: "source_schedule_has_accepted_replacement",
+      reason_code: "source_schedule_has_accepted_replacement" as const,
       accepted_proposal_id: 31,
       acceptance_id: 41,
       replacement_schedule_id: 17,
       replacement_schedule_status: "draft",
       replacement_schedule_version: 1,
-    });
+    }));
     renderPage();
 
     expect(
@@ -322,15 +322,15 @@ describe("Preparation task execution workspace", () => {
   });
 
   it("enables schedule completion only when terminal and eligible", async () => {
-    mocks.taskExecution.mockResolvedValueOnce(
+    mocks.taskExecution.mockImplementation(async () =>
       overview({ roleState: "completed", remaining: 0 }),
     );
     renderPage();
 
+    await screen.findByText("execution eligible");
     const button = await screen.findByRole("button", {
       name: "Complete schedule",
     });
-    await screen.findByText("execution eligible");
     expect(button).toBeEnabled();
     fireEvent.click(button);
 
