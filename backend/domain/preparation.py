@@ -9,7 +9,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    model_serializer,
+    model_validator,
+)
 
 
 class StrictPreparationModel(BaseModel):
@@ -43,7 +49,8 @@ class PreparationResource(StrictPreparationModel):
     )
     capacity: int = Field(default=1, ge=1, le=1000)
     # Legacy single-window representation. It remains supported for existing
-    # API clients, fixtures, and stored replay requests.
+    # API clients, fixtures, and stored replay requests. Canonical serialization
+    # omits these fields whenever reviewed availability_windows are present.
     available_from_minute: int = Field(default=0, ge=0, le=10080)
     available_until_minute: Optional[int] = Field(default=None, ge=1, le=10080)
     # Preferred representation for reviewed calendars.
@@ -87,6 +94,27 @@ class PreparationResource(StrictPreparationModel):
                 raise ValueError("availability windows cannot overlap")
         self.availability_windows = ordered
         return self
+
+    @model_serializer(mode="wrap")
+    def serialize_canonical_resource(self, handler):
+        """Emit exactly one availability representation.
+
+        Strict input validation still rejects callers that explicitly submit both
+        representations. Once a canonical multi-window resource has been accepted,
+        however, Pydantic's ordinary dump would also emit the legacy defaults. The
+        resulting document could not be validated again and therefore could not be
+        persisted or replayed. Removing the inactive compatibility fields makes
+        model_dump/model_validate a stable round trip without accepting ambiguous
+        external input.
+        """
+
+        data = handler(self)
+        if self.availability_windows:
+            data.pop("available_from_minute", None)
+            data.pop("available_until_minute", None)
+        else:
+            data.pop("availability_windows", None)
+        return data
 
 
 class PreparationTask(StrictPreparationModel):
