@@ -142,7 +142,10 @@ describe("compiled approved-plan preparation handoff", () => {
     const value = await storeCompiledPlanPreparationHandoff(compiled());
 
     expect(mocks.storePreparationOperationsHandoff).toHaveBeenCalledTimes(1);
-    expect(mocks.storePreparationOperationsHandoff).toHaveBeenCalledWith(value);
+    expect(mocks.storePreparationOperationsHandoff).toHaveBeenCalledWith(
+      value,
+      sessionStorage,
+    );
   });
 
   it("rejects partial or unscheduled output", async () => {
