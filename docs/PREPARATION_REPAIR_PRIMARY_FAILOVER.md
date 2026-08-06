@@ -64,8 +64,8 @@ The application receives an invalidated `OperationalError` classified as:
 - `outcome_unknown=true`;
 - `automatic_retry_performed=false`.
 
-Independent primary reads prove exactly one committed acceptance, one draft
-replacement, one proposal `accepted` event, and one replacement `created`
+Independent primary reads prove exactly one acceptance that is committed, one
+draft replacement, one proposal `accepted` event, and one replacement `created`
 event.
 
 ## Replay-position proof
