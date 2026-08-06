@@ -10,7 +10,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from backend.domain.preparation import PreparationScheduleRequest
 from backend.domain.preparation_repair import (
@@ -54,6 +54,20 @@ class PreparationRepairProposalCreateRequest(StrictRepairModel):
         max_length=240,
         pattern=r"^[A-Za-z0-9_.:-]+$",
     )
+
+    @field_validator("strategy", mode="before")
+    @classmethod
+    def parse_strategy(cls, value):
+        """Accept exact JSON enum values without relaxing other strict fields."""
+
+        if isinstance(value, PreparationRepairStrategy):
+            return value
+        if isinstance(value, str):
+            try:
+                return PreparationRepairStrategy(value)
+            except ValueError:
+                return value
+        return value
 
     @model_validator(mode="after")
     def normalize(self):
