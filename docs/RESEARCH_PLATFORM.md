@@ -2,7 +2,7 @@
 
 NutriFlavorOS separates product behavior, reviewed evidence operations, and offline research. A source file, callable, catalog entry, synthetic fixture, passing test, or benchmark report is **not** proof that a method was trained, promoted, clinically validated, safe, or enabled for users.
 
-- Database migration head: **`20260802_0014`**.
+- Database migration head: **`20260802_0018`**.
 - API version: **`0.12.1`**.
 - OpenAPI release contract: **`2026-08-02.6`**.
 - Food-evidence frontend binding contract: **`2026-08-01.2`**.
@@ -111,7 +111,7 @@ Clinical, allergy-safety, medication, food-safety, autonomous appliance, and aut
 
 ## Preparation execution and coverage boundary
 
-Migration `20260802_0014` adds a product-side append-only task execution ledger. It is not a research inference system:
+The Alembic migration chain through `20260802_0018` is the canonical DDL for the product-side append-only task execution ledger. It is not a research inference system:
 
 - task identity and planned timing come from the persisted deterministic schedule;
 - events are explicitly entered by authorized household users;
