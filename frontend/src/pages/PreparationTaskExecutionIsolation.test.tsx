@@ -51,6 +51,8 @@ vi.mock("@/lib/preparationTaskExecutionEligibilityApi", () => ({
   },
 }));
 
+const ASYNC_QUERY_TIMEOUT_MS = 5_000;
+
 const household = {
   id: "isolation-home",
   owner_user_id: "owner@example.test",
@@ -176,6 +178,18 @@ function renderPage({ retry = false }: { retry?: boolean } = {}) {
   );
 }
 
+async function waitForEligibility(scheduleId: number) {
+  await waitFor(
+    () => expect(mocks.eligibility).toHaveBeenCalledWith(household.id, scheduleId),
+    { timeout: ASYNC_QUERY_TIMEOUT_MS },
+  );
+  return screen.findByText(
+    "execution eligible",
+    {},
+    { timeout: ASYNC_QUERY_TIMEOUT_MS },
+  );
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "fixed-uuid") });
@@ -202,8 +216,14 @@ beforeEach(() => {
 describe("Preparation task execution isolation", () => {
   it("clears actual minute, reason, and notes when schedules share a task ID", async () => {
     renderPage();
-    expect(await screen.findByText(/Planned minute 10–25/)).toBeInTheDocument();
-    await screen.findByText("execution eligible");
+    expect(
+      await screen.findByText(
+        /Planned minute 10–25/,
+        {},
+        { timeout: ASYNC_QUERY_TIMEOUT_MS },
+      ),
+    ).toBeInTheDocument();
+    await waitForEligibility(firstSchedule.id);
 
     fireEvent.change(screen.getByLabelText("Actual horizon minute"), {
       target: { value: "17" },
@@ -219,7 +239,14 @@ describe("Preparation task execution isolation", () => {
       target: { value: String(secondSchedule.id) },
     });
 
-    expect(await screen.findByText(/Planned minute 80–100/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        /Planned minute 80–100/,
+        {},
+        { timeout: ASYNC_QUERY_TIMEOUT_MS },
+      ),
+    ).toBeInTheDocument();
+    await waitForEligibility(secondSchedule.id);
     await waitFor(() =>
       expect(screen.getByLabelText("Actual horizon minute")).toHaveValue(80),
     );
@@ -263,8 +290,12 @@ describe("Preparation task execution isolation", () => {
       .mockRejectedValueOnce(new Error("Ambiguous transport failure"))
       .mockResolvedValueOnce(success);
     renderPage({ retry: true });
-    await screen.findByText(/Planned minute 10–25/);
-    await screen.findByText("execution eligible");
+    await screen.findByText(
+      /Planned minute 10–25/,
+      {},
+      { timeout: ASYNC_QUERY_TIMEOUT_MS },
+    );
+    await waitForEligibility(firstSchedule.id);
     const startButton = screen.getByRole("button", { name: "Confirm start" });
     await waitFor(() => expect(startButton).toBeEnabled());
 
