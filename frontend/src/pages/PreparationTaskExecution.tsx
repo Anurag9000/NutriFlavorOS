@@ -44,6 +44,12 @@ interface TaskDraft {
   notes: string;
 }
 
+interface TaskMutationVariables {
+  task: PreparationTaskExecutionTaskView;
+  eventType: PreparationTaskExecutionEventType;
+  idempotencyKey: string;
+}
+
 function messageOf(error: unknown): string {
   return error instanceof Error
     ? error.message
@@ -56,6 +62,10 @@ function canEdit(role?: HouseholdRole | null): boolean {
 
 function eventKey(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
+}
+
+function taskDraftKey(scheduleId: number, taskId: string): string {
+  return `${scheduleId}:${taskId}`;
 }
 
 function stateLabel(value: string): string {
@@ -168,7 +178,8 @@ export default function PreparationTaskExecutionPage() {
     setTaskDrafts((current) => {
       const next: Record<string, TaskDraft> = {};
       for (const task of overview.tasks) {
-        next[task.task.task_id] = current[task.task.task_id] ?? {
+        const key = taskDraftKey(overview.schedule.id, task.task.task_id);
+        next[key] = current[key] ?? {
           actualMinute: String(defaultMinute(task)),
           reason: "",
           notes: "",
@@ -222,13 +233,12 @@ export default function PreparationTaskExecutionPage() {
     mutationFn: ({
       task,
       eventType,
-    }: {
-      task: PreparationTaskExecutionTaskView;
-      eventType: PreparationTaskExecutionEventType;
-    }) => {
+      idempotencyKey,
+    }: TaskMutationVariables) => {
       if (!overview) throw new Error("Select an execution schedule");
       assertExecutionEligible();
-      const draft = taskDrafts[task.task.task_id];
+      const key = taskDraftKey(overview.schedule.id, task.task.task_id);
+      const draft = taskDrafts[key];
       const actualMinute = Number(draft?.actualMinute);
       if (
         !Number.isInteger(actualMinute)
@@ -258,7 +268,7 @@ export default function PreparationTaskExecutionPage() {
         actual_minute: actualMinute,
         reason,
         notes: draft?.notes.trim() || null,
-        idempotency_key: eventKey(`task-${eventType}`),
+        idempotency_key: idempotencyKey,
         metadata: { source: "preparation_task_execution_ui" },
       };
       const handlers = {
@@ -275,9 +285,10 @@ export default function PreparationTaskExecutionPage() {
     },
     onSuccess: async (value) => {
       await invalidate();
+      const key = taskDraftKey(value.schedule.id, value.task.task.task_id);
       setTaskDrafts((current) => ({
         ...current,
-        [value.task.task.task_id]: {
+        [key]: {
           actualMinute: String(defaultMinute(value.task)),
           reason: "",
           notes: "",
@@ -541,7 +552,8 @@ export default function PreparationTaskExecutionPage() {
             <div className="space-y-4">
               {overview.tasks.map((taskView) => {
                 const task = taskView.task;
-                const draft = taskDrafts[task.task_id] ?? {
+                const draftKey = taskDraftKey(overview.schedule.id, task.task_id);
+                const draft = taskDrafts[draftKey] ?? {
                   actualMinute: String(defaultMinute(taskView)),
                   reason: "",
                   notes: "",
@@ -550,8 +562,9 @@ export default function PreparationTaskExecutionPage() {
                   overview.schedule.status === "approved"
                   && canEdit(role)
                   && eligibility?.eligible === true;
+                const fieldSuffix = `${overview.schedule.id}-${task.task_id}`;
                 return (
-                  <Card key={task.task_id}>
+                  <Card key={draftKey}>
                     <CardHeader>
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
@@ -602,11 +615,11 @@ export default function PreparationTaskExecutionPage() {
                       {(taskView.state === "planned" || taskView.state === "in_progress") && (
                         <div className="grid gap-3 md:grid-cols-3">
                           <div className="space-y-1">
-                            <Label htmlFor={`actual-${task.task_id}`}>
+                            <Label htmlFor={`actual-${fieldSuffix}`}>
                               Actual horizon minute
                             </Label>
                             <Input
-                              id={`actual-${task.task_id}`}
+                              id={`actual-${fieldSuffix}`}
                               type="number"
                               min="0"
                               max={overview.schedule.schedule.horizon_minutes}
@@ -616,7 +629,7 @@ export default function PreparationTaskExecutionPage() {
                               onChange={(event) =>
                                 setTaskDrafts((current) => ({
                                   ...current,
-                                  [task.task_id]: {
+                                  [draftKey]: {
                                     ...draft,
                                     actualMinute: event.target.value,
                                   },
@@ -625,18 +638,18 @@ export default function PreparationTaskExecutionPage() {
                             />
                           </div>
                           <div className="space-y-1 md:col-span-2">
-                            <Label htmlFor={`reason-${task.task_id}`}>
+                            <Label htmlFor={`reason-${fieldSuffix}`}>
                               Skip or deviation reason
                             </Label>
                             <Input
-                              id={`reason-${task.task_id}`}
+                              id={`reason-${fieldSuffix}`}
                               value={draft.reason}
                               disabled={!mutable || taskMutation.isPending}
                               placeholder="Required for skips or any timing difference"
                               onChange={(event) =>
                                 setTaskDrafts((current) => ({
                                   ...current,
-                                  [task.task_id]: {
+                                  [draftKey]: {
                                     ...draft,
                                     reason: event.target.value,
                                   },
@@ -645,16 +658,16 @@ export default function PreparationTaskExecutionPage() {
                             />
                           </div>
                           <div className="space-y-1 md:col-span-3">
-                            <Label htmlFor={`notes-${task.task_id}`}>Notes</Label>
+                            <Label htmlFor={`notes-${fieldSuffix}`}>Notes</Label>
                             <Textarea
-                              id={`notes-${task.task_id}`}
+                              id={`notes-${fieldSuffix}`}
                               value={draft.notes}
                               disabled={!mutable || taskMutation.isPending}
                               placeholder="Optional human-entered execution notes"
                               onChange={(event) =>
                                 setTaskDrafts((current) => ({
                                   ...current,
-                                  [task.task_id]: {
+                                  [draftKey]: {
                                     ...draft,
                                     notes: event.target.value,
                                   },
@@ -671,6 +684,7 @@ export default function PreparationTaskExecutionPage() {
                                   taskMutation.mutate({
                                     task: taskView,
                                     eventType: "started",
+                                    idempotencyKey: eventKey("task-started"),
                                   })
                                 }
                               >
@@ -686,6 +700,7 @@ export default function PreparationTaskExecutionPage() {
                                   taskMutation.mutate({
                                     task: taskView,
                                     eventType: "completed",
+                                    idempotencyKey: eventKey("task-completed"),
                                   })
                                 }
                               >
@@ -701,6 +716,7 @@ export default function PreparationTaskExecutionPage() {
                                 taskMutation.mutate({
                                   task: taskView,
                                   eventType: "skipped",
+                                  idempotencyKey: eventKey("task-skipped"),
                                 })
                               }
                             >
