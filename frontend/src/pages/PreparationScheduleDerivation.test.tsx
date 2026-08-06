@@ -162,8 +162,8 @@ describe("Preparation schedule derivation inspector", () => {
       await screen.findByRole("heading", { name: "Schedule derivation evidence" }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByText("Original deterministic scheduler"),
-    ).toBeInTheDocument();
+      await screen.findAllByText("Original deterministic scheduler"),
+    ).toHaveLength(2);
     expect(
       screen.getByText("No repair proposal or acceptance applies"),
     ).toBeInTheDocument();
@@ -173,7 +173,7 @@ describe("Preparation schedule derivation inspector", () => {
 
   it("shows the full accepted repair chain", async () => {
     renderPage();
-    await screen.findByText("Original deterministic scheduler");
+    await screen.findAllByText("Original deterministic scheduler");
 
     fireEvent.change(screen.getByLabelText("Schedule"), {
       target: { value: "22" },
@@ -211,7 +211,7 @@ describe("Preparation schedule derivation inspector", () => {
 
   it("reloads schedule, coverage, and derivation scope after household change", async () => {
     renderPage();
-    await screen.findByText("Original deterministic scheduler");
+    await screen.findAllByText("Original deterministic scheduler");
 
     fireEvent.change(screen.getByLabelText("Household"), {
       target: { value: "home-2" },
