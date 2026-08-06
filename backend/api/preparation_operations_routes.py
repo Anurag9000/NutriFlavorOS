@@ -1,4 +1,9 @@
-"""Authorized household APIs for preparation calendars and schedules."""
+"""Authorized household APIs for preparation calendars and schedules.
+
+This compatibility module mirrors the authoritative route package so legacy
+imports preserve the same provenance, execution, approval, completion, and
+support-export authority boundaries.
+"""
 
 from __future__ import annotations
 
@@ -31,6 +36,9 @@ from backend.domain.preparation_task_execution import (
     PreparationTaskExecutionMutationView,
     PreparationTaskExecutionOverview,
 )
+from backend.services.approved_plan_occurrence_validation_service import (
+    validate_occurrence_set_against_approved_plan,
+)
 from backend.services.household_access_service import require_household_access
 from backend.services.household_plan_lifecycle_service import (
     assert_approved_source_plan,
@@ -59,7 +67,9 @@ from backend.services.preparation_task_completion_service import (
 )
 from backend.services.preparation_task_execution_authoritative_service import (
     get_task_execution_overview,
-    record_task_execution_event,
+)
+from backend.services.preparation_task_execution_replacement_guard_service import (
+    record_task_execution_event_with_replacement_guard as record_task_execution_event,
 )
 from backend.utils.security import get_current_user
 
@@ -76,13 +86,14 @@ def _access(
     user_id: str,
     role: HouseholdRole,
 ):
-    household, membership = require_household_access(
+    """Require access without depending on a helper return tuple."""
+
+    return require_household_access(
         db,
         household_id,
         user_id,
         role,
     )
-    return household, membership
 
 
 @router.get(
@@ -167,12 +178,22 @@ def create_persisted_schedule_route(
     current_user: DBUser = Depends(get_current_user),
 ):
     _access(db, household_id, current_user.id, HouseholdRole.EDITOR)
-    assert_approved_source_plan(
-        db,
-        household_id=household_id,
-        source_plan_id=payload.source_plan_id,
-        source_plan_version=payload.source_plan_version,
-    )
+    if payload.source_plan_id is not None:
+        validate_occurrence_set_against_approved_plan(
+            db,
+            household_id=household_id,
+            plan_id=payload.source_plan_id,
+            expected_version=payload.source_plan_version,
+            occurrence_set=payload.occurrence_set,
+            lock=False,
+        )
+    else:
+        assert_approved_source_plan(
+            db,
+            household_id=household_id,
+            source_plan_id=payload.source_plan_id,
+            source_plan_version=payload.source_plan_version,
+        )
     return create_persisted_schedule(
         db,
         household_id=household_id,
