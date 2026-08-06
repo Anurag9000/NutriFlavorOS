@@ -278,7 +278,7 @@ def _payload(calendar_id: int, profile_identity: str) -> dict:
             "duration_policy": "conservative_max",
             "occurrences": [
                 {
-                    "occurrence_id": "day-1.dinner",
+                    "occurrence_id": "day-1.dinner-216713d08860cfa0",
                     "recipe_id": "approved-compile-api-recipe",
                     "required_finish_minute": 180,
                     "servings": 2,
@@ -344,3 +344,36 @@ def test_stale_profile_and_outsider_requests_fail_closed(api):
     identity["user_id"] = OUTSIDER_ID
     hidden = client.post(endpoint, json=_payload(calendar_id, profile_identity))
     assert hidden.status_code == 404
+
+
+def test_occurrence_identity_and_recipe_drift_fail_closed(api):
+    client, identity, plan_id, calendar_id, profile_identity = api
+    identity["user_id"] = EDITOR_ID
+    endpoint = (
+        f"/api/v1/households/{HOUSEHOLD_ID}/plans/{plan_id}/"
+        "preparation-occurrences/compile"
+    )
+
+    unknown = _payload(calendar_id, profile_identity)
+    unknown["occurrence_set"]["occurrences"][0]["occurrence_id"] = (
+        "day-1.unknown-0000000000000000"
+    )
+    unknown_response = client.post(endpoint, json=unknown)
+    assert unknown_response.status_code == 409
+    unknown_detail = unknown_response.json()["detail"]
+    assert unknown_detail["code"] == "approved_plan_occurrence_mismatch"
+    assert unknown_detail["unknown_occurrence_ids"] == [
+        "day-1.unknown-0000000000000000"
+    ]
+
+    recipe_drift = _payload(calendar_id, profile_identity)
+    recipe_drift["occurrence_set"]["occurrences"][0]["recipe_id"] = (
+        "different-recipe"
+    )
+    recipe_drift_response = client.post(endpoint, json=recipe_drift)
+    assert recipe_drift_response.status_code == 409
+    recipe_detail = recipe_drift_response.json()["detail"]
+    assert recipe_detail["code"] == "approved_plan_occurrence_mismatch"
+    assert recipe_detail["recipe_mismatches"][0]["expected_recipe_id"] == (
+        "approved-compile-api-recipe"
+    )
