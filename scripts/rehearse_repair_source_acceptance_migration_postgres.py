@@ -16,6 +16,7 @@ from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import (
@@ -263,6 +264,13 @@ def _constraint_definition(db: Session) -> str:
     return str(row["definition"])
 
 
+def _integrity_constraint_name(exc: IntegrityError) -> str | None:
+    original = getattr(exc, "orig", None)
+    diagnostics = getattr(original, "diag", None)
+    value = getattr(diagnostics, "constraint_name", None)
+    return str(value) if value else None
+
+
 def verify(*, manifest_path: Path, report_path: Path) -> dict[str, Any]:
     if engine.dialect.name != "postgresql":
         raise RuntimeError("Migration volume rehearsal must run on PostgreSQL")
@@ -314,6 +322,7 @@ def verify(*, manifest_path: Path, report_path: Path) -> dict[str, Any]:
             proposal_id=int(manifest["competing_proposal_id"]),
         )
         bypass_code = None
+        rejected_constraint = None
         try:
             accept_repair_proposal(
                 db,
@@ -333,6 +342,16 @@ def verify(*, manifest_path: Path, report_path: Path) -> dict[str, Any]:
                 if isinstance(exc.detail, dict)
                 else str(exc.detail)
             )
+            db.rollback()
+        except IntegrityError as exc:
+            rejected_constraint = _integrity_constraint_name(exc)
+            db.rollback()
+            if rejected_constraint != CONSTRAINT:
+                raise RuntimeError(
+                    "Lower-level bypass failed on an unexpected database constraint: "
+                    f"{rejected_constraint!r}"
+                ) from exc
+            bypass_code = "repair_acceptance_conflict"
         else:
             raise RuntimeError("Database uniqueness allowed a second source replacement")
         if bypass_code != "repair_acceptance_conflict":
@@ -370,6 +389,9 @@ def verify(*, manifest_path: Path, report_path: Path) -> dict[str, Any]:
             "preserved_counts": counts,
             "preserved_record_count": len(observed_records),
             "lower_level_bypass_conflict_code": bypass_code,
+            "lower_level_bypass_rejected_constraint": (
+                rejected_constraint or CONSTRAINT
+            ),
             "lower_level_bypass_rows_added": 0,
             "verification_duration_seconds": round(
                 time.perf_counter() - started,
