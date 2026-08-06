@@ -17,12 +17,17 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+# requirements.txt installs the repository itself with `-e .`; copy the complete
+# packaging boundary before dependency installation so local, CI, and container
+# imports all exercise the same installed package contract.
+COPY pyproject.toml README.md ./
 COPY backend/requirements.txt ./backend/requirements.txt
-RUN pip install --no-cache-dir -r backend/requirements.txt
-
-COPY alembic.ini ./alembic.ini
 COPY backend/ ./backend/
 COPY scripts/ ./scripts/
+RUN pip install --no-cache-dir -r backend/requirements.txt \
+    && pip check
+
+COPY alembic.ini ./alembic.ini
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 RUN addgroup --system app \
