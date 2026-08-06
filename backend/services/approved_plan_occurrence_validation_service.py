@@ -7,6 +7,8 @@ from typing import Dict
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from backend.database import DBMealPlan
+from backend.domain.household_plan_lifecycle import HouseholdPlanStatus
 from backend.domain.preparation_operations import PreparationOccurrenceSetDocument
 from backend.services.household_plan_occurrence_service import (
     _approved_plan,
@@ -22,6 +24,36 @@ def _conflict(code: str, message: str, **details) -> HTTPException:
     )
 
 
+def _lock_source_plan(
+    db: Session,
+    *,
+    household_id: str,
+    plan_id: int,
+    expected_version: int,
+) -> None:
+    row = (
+        db.query(DBMealPlan)
+        .filter(
+            DBMealPlan.id == plan_id,
+            DBMealPlan.household_id == household_id,
+        )
+        .with_for_update()
+        .first()
+    )
+    if row is None or row.version != expected_version:
+        raise _conflict(
+            "source_plan_version_mismatch",
+            "The source household plan is missing or its version changed",
+        )
+    if row.status != HouseholdPlanStatus.APPROVED.value:
+        raise _conflict(
+            "source_plan_not_approved",
+            "Preparation occurrences must reference an approved household plan",
+            current_status=row.status,
+            current_version=row.version,
+        )
+
+
 def validate_occurrence_set_against_approved_plan(
     db: Session,
     *,
@@ -29,6 +61,7 @@ def validate_occurrence_set_against_approved_plan(
     plan_id: int,
     expected_version: int,
     occurrence_set: PreparationOccurrenceSetDocument,
+    lock: bool = True,
 ) -> None:
     """Prove that every occurrence belongs to the exact approved source plan.
 
@@ -55,6 +88,13 @@ def validate_occurrence_set_against_approved_plan(
             },
         )
 
+    if lock:
+        _lock_source_plan(
+            db,
+            household_id=household_id,
+            plan_id=plan_id,
+            expected_version=expected_version,
+        )
     plan = _approved_plan(
         db,
         household_id=household_id,
