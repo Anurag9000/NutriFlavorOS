@@ -33,12 +33,12 @@ from backend.domain.preparation_task_execution import (
     PreparationTaskExecutionMutationView,
     PreparationTaskExecutionOverview,
 )
+from backend.services.approved_plan_occurrence_validation_service import (
+    validate_occurrence_set_against_approved_plan,
+)
 from backend.services.household_access_service import require_household_access
 from backend.services.household_plan_lifecycle_service import (
     assert_approved_source_plan,
-)
-from backend.services.household_plan_occurrence_service import (
-    validate_occurrence_set_against_approved_plan,
 )
 from backend.services.preparation_operations_coverage_service import (
     get_preparation_operations_coverage,
