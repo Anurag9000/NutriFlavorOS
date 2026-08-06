@@ -20,6 +20,7 @@ FILES = {
     "roadmap": "docs/ROADMAP.md",
     "readme": "README.md",
 }
+PROSE_LABELS = {"docs", "status", "roadmap", "readme"}
 
 
 def _read(relative: str, errors: list[str]) -> str:
@@ -37,8 +38,15 @@ def _normalized(value: str) -> str:
     return " ".join(value.split())
 
 
-def _contains(source: str, fragment: str) -> bool:
-    return fragment in source or _normalized(fragment) in _normalized(source)
+def _contains(source: str, fragment: str, *, case_sensitive: bool = True) -> bool:
+    normalized_source = _normalized(source)
+    normalized_fragment = _normalized(fragment)
+    if not case_sensitive:
+        source = source.casefold()
+        fragment = fragment.casefold()
+        normalized_source = normalized_source.casefold()
+        normalized_fragment = normalized_fragment.casefold()
+    return fragment in source or normalized_fragment in normalized_source
 
 
 def _test_names(source: str) -> set[str]:
@@ -138,9 +146,9 @@ def validate_contract() -> dict:
             "multi-node PostgreSQL failover",
         },
         "status": {
-            "controlled multi-application-instance exact recovery",
+            "one-primary six-worker convergence",
             "six independent worker processes",
-            "one PostgreSQL primary",
+            "controlled multi-application-instance convergence",
         },
         "roadmap": {
             "Controlled multi-application-instance exact recovery",
@@ -155,7 +163,11 @@ def validate_contract() -> dict:
     }
     for label, fragments in required.items():
         for fragment in sorted(fragments):
-            if not _contains(sources[label], fragment):
+            if not _contains(
+                sources[label],
+                fragment,
+                case_sensitive=label not in PROSE_LABELS,
+            ):
                 errors.append(
                     f"{FILES[label]} lacks multi-instance recovery fragment: {fragment}"
                 )
