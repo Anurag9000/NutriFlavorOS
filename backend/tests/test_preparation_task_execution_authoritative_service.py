@@ -164,6 +164,11 @@ def test_event_planned_time_snapshot_drift_is_rejected(db):
     )
     row = db.get(DBPreparationTaskExecutionEvent, started.event.id)
     row.planned_start_minute += 1
+    # Keep the deliberately corrupted row internally consistent with the
+    # database deviation/reason constraints so the authoritative replay layer,
+    # rather than SQLite, proves that its plan snapshot no longer matches.
+    row.deviation_minutes = row.actual_minute - row.planned_start_minute
+    row.reason = "Deliberate structurally valid snapshot corruption"
     db.add(row)
     db.commit()
 
