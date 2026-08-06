@@ -107,6 +107,20 @@ def _collect(process: subprocess.Popen[str], timeout_seconds: float) -> tuple[st
     return stdout, stderr
 
 
+def _collect_worker(
+    process: subprocess.Popen[str],
+    result_path: Path,
+    timeout_seconds: float,
+) -> tuple[str, str]:
+    try:
+        return _collect(process, timeout_seconds)
+    except RuntimeError as exc:
+        report = _read_json(result_path) if result_path.is_file() else None
+        raise RuntimeError(
+            f"post-promotion worker failed: pid={process.pid}, report={report!r}"
+        ) from exc
+
+
 def _ensure_stopped(process: subprocess.Popen[str]) -> None:
     if process.poll() is None:
         process.kill()
@@ -228,7 +242,11 @@ def main() -> int:
         proposal = db.get(DBPreparationRepairProposal, proposal_id)
         if proposal is None:
             raise RuntimeError("promoted proposal is missing")
-        payload = acceptance_payload(proposal, key=key)
+        payload = acceptance_payload(
+            proposal,
+            key=key,
+            proposal_version=int(acceptance.proposal_version_before),
+        )
         if _counts(db, proposal_id) != ONE_COUNTS:
             raise RuntimeError("promoted lifecycle counts are not exactly one")
 
@@ -332,8 +350,8 @@ def main() -> int:
                 raise RuntimeError("not every promoted backend was simultaneously live")
 
             _write_json_atomically(gate_path, {"release_token": release_token})
-            for process in workers:
-                _collect(process, 60.0)
+            for process, result_path in zip(workers, result_paths, strict=True):
+                _collect_worker(process, result_path, 60.0)
             results = [
                 _wait_for_json(
                     path,
