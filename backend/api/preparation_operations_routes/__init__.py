@@ -75,13 +75,14 @@ def _access(
     user_id: str,
     role: HouseholdRole,
 ):
-    household, membership = require_household_access(
+    """Require access without coupling routes to the helper's return shape."""
+
+    return require_household_access(
         db,
         household_id,
         user_id,
         role,
     )
-    return household, membership
 
 
 @router.get("/coverage", response_model=PreparationOperationsCoverageView)
