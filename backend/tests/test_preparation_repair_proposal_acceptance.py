@@ -5,6 +5,7 @@ from copy import deepcopy
 import pytest
 from fastapi import HTTPException
 
+from backend.database import DBHousehold, DBUser
 from backend.domain.preparation_operations import (
     PreparationScheduleEventType,
     PreparationScheduleStatus,
@@ -45,7 +46,48 @@ from backend.tests.test_preparation_operations_service import (
 from backend.tests.test_preparation_repair_proposals import proposal_payload
 
 
+def ensure_preparation_household(db) -> None:
+    """Idempotently seed the shared household in externally managed databases.
+
+    SQLite unit fixtures already create these rows. PostgreSQL recovery and
+    failover suites own their database lifecycle, so imported proposal builders
+    must establish the same authority fixture before invoking production
+    household-locking services.
+    """
+
+    owner = db.get(DBUser, OWNER_ID)
+    if owner is None:
+        owner = DBUser(
+            id=OWNER_ID,
+            name="Owner",
+            liked_ingredients=[],
+            disliked_ingredients=[],
+            allergies=[],
+            dietary_restrictions=[],
+            health_conditions=[],
+            medications=[],
+        )
+        db.add(owner)
+        db.flush()
+
+    household = db.get(DBHousehold, HOUSEHOLD_ID)
+    if household is None:
+        db.add(
+            DBHousehold(
+                id=HOUSEHOLD_ID,
+                owner_user_id=OWNER_ID,
+                name="Preparation home",
+                timezone="UTC",
+                version=1,
+            )
+        )
+        db.flush()
+    elif household.owner_user_id != OWNER_ID:
+        raise AssertionError("shared preparation household owner fixture drifted")
+
+
 def create_proposal(db):
+    ensure_preparation_household(db)
     calendar = create_calendar(db)
     source = create_schedule(db, calendar)
     proposal = create_repair_proposal(
