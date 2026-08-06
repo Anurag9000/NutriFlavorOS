@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import hashlib
-import re
 from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Tuple
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from backend.domain.approved_plan_occurrence_identity import (
+    approved_plan_occurrence_id,
+)
 from backend.domain.household_plan_occurrences import (
     ApprovedPlanOccurrenceCandidate,
     ApprovedPlanOccurrenceCandidatesView,
@@ -31,11 +32,9 @@ def _utcnow_iso() -> str:
 
 
 def _occurrence_id(day: int, meal_slot: str) -> str:
-    normalized = re.sub(r"[^A-Za-z0-9_.:-]+", "-", meal_slot.strip().lower())
-    normalized = normalized.strip("-._:") or "meal"
-    normalized = normalized[:80]
-    digest = hashlib.sha256(meal_slot.encode("utf-8")).hexdigest()[:16]
-    return f"day-{day}.{normalized}-{digest}"
+    """Compatibility wrapper for the public domain identity contract."""
+
+    return approved_plan_occurrence_id(day, meal_slot)
 
 
 def _active_reviewed_profiles(
@@ -144,7 +143,7 @@ def _derive_candidate_rows(plan) -> List[Tuple[int, str, object, float, float]]:
                         "recipe_id": recipe.id,
                     },
                 )
-            identifier = _occurrence_id(day.day, meal_slot)
+            identifier = approved_plan_occurrence_id(day.day, meal_slot)
             if identifier in occurrence_ids:
                 raise HTTPException(
                     status_code=409,
@@ -216,7 +215,7 @@ def get_approved_plan_occurrence_candidates(
             )
         candidates.append(
             ApprovedPlanOccurrenceCandidate(
-                occurrence_id=_occurrence_id(day, meal_slot),
+                occurrence_id=approved_plan_occurrence_id(day, meal_slot),
                 day=day,
                 meal_slot=meal_slot,
                 recipe_id=recipe.id,
