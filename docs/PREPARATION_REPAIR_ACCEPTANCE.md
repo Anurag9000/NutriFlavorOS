@@ -38,7 +38,7 @@ After acceptance, the source remains readable but cannot receive new task start,
 
 ## Migration rehearsal
 
-The PostgreSQL **Migration rehearsal** creates **64 valid historical acceptances** through production services at migration `20260802_0017`, records exact IDs, versions, hashes, and event sequences, upgrades to `20260802_0018`, and verifies exact preservation and the live source/version uniqueness constraint. A deliberate lower-level bypass must be rejected and roll back without adding proposal, acceptance, schedule, or event rows.
+The PostgreSQL **migration rehearsal** creates **64 valid historical acceptances** through production services at migration `20260802_0017`, records exact IDs, versions, hashes, and event sequences, upgrades to `20260802_0018`, and verifies exact preservation and the live source/version uniqueness constraint. A deliberate lower-level bypass must be rejected and roll back without adding proposal, acceptance, schedule, or event rows.
 
 This is synthetic historical volume, not a production snapshot or performance certification.
 
