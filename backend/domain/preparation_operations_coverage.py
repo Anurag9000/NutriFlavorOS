@@ -48,4 +48,4 @@ class PreparationOperationsCoverageView(StrictPreparationOperationsModel):
     latest_calendar_created_at: Optional[str]
     latest_schedule_created_at: Optional[str]
     latest_task_event_at: Optional[str]
-    warnings: List[str] = Field(default_factory=list)
+    warnings: List[str]
