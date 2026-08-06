@@ -22,6 +22,7 @@ from backend.database import (
 from backend.domain.household_access import HouseholdRole
 from backend.domain.preparation_operations import ResourceCalendarVersionCreate
 from backend.preparation_models import DBRecipePreparationProfile
+from backend.services.household_plan_occurrence_service import _occurrence_id
 from backend.services.preparation_operations_service import (
     register_resource_calendar,
 )
@@ -34,6 +35,7 @@ EDITOR_ID = "approved-compile-api-editor@example.test"
 VIEWER_ID = "approved-compile-api-viewer@example.test"
 OUTSIDER_ID = "approved-compile-api-outsider@example.test"
 NOW = datetime(2026, 8, 2, 15, 0, tzinfo=timezone.utc)
+CANONICAL_DINNER_OCCURRENCE_ID = _occurrence_id(1, "Dinner")
 ROLE_RANK = {
     HouseholdRole.VIEWER: 1,
     HouseholdRole.EDITOR: 2,
@@ -278,7 +280,7 @@ def _payload(calendar_id: int, profile_identity: str) -> dict:
             "duration_policy": "conservative_max",
             "occurrences": [
                 {
-                    "occurrence_id": "day-1.dinner-216713d08860cfa0",
+                    "occurrence_id": CANONICAL_DINNER_OCCURRENCE_ID,
                     "recipe_id": "approved-compile-api-recipe",
                     "required_finish_minute": 180,
                     "servings": 2,
