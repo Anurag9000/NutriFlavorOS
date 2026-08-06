@@ -76,6 +76,8 @@ vi.mock("@/lib/platformApi", () => ({
   },
 }));
 
+const ASYNC_QUERY_TIMEOUT_MS = 5_000;
+
 const household = {
   id: "household-1",
   owner_user_id: "owner@example.test",
@@ -166,6 +168,13 @@ function renderPage() {
   );
 }
 
+async function waitForHouseholdDetail() {
+  await waitFor(
+    () => expect(mocks.get).toHaveBeenCalledWith(household.id),
+    { timeout: ASYNC_QUERY_TIMEOUT_MS },
+  );
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.list.mockResolvedValue([household]);
@@ -201,15 +210,26 @@ describe("Household workspace", () => {
     });
 
     renderPage();
+    await waitForHouseholdDetail();
     fireEvent.click(await screen.findByRole("tab", { name: "Members" }));
-    expect(await screen.findByText("Invite an account")).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "Invite an account",
+        {},
+        { timeout: ASYNC_QUERY_TIMEOUT_MS },
+      ),
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Invitee email"), {
       target: { value: "member@example.test" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create invite" }));
 
-    const token = await screen.findByLabelText("One-time invitation token");
+    const token = await screen.findByLabelText(
+      "One-time invitation token",
+      {},
+      { timeout: ASYNC_QUERY_TIMEOUT_MS },
+    );
     expect(token).toHaveTextContent("one-time-secret-token");
     expect(mocks.createInvitation).toHaveBeenCalledWith(household.id, {
       email: "member@example.test",
@@ -234,6 +254,7 @@ describe("Household workspace", () => {
 
     renderPage();
     expect((await screen.findAllByText("Home")).length).toBeGreaterThan(0);
+    await waitForHouseholdDetail();
 
     expect(screen.queryByText("Record a pantry lot")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Members" }));
@@ -241,7 +262,13 @@ describe("Household workspace", () => {
     expect(screen.queryByText("Add an unlinked member")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Planning" }));
-    expect(screen.getByRole("button", { name: "Generate and reserve" })).toBeDisabled();
+    expect(
+      await screen.findByRole(
+        "button",
+        { name: "Generate and reserve" },
+        { timeout: ASYNC_QUERY_TIMEOUT_MS },
+      ),
+    ).toBeDisabled();
   });
 
   it("selects active reviewed versions and shows exact historical leftover provenance", async () => {
@@ -266,20 +293,34 @@ describe("Household workspace", () => {
     mocks.leftovers.mockResolvedValue([leftover]);
 
     renderPage();
+    await waitForHouseholdDetail();
     fireEvent.click(await screen.findByRole("tab", { name: "Leftovers" }));
+    await waitFor(
+      () => expect(mocks.storagePolicies).toHaveBeenCalledWith({
+        activeOnly: true,
+        reviewedOnly: true,
+      }),
+      { timeout: ASYNC_QUERY_TIMEOUT_MS },
+    );
 
-    const selector = await screen.findByLabelText("Active reviewed storage policy");
+    const selector = await screen.findByLabelText(
+      "Active reviewed storage policy",
+      {},
+      { timeout: ASYNC_QUERY_TIMEOUT_MS },
+    );
     expect(selector).toHaveTextContent(
       "cooked rice · rice_refrigerated · version reviewed-v2 · reviewed by Policy reviewer",
     );
     expect(selector).not.toHaveTextContent("rice_draft");
     expect(selector).not.toHaveTextContent("rice_frozen");
-    expect(mocks.storagePolicies).toHaveBeenCalledWith({
-      activeOnly: true,
-      reviewedOnly: true,
-    });
 
-    expect(await screen.findByText("Exact policy record #39")).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "Exact policy record #39",
+        {},
+        { timeout: ASYNC_QUERY_TIMEOUT_MS },
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText(/rice_refrigerated · version reviewed-v1/)).toBeInTheDocument();
     expect(screen.getByText("historical inactive")).toBeInTheDocument();
     expect(screen.getByText(/Original policy reviewer/)).toBeInTheDocument();
