@@ -271,7 +271,7 @@ class PreparationRepairProposalAcceptanceView(StrictRepairModel):
     )
     derivation_method: Literal[
         "deterministic_minimal_change_preparation_repair_v1"
-    ] = REPAIR_SCHEDULER_METHOD
+    ]
     source_schedule_hash: str
     source_schedule_request_hash: str
     target_calendar_content_hash: str
