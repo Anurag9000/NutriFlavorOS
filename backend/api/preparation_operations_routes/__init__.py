@@ -1,8 +1,9 @@
 """Authoritative household preparation-operations API.
 
-This package shadows the historical sibling route module so the current product
-surface retains source-plan occurrence membership validation together with the
-strict task-execution and completion entry points.
+The package is the import target mounted by FastAPI. It therefore owns the
+complete provenance, execution, repair-derived approval, completion, and
+support-export authority surface. The historical sibling module mirrors this
+contract for compatibility only.
 """
 
 from __future__ import annotations
@@ -27,6 +28,9 @@ from backend.domain.preparation_operations_coverage import (
     PreparationOperationsCoverageView,
 )
 from backend.domain.preparation_operations_runtime import PersistedScheduleCreateRequest
+from backend.domain.preparation_schedule_support_export import (
+    PreparationScheduleSupportExport,
+)
 from backend.domain.preparation_task_execution import (
     PreparationTaskExecutionEventCreate,
     PreparationTaskExecutionEventType,
@@ -37,9 +41,7 @@ from backend.services.approved_plan_occurrence_validation_service import (
     validate_occurrence_set_against_approved_plan,
 )
 from backend.services.household_access_service import require_household_access
-from backend.services.household_plan_lifecycle_service import (
-    assert_approved_source_plan,
-)
+from backend.services.household_plan_lifecycle_service import assert_approved_source_plan
 from backend.services.preparation_operations_coverage_service import (
     get_preparation_operations_coverage,
 )
@@ -52,6 +54,12 @@ from backend.services.preparation_operations_service import (
     list_schedule_events,
     register_resource_calendar,
     transition_schedule,
+)
+from backend.services.preparation_repair_approval_guard_service import (
+    approve_schedule_with_repair_acceptance_guard,
+)
+from backend.services.preparation_schedule_support_export_authorized_service import (
+    export_authorized_preparation_schedule_support_snapshot,
 )
 from backend.services.preparation_task_completion_service import (
     complete_schedule_with_execution_guard,
@@ -77,14 +85,9 @@ def _access(
     user_id: str,
     role: HouseholdRole,
 ):
-    """Require access without coupling routes to the helper's return shape."""
+    """Require access without depending on a helper return tuple."""
 
-    return require_household_access(
-        db,
-        household_id,
-        user_id,
-        role,
-    )
+    return require_household_access(db, household_id, user_id, role)
 
 
 @router.get("/coverage", response_model=PreparationOperationsCoverageView)
@@ -113,10 +116,7 @@ def create_resource_calendar_route(
     )
 
 
-@router.get(
-    "/resource-calendars",
-    response_model=List[ResourceCalendarVersionView],
-)
+@router.get("/resource-calendars", response_model=List[ResourceCalendarVersionView])
 def list_resource_calendars_route(
     household_id: str,
     active_only: bool = Query(default=False),
@@ -181,10 +181,7 @@ def create_persisted_schedule_route(
     )
 
 
-@router.get(
-    "/schedules",
-    response_model=List[PersistedPreparationScheduleView],
-)
+@router.get("/schedules", response_model=List[PersistedPreparationScheduleView])
 def list_persisted_schedules_route(
     household_id: str,
     status: List[PreparationScheduleStatus] | None = Query(default=None),
@@ -192,17 +189,10 @@ def list_persisted_schedules_route(
     current_user: DBUser = Depends(get_current_user),
 ):
     _access(db, household_id, current_user.id, HouseholdRole.VIEWER)
-    return list_persisted_schedules(
-        db,
-        household_id=household_id,
-        statuses=status,
-    )
+    return list_persisted_schedules(db, household_id=household_id, statuses=status)
 
 
-@router.get(
-    "/schedules/{schedule_id}",
-    response_model=PersistedPreparationScheduleView,
-)
+@router.get("/schedules/{schedule_id}", response_model=PersistedPreparationScheduleView)
 def get_persisted_schedule_route(
     household_id: str,
     schedule_id: int,
@@ -214,6 +204,25 @@ def get_persisted_schedule_route(
         db,
         household_id=household_id,
         schedule_id=schedule_id,
+    )
+
+
+@router.get(
+    "/schedules/{schedule_id}/support-export",
+    response_model=PreparationScheduleSupportExport,
+)
+def export_preparation_schedule_support_route(
+    household_id: str,
+    schedule_id: int,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    _access(db, household_id, current_user.id, HouseholdRole.VIEWER)
+    return export_authorized_preparation_schedule_support_snapshot(
+        db,
+        household_id=household_id,
+        schedule_id=schedule_id,
+        authorized_user_id=current_user.id,
     )
 
 
@@ -347,10 +356,7 @@ def _transition(
     )
 
 
-@router.post(
-    "/schedules/{schedule_id}/approve",
-    response_model=PersistedPreparationScheduleView,
-)
+@router.post("/schedules/{schedule_id}/approve", response_model=PersistedPreparationScheduleView)
 def approve_schedule_route(
     household_id: str,
     schedule_id: int,
@@ -358,21 +364,17 @@ def approve_schedule_route(
     db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_user),
 ):
-    return _transition(
-        db=db,
+    _access(db, household_id, current_user.id, HouseholdRole.OWNER)
+    return approve_schedule_with_repair_acceptance_guard(
+        db,
         household_id=household_id,
         schedule_id=schedule_id,
-        current_user=current_user,
+        actor_user_id=current_user.id,
         payload=payload,
-        event_type=PreparationScheduleEventType.APPROVED,
-        required_role=HouseholdRole.OWNER,
     )
 
 
-@router.post(
-    "/schedules/{schedule_id}/complete",
-    response_model=PersistedPreparationScheduleView,
-)
+@router.post("/schedules/{schedule_id}/complete", response_model=PersistedPreparationScheduleView)
 def complete_schedule_route(
     household_id: str,
     schedule_id: int,
@@ -390,10 +392,7 @@ def complete_schedule_route(
     )
 
 
-@router.post(
-    "/schedules/{schedule_id}/cancel",
-    response_model=PersistedPreparationScheduleView,
-)
+@router.post("/schedules/{schedule_id}/cancel", response_model=PersistedPreparationScheduleView)
 def cancel_schedule_route(
     household_id: str,
     schedule_id: int,
@@ -412,10 +411,7 @@ def cancel_schedule_route(
     )
 
 
-@router.post(
-    "/schedules/{schedule_id}/invalidate",
-    response_model=PersistedPreparationScheduleView,
-)
+@router.post("/schedules/{schedule_id}/invalidate", response_model=PersistedPreparationScheduleView)
 def invalidate_schedule_route(
     household_id: str,
     schedule_id: int,
