@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from backend.domain.preparation import (
     PreparationScheduleRequest,
@@ -20,6 +20,19 @@ class StrictRepairModel(BaseModel):
 class PreparationRepairStrategy(str, Enum):
     GREEDY_MIN_CHANGE = "greedy_min_change"
     BOUNDED_EXACT_MIN_CHANGE = "bounded_exact_min_change"
+
+
+def _parse_repair_strategy(value):
+    """Parse exact JSON enum strings without relaxing strict model validation."""
+
+    if isinstance(value, PreparationRepairStrategy):
+        return value
+    if isinstance(value, str):
+        try:
+            return PreparationRepairStrategy(value)
+        except ValueError:
+            return value
+    return value
 
 
 class PreparationRepairWeights(StrictRepairModel):
@@ -39,6 +52,11 @@ class PreparationScheduleRepairRequest(StrictRepairModel):
     weights: PreparationRepairWeights = Field(default_factory=PreparationRepairWeights)
     exact_task_limit: int = Field(default=9, ge=1, le=12)
     exact_candidate_limit_per_task: int = Field(default=80, ge=1, le=500)
+
+    @field_validator("strategy", mode="before")
+    @classmethod
+    def parse_strategy(cls, value):
+        return _parse_repair_strategy(value)
 
     @model_validator(mode="after")
     def validate_request(self):
