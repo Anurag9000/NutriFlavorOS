@@ -56,7 +56,7 @@ A **controlled application-worker recycle** closes its occupied pool and proves 
 
 ### C16 — Controlled ungraceful application-worker crash
 
-A real **ungraceful application-worker crash** corpus uses `SIGKILL` during checkout and after a flushed open transaction but before COMMIT. PostgreSQL rolls the uncommitted lifecycle back; a fresh worker recovers once. The crash point is before database COMMIT and therefore before a **commit acknowledgement** itself is in flight; this corpus does not prove COMMIT acknowledgement loss. That separate outcome-unknown failure mode is the C17 proxy corpus, and neither C16 nor C17 by themselves prove multi-node failover.
+A real **ungraceful application-worker crash** corpus uses `SIGKILL` during checkout and after a flushed open transaction but before COMMIT. PostgreSQL rolls the uncommitted lifecycle back; a fresh worker recovers once. Worker-instance UUID and PostgreSQL backend identity are authoritative across recovery; **OS PID reuse** is explicitly tolerated and never used as the sole proof that the crashed worker is gone. The crash point is before database COMMIT and therefore before a **commit acknowledgement** itself is in flight; this corpus does not prove COMMIT acknowledgement loss. That separate outcome-unknown failure mode is the C17 proxy corpus, and neither C16 nor C17 by themselves prove multi-node failover.
 
 ### C17 — PostgreSQL COMMIT acknowledgement loss
 
