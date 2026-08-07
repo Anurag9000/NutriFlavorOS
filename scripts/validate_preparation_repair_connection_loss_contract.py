@@ -48,6 +48,51 @@ def _test_function_names(source: str) -> set[str]:
     }
 
 
+def _has_connection_exception_prefix_contract(source: str) -> bool:
+    """Prove SQLSTATE class 08 is consumed through the named prefix constant."""
+
+    tree = ast.parse(source)
+    prefix_is_08 = False
+    startswith_uses_prefix = False
+
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            value = node.value
+            if (
+                any(
+                    isinstance(target, ast.Name)
+                    and target.id == "CONNECTION_EXCEPTION_PREFIX"
+                    for target in targets
+                )
+                and isinstance(value, ast.Constant)
+                and value.value == "08"
+            ):
+                prefix_is_08 = True
+
+        if not isinstance(node, ast.Call):
+            continue
+        if not (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr == "startswith"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "sqlstate"
+            and node.args
+        ):
+            continue
+        first_argument = node.args[0]
+        if (
+            isinstance(first_argument, ast.Name)
+            and first_argument.id == "CONNECTION_EXCEPTION_PREFIX"
+        ) or (
+            isinstance(first_argument, ast.Constant)
+            and first_argument.value == "08"
+        ):
+            startswith_uses_prefix = True
+
+    return prefix_is_08 and startswith_uses_prefix
+
+
 def validate_contract() -> dict:
     errors: list[str] = []
     sources = {name: _read(path, errors) for name, path in FILES.items()}
@@ -65,7 +110,6 @@ def validate_contract() -> dict:
             "retry_safe = transaction_aborted and not outcome_unknown",
             '"retry_safe": retry_safe',
             '"automatic_retry_performed": False',
-            'sqlstate.startswith("08")',
             "connection_invalidated",
         },
         "test": {
@@ -112,6 +156,12 @@ def validate_contract() -> dict:
                 errors.append(
                     f"{FILES[label]} lacks connection-loss fragment: {fragment}"
                 )
+
+    if not _has_connection_exception_prefix_contract(sources["handler"]):
+        errors.append(
+            "database error handler must classify SQLSTATE class 08 through "
+            "CONNECTION_EXCEPTION_PREFIX"
+        )
 
     forbidden_test = {
         "monkeypatch.setattr(Session, \"commit\"",
