@@ -32,7 +32,7 @@ Exported `transition_schedule` enforces task terminality and PostgreSQL race evi
 
 ### C10 — PostgreSQL lifecycle, migration, and recovery evidence
 
-Configured evidence includes lifecycle races, `0017 → 0018` migration rehearsal, timeout/deadlock recovery, lost responses, **post-commit connection-loss recovery**, checked-out pool invalidation, and bounded exact serialization retry. Three consecutive `40001` aborts precede one exact result. Connection ambiguity remains `retry_safe=false`; the HTTP server reports `automatic_retry_performed=false`.
+Configured evidence includes lifecycle races, `0017 → 0018` migration rehearsal, timeout/deadlock recovery, lost responses, **post-commit connection-loss recovery**, checked-out pool invalidation, and bounded exact serialization retry. Three consecutive `40001` aborts precede one exact result. Connection ambiguity is reported as `database_commit_outcome_unknown` with `retry_safe=false`; the HTTP server reports `automatic_retry_performed=false`.
 
 ### C11 — Read-only support evidence export
 
