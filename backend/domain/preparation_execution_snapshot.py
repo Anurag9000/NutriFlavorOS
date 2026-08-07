@@ -38,7 +38,9 @@ class PreparationRepairTaskLineageStatus(str, Enum):
 class PreparationExecutionTaskSnapshot(StrictPreparationOperationsModel):
     task_id: str = Field(min_length=1, max_length=160)
     state: PreparationTaskExecutionState
-    latest_event_id: Optional[int] = Field(default=None, ge=1)
+    # Required-but-nullable: every serialized task snapshot carries the key, and
+    # ``null`` is meaningful proof that the task is still planned.
+    latest_event_id: Optional[int] = Field(ge=1)
 
     @model_validator(mode="after")
     def validate_event_identity(self):
@@ -56,7 +58,9 @@ class PreparationExecutionSnapshot(StrictPreparationOperationsModel):
     )
     source_schedule_id: int = Field(ge=1)
     source_schedule_version: int = Field(ge=1)
-    latest_execution_event_id: Optional[int] = Field(default=None, ge=1)
+    # Required-but-nullable so generated clients distinguish an empty ledger from
+    # an omitted/unknown identity field.
+    latest_execution_event_id: Optional[int] = Field(ge=1)
     execution_event_count: int = Field(ge=0)
     execution_event_ledger_hash: str = Field(
         min_length=64,
