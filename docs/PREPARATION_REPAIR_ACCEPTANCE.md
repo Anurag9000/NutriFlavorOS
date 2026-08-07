@@ -32,7 +32,7 @@ The accepted schedule is `draft`, version 1, has no approval or task history, us
 
 ## Dependency and execution boundaries
 
-Source-plan cancellation and calendar supersession serialize with acceptance and repaired approval through the household lock. If the dependency change commits first, acceptance or approval fails. If acceptance or approval commits first, the later dependency transition invalidates every affected live source or replacement schedule while preserving intermediate evidence.
+The **source plan cancellation** race and calendar supersession serialize with acceptance and repaired approval through the household lock. If the dependency change commits first, acceptance or approval fails. If acceptance or approval commits first, the later dependency transition invalidates every affected live source or replacement schedule while preserving intermediate evidence.
 
 After acceptance, the source remains readable but cannot receive new task start, complete, skip, or schedule-completion actions. It returns `source_schedule_has_accepted_replacement`. The replacement is executable only after separate owner approval.
 
