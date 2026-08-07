@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -74,6 +75,62 @@ def _operation_methods(path_value: dict[str, Any]) -> set[str]:
     return {key for key in path_value if key.lower() in HTTP_METHODS}
 
 
+def _route_identity_errors() -> tuple[list[str], int]:
+    """Reject duplicate method/path registrations before OpenAPI can collapse them."""
+
+    registrations: dict[tuple[str, str], list[str]] = defaultdict(list)
+    for route in app.routes:
+        path = getattr(route, "path", None)
+        methods = getattr(route, "methods", None)
+        if not isinstance(path, str) or not methods:
+            continue
+        endpoint = getattr(route, "endpoint", None)
+        module = getattr(endpoint, "__module__", "<unknown>")
+        name = getattr(endpoint, "__name__", type(endpoint).__name__)
+        identity = f"{module}.{name}"
+        for method in methods:
+            normalized_method = str(method).lower()
+            if normalized_method in HTTP_METHODS:
+                registrations[(normalized_method, path)].append(identity)
+
+    errors: list[str] = []
+    for (method, path), endpoints in sorted(registrations.items()):
+        if len(endpoints) > 1:
+            errors.append(
+                f"duplicate FastAPI route registration: {method.upper()} {path}: "
+                + ", ".join(endpoints)
+            )
+    return errors, len(registrations)
+
+
+def _operation_id_errors(paths: dict[str, Any]) -> tuple[list[str], int]:
+    """Require one generated OpenAPI operation ID per public operation."""
+
+    operation_ids: dict[str, list[str]] = defaultdict(list)
+    operation_count = 0
+    for path, path_value in sorted(paths.items()):
+        if not isinstance(path_value, dict):
+            continue
+        for method in sorted(_operation_methods(path_value)):
+            operation = path_value.get(method)
+            if not isinstance(operation, dict):
+                continue
+            operation_count += 1
+            operation_id = operation.get("operationId")
+            if not isinstance(operation_id, str) or not operation_id.strip():
+                continue
+            operation_ids[operation_id].append(f"{method.upper()} {path}")
+
+    errors: list[str] = []
+    for operation_id, operations in sorted(operation_ids.items()):
+        if len(operations) > 1:
+            errors.append(
+                f"duplicate OpenAPI operationId {operation_id}: "
+                + ", ".join(operations)
+            )
+    return errors, operation_count
+
+
 def _schema_errors(
     schemas: dict[str, Any],
     required_schemas: dict[str, Any],
@@ -130,8 +187,8 @@ def validate_openapi_contract(
         base_contract,
         extension_paths,
     )
+    errors, route_identity_count = _route_identity_errors()
     document = app.openapi()
-    errors: list[str] = []
 
     observed_version = str(document.get("info", {}).get("version", ""))
     expected_version = str(contract.get("api_version", ""))
@@ -144,6 +201,8 @@ def validate_openapi_contract(
     if not isinstance(paths, dict):
         paths = {}
         errors.append("OpenAPI document has no paths object")
+    operation_id_errors, operation_count = _operation_id_errors(paths)
+    errors.extend(operation_id_errors)
 
     path_report: dict[str, Any] = {}
     for path, rule in sorted(contract.get("paths", {}).items()):
@@ -203,6 +262,8 @@ def validate_openapi_contract(
         "api_version": observed_version,
         "title": document.get("info", {}).get("title"),
         "path_count": len(paths),
+        "operation_count": operation_count,
+        "route_identity_count": route_identity_count,
         "schema_count": len(schemas),
         "security_schemes": sorted(security_schemes),
         "required_paths": path_report,
