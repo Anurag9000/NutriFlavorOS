@@ -1,4 +1,4 @@
-"""Viewer-authorized task-execution eligibility and snapshot evidence."""
+"""Viewer-authorized task-execution eligibility, snapshot, and lineage evidence."""
 
 from __future__ import annotations
 
@@ -8,11 +8,13 @@ from sqlalchemy.orm import Session
 from backend.database import DBUser, get_db
 from backend.domain.household_access import HouseholdRole
 from backend.domain.preparation_execution_snapshot import PreparationExecutionSnapshot
+from backend.domain.preparation_repair_task_lineage import PreparationRepairTaskLineage
 from backend.domain.preparation_task_execution_eligibility import (
     PreparationTaskExecutionEligibilityView,
 )
 from backend.services.household_access_service import require_household_access
 from backend.services.preparation_execution_snapshot_service import (
+    get_accepted_preparation_repair_task_lineage,
     get_preparation_execution_snapshot,
 )
 from backend.services.preparation_task_execution_eligibility_service import (
@@ -72,4 +74,29 @@ def get_preparation_execution_snapshot_route(
         db,
         household_id=household_id,
         schedule_id=schedule_id,
+    )
+
+
+@router.get(
+    "/repair-proposals/{proposal_id}/task-lineage",
+    response_model=PreparationRepairTaskLineage,
+)
+def get_accepted_preparation_repair_task_lineage_route(
+    household_id: str,
+    proposal_id: int,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    """Return immutable source→replacement task lineage after acceptance."""
+
+    require_household_access(
+        db,
+        household_id,
+        current_user.id,
+        HouseholdRole.VIEWER,
+    )
+    return get_accepted_preparation_repair_task_lineage(
+        db,
+        household_id=household_id,
+        proposal_id=proposal_id,
     )
