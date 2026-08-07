@@ -1,8 +1,8 @@
 # Preparation Execution-Aware Repair Evidence Boundary
 
-**Status:** implemented evidence foundation; repair-after-execution mutation remains fail-closed.  
+**Status:** execution-aware read/preflight authority implemented; repair-after-execution persistence remains fail-closed.  
 **Base OpenAPI contract:** `2026-08-03.2`  
-**Execution/repair extension:** `2026-08-07.3`
+**Execution/repair extension:** `2026-08-07.4`
 
 ## Purpose
 
@@ -49,6 +49,28 @@ The two uses of “frozen” are intentionally different:
 
 A transient inconsistent read returns no mixed frontier evidence.
 
+## Execution-aware proposal preflight
+
+`POST /api/v1/households/{household_id}/preparation-operations/repair-proposals/execution-aware/preflight` is the first-class request boundary for future repair after execution has begun. It still creates no proposal and no schedule.
+
+The request must carry the exact source schedule ID/version/hash, canonical execution snapshot hash, richer execution-aware snapshot hash, target calendar version, a full revised request, and explicit acknowledgements that execution history is immutable, in-progress work will not be moved, and the operation is preflight-only.
+
+Under the household/source serialization boundary, preflight:
+
+- re-reads the exact current canonical/richer execution frontier and fails with `execution_aware_repair_snapshot_changed` on any identity drift;
+- requires actual execution history, leaving zero-event sources on ordinary repair;
+- requires the source, revised request, and execution snapshot to contain the same task-ID set at this phase;
+- keeps the source horizon and granularity fixed because existing execution evidence is expressed in that timebase;
+- requires every in-progress and terminal task definition to remain byte-for-byte unchanged;
+- derives immutable/frozen task IDs from execution authority rather than trusting caller-supplied immutable IDs;
+- treats terminal task dependencies as already satisfied and removes those dependency edges from the normalized future request;
+- finds direct and transitive descendants of in-progress work and withholds them from repair computation until their active ancestor becomes terminal;
+- emits only the remaining unstarted executable candidate tasks in `normalized_future_request`;
+- validates that normalized future request against the exact active reviewed target calendar;
+- reports `repair_computation_performed=false`, `proposal_persistence_performed=false`, and `schedule_persistence_performed=false`.
+
+Task additions/removals remain disabled in this phase because their provenance and lineage have not yet crossed a persisted proposal boundary. This is a deliberate fail-closed restriction, not a claim that execution-aware repair is complete.
+
 ## Proposal creation and acceptance race authority
 
 Ordinary repair still rejects any source that already has execution history.
@@ -89,19 +111,19 @@ Identical lineage evidence hashes identically; any task identity, state, timing,
 
 ## What is deliberately not enabled yet
 
-The evidence foundation does **not** yet authorize repair after execution history exists. The following remain required before mutation can be enabled:
+The read/preflight foundation does **not** yet authorize persisted repair after execution history exists. The following remain required before mutation can be enabled:
 
-1. a first-class execution-aware proposal request carrying the exact expected canonical snapshot hash;
-2. a revised-request contract that can change only planned repairable work;
-3. explicit normalization of dependencies already satisfied by terminal tasks;
-4. a fail-closed policy for in-progress work and descendants blocked by it;
-5. replacement persistence containing only future executable work while retaining source execution history unchanged;
-6. changed-task and lineage acknowledgement at acceptance;
-7. immutable persisted proposal/acceptance provenance for canonical snapshot and lineage hashes;
-8. duplicate-execution prevention across a source/replacement chain;
-9. an acyclic replacement-descendant invariant;
-10. PostgreSQL races for start/complete/skip versus create/accept/approve/supersede;
-11. support-export inclusion of snapshot, proposal, acceptance, and lineage identities;
-12. frontend visualization that clearly separates historical executed facts from future replacement work.
+1. persisted execution-aware proposal creation from the normalized future request, with method-aware replay and no source mutation;
+2. proposal schema/migration fields that bind canonical snapshot, richer frontier, normalized-future-request, and execution-event-ledger identities directly rather than only transient preflight output;
+3. explicit provenance for any future introduced or removed planned task before task-set changes are enabled;
+4. replacement persistence containing only future executable work while retaining source execution history unchanged;
+5. changed-task and lineage acknowledgement at acceptance;
+6. immutable persisted acceptance provenance for canonical snapshot and lineage hashes;
+7. duplicate-execution prevention across a source/replacement chain;
+8. an acyclic replacement-descendant invariant;
+9. PostgreSQL races for start/complete/skip versus execution-aware create/accept/approve/supersede;
+10. support-export inclusion of snapshot, preflight, proposal, acceptance, and lineage identities;
+11. frontend visualization that clearly separates historical executed facts, blocked in-progress descendants, and future replacement work;
+12. generated frontend bindings for the execution-aware preflight request/view and all later mutation contracts.
 
-Until those are implemented and validated, ordinary repair with any execution history remains rejected. No endpoint in this document verifies actual human performance, food safety, appliance state, or clinical suitability.
+Until those are implemented and validated, ordinary repair with any execution history remains rejected and the execution-aware endpoint remains preflight-only. No endpoint in this document verifies actual human performance, food safety, appliance state, or clinical suitability.
