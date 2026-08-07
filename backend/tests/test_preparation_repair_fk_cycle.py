@@ -16,9 +16,10 @@ def test_repair_schedule_cycle_has_named_alterable_edge():
 
     assert len(constraints) == 1
     constraint = next(iter(constraints))
-    assert constraint.name == (
-        "fk_persisted_preparation_schedule_source_repair_proposal"
-    )
+    # This name is the exact constraint created by migration 20260802_0017.
+    # Keeping ORM and Alembic identities aligned lets PostgreSQL drop_all()
+    # issue the correct DROP CONSTRAINT before removing the cyclic tables.
+    assert constraint.name == "fk_persisted_schedule_source_repair_proposal"
     assert constraint.use_alter is True
     assert constraint.referred_table is DBPreparationRepairProposal.__table__
 
