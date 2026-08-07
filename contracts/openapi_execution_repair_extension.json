@@ -1,5 +1,5 @@
 {
-  "contract_extension_version": "2026-08-07.3",
+  "contract_extension_version": "2026-08-07.4",
   "base_contract_version": "2026-08-03.2",
   "paths": {
     "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/execution-snapshot": {
@@ -8,6 +8,10 @@
     },
     "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/execution-aware-repair-snapshot": {
       "methods": ["get"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/preparation-operations/repair-proposals/execution-aware/preflight": {
+      "methods": ["post"],
       "authenticated": true
     },
     "/api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/task-lineage": {
@@ -70,6 +74,44 @@
         "requires_human_acceptance",
         "repair_computation_performed",
         "persistence_performed",
+        "limitations"
+      ]
+    },
+    "PreparationExecutionAwareRepairProposalCreateRequest": {
+      "required": [
+        "source_schedule_id",
+        "expected_source_version",
+        "expected_source_schedule_hash",
+        "expected_execution_snapshot_hash",
+        "expected_execution_aware_snapshot_hash",
+        "target_calendar_version_id",
+        "revised_request",
+        "acknowledge_execution_history_immutable",
+        "acknowledge_in_progress_work_not_moved",
+        "acknowledge_preflight_only",
+        "idempotency_key"
+      ]
+    },
+    "PreparationExecutionAwareRepairPreflightView": {
+      "required": [
+        "source_schedule_id",
+        "source_schedule_version",
+        "source_schedule_hash",
+        "canonical_execution_snapshot_hash",
+        "execution_aware_snapshot_hash",
+        "target_calendar_version_id",
+        "frozen_task_ids",
+        "terminal_task_ids",
+        "in_progress_task_ids",
+        "repairable_task_ids",
+        "blocked_by_in_progress_task_ids",
+        "candidate_task_ids",
+        "normalized_future_request",
+        "ready_for_proposal_computation",
+        "requires_human_acceptance",
+        "repair_computation_performed",
+        "proposal_persistence_performed",
+        "schedule_persistence_performed",
         "limitations"
       ]
     },
