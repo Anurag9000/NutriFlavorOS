@@ -53,9 +53,9 @@ class PreparationExecutionTaskSnapshot(StrictPreparationOperationsModel):
 
 
 class PreparationExecutionSnapshot(StrictPreparationOperationsModel):
-    snapshot_version: Literal["preparation-execution-snapshot-v1"] = (
-        EXECUTION_SNAPSHOT_VERSION
-    )
+    # Required literal discriminator: generated clients must receive the exact
+    # snapshot contract version rather than treating it as an optional default.
+    snapshot_version: Literal["preparation-execution-snapshot-v1"]
     source_schedule_id: int = Field(ge=1)
     source_schedule_version: int = Field(ge=1)
     # Required-but-nullable so generated clients distinguish an empty ledger from
