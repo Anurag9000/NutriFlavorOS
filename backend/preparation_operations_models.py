@@ -278,7 +278,7 @@ class DBPersistedPreparationSchedule(Base):
         Integer,
         ForeignKey(
             "preparation_repair_proposals.id",
-            name="fk_persisted_preparation_schedule_source_repair_proposal",
+            name="fk_persisted_schedule_source_repair_proposal",
             ondelete="RESTRICT",
             use_alter=True,
         ),
