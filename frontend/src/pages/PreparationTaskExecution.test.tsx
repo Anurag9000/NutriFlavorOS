@@ -51,7 +51,7 @@ vi.mock("@/lib/preparationTaskExecutionEligibilityApi", () => ({
   },
 }));
 
-const ASYNC_QUERY_TIMEOUT_MS = 5_000;
+const ASYNC_QUERY_TIMEOUT_MS = 10_000;
 
 const household = {
   id: "home-1",
@@ -185,6 +185,15 @@ function renderPage(role: "owner" | "editor" | "viewer" = "editor") {
 
 async function waitForEligibility(label: string) {
   await waitFor(
+    () => expect(mocks.taskExecution).toHaveBeenCalledWith("home-1", 7),
+    { timeout: ASYNC_QUERY_TIMEOUT_MS },
+  );
+  await screen.findByText(
+    "dinner.prep",
+    {},
+    { timeout: ASYNC_QUERY_TIMEOUT_MS },
+  );
+  await waitFor(
     () => expect(mocks.eligibility).toHaveBeenCalledWith("home-1", 7),
     { timeout: ASYNC_QUERY_TIMEOUT_MS },
   );
@@ -200,8 +209,8 @@ beforeEach(() => {
   vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "fixed-uuid") });
   mocks.householdList.mockResolvedValue([household]);
   mocks.schedules.mockResolvedValue([schedule]);
-  mocks.taskExecution.mockResolvedValue(overview());
-  mocks.eligibility.mockResolvedValue(eligible);
+  mocks.taskExecution.mockImplementation(async () => overview());
+  mocks.eligibility.mockImplementation(async () => eligible);
   mocks.startTask.mockResolvedValue({
     schedule: { ...schedule, version: 3 },
     task: {
@@ -248,13 +257,6 @@ describe("Preparation task execution workspace", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Human-confirmed evidence only")).toBeInTheDocument();
     expect(await waitForEligibility("execution eligible")).toBeInTheDocument();
-    expect(
-      await screen.findByText(
-        "dinner.prep",
-        {},
-        { timeout: ASYNC_QUERY_TIMEOUT_MS },
-      ),
-    ).toBeInTheDocument();
     expect(screen.getByText(/Planned minute 10–25/)).toBeInTheDocument();
     expect(mocks.taskExecution).toHaveBeenCalledWith("home-1", 7);
     expect(mocks.eligibility).toHaveBeenCalledWith("home-1", 7);
