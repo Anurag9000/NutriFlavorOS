@@ -140,10 +140,11 @@ describe("Preparation provenance coverage dashboard", () => {
     expect(
       await screen.findByText("Preparation provenance coverage"),
     ).toBeInTheDocument();
+    await waitFor(() => expect(mocks.coverage).toHaveBeenCalledWith("home-a"));
+    expect(await screen.findByText("Coverage gaps detected")).toBeInTheDocument();
     expect(
       screen.getByText("Coverage is not correctness, observation, or safety"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Coverage gaps detected")).toBeInTheDocument();
     expect(screen.getByText("Calendars")).toBeInTheDocument();
     expect(screen.getByText("Schedules")).toBeInTheDocument();
     expect(screen.getByText("Replayable drafts")).toBeInTheDocument();
@@ -181,12 +182,12 @@ describe("Preparation provenance coverage dashboard", () => {
       "href",
       "/preparation/operations/execution",
     );
-    expect(mocks.coverage).toHaveBeenCalledWith("home-a");
   });
 
   it("reloads coverage when the household changes", async () => {
     renderPage();
-    await screen.findByText("Preparation provenance coverage");
+    await waitFor(() => expect(mocks.coverage).toHaveBeenCalledWith("home-a"));
+    expect(await screen.findByRole("option", { name: "Home B" })).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Household"), {
       target: { value: "home-b" },
