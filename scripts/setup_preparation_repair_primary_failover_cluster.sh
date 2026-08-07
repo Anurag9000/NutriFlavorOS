@@ -14,14 +14,33 @@ POSTGRES_IMAGE="${FAILOVER_POSTGRES_IMAGE:-postgres:16}"
 wait_for_container() {
   local container_name="$1"
   local deadline=$((SECONDS + 90))
-  until docker exec "$container_name" pg_isready -U postgres -d nutriflavor_test >/dev/null 2>&1; do
-    if (( SECONDS >= deadline )); then
-      docker logs "$container_name" >&2 || true
-      echo "PostgreSQL container did not become ready: $container_name" >&2
-      return 1
+  local consecutive_ready=0
+  local required_consecutive_ready=3
+
+  # The official PostgreSQL image briefly starts a bootstrap postmaster and
+  # then shuts it down before starting the final server. pg_isready can return
+  # success during that transient bootstrap window, so require multiple full
+  # SQL round trips against the requested database before proceeding.
+  while (( SECONDS < deadline )); do
+    if docker exec "$container_name" \
+      gosu postgres psql -v ON_ERROR_STOP=1 -At \
+      -U postgres -d nutriflavor_test -c 'SELECT 1' \
+      2>/dev/null | grep -qx '1'; then
+      consecutive_ready=$((consecutive_ready + 1))
+      if (( consecutive_ready >= required_consecutive_ready )); then
+        printf 'postgres_stable_ready_container=%s consecutive_sql_probes=%s\n' \
+          "$container_name" "$consecutive_ready"
+        return 0
+      fi
+    else
+      consecutive_ready=0
     fi
     sleep 1
   done
+
+  docker logs "$container_name" >&2 || true
+  echo "PostgreSQL container did not become stably ready: $container_name" >&2
+  return 1
 }
 
 wait_for_streaming_replication() {
