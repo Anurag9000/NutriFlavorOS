@@ -26,6 +26,14 @@ export type PreparationTaskExecutionState =
   | "in_progress"
   | "completed"
   | "skipped";
+export type PreparationRepairTaskLineageStatus =
+  | "preserved"
+  | "frozen_by_execution"
+  | "shifted"
+  | "newly_introduced"
+  | "removed_before_execution"
+  | "blocked_by_in_progress_predecessor"
+  | "superseded_by_replacement";
 export type DurationPolicy = "conservative_max" | "optimistic_min";
 export type ScheduleReplayStatus =
   | "replayable"
@@ -297,6 +305,25 @@ export interface PreparationExecutionSnapshot {
   execution_snapshot_hash: string;
 }
 
+export interface PreparationRepairTaskLineageEntry {
+  source_task_id: string | null;
+  replacement_task_id: string | null;
+  status: PreparationRepairTaskLineageStatus;
+  source_execution_state: PreparationTaskExecutionState | null;
+  source_latest_event_id: number | null;
+  source_start_minute: number | null;
+  source_finish_minute: number | null;
+  replacement_start_minute: number | null;
+  replacement_finish_minute: number | null;
+}
+
+export interface PreparationRepairTaskLineage {
+  source_schedule_id: number;
+  source_schedule_version: number;
+  source_execution_snapshot_hash: string;
+  entries: PreparationRepairTaskLineageEntry[];
+}
+
 export interface PreparationTaskExecutionMutationView {
   schedule: PersistedPreparationScheduleView;
   task: PreparationTaskExecutionTaskView;
@@ -391,6 +418,10 @@ export const preparationOperationsApi = {
   executionSnapshot: (householdId: string, scheduleId: number) =>
     request<PreparationExecutionSnapshot>(
       `${schedulePath(householdId, scheduleId)}/execution-snapshot`,
+    ),
+  repairTaskLineage: (householdId: string, proposalId: number) =>
+    request<PreparationRepairTaskLineage>(
+      `${base(householdId)}/repair-proposals/${proposalId}/task-lineage`,
     ),
   startTask: (
     householdId: string,
