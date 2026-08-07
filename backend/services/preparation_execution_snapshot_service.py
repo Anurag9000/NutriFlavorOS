@@ -1,11 +1,13 @@
-"""Build and revalidate canonical execution snapshots for repair authority."""
+"""Build, revalidate, and project execution snapshots for repair authority."""
 
 from __future__ import annotations
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from backend.database import utcnow
+from backend.domain.preparation import PreparationScheduleResponse
 from backend.domain.preparation_execution_snapshot import (
     EXECUTION_SNAPSHOT_VERSION,
     PreparationExecutionSnapshot,
@@ -13,7 +15,16 @@ from backend.domain.preparation_execution_snapshot import (
     execution_event_ledger_hash,
     preparation_execution_snapshot_hash,
 )
+from backend.domain.preparation_repair_task_lineage import (
+    PreparationRepairTaskLineage,
+    derive_preparation_repair_task_lineage,
+)
 from backend.domain.preparation_task_execution import PreparationTaskExecutionState
+from backend.preparation_operations_models import DBPersistedPreparationSchedule
+from backend.preparation_repair_proposal_models import (
+    DBPreparationRepairProposal,
+    DBPreparationRepairProposalAcceptance,
+)
 from backend.services.preparation_task_execution_service import (
     get_task_execution_overview,
 )
@@ -146,8 +157,140 @@ def assert_execution_aware_supersession_allowed(
         )
 
 
+def get_accepted_preparation_repair_task_lineage(
+    db: Session,
+    *,
+    household_id: str,
+    proposal_id: int,
+) -> PreparationRepairTaskLineage:
+    """Return deterministic source→replacement lineage for one accepted proposal.
+
+    Arbitrary schedule pairs are deliberately unsupported. The accepted proposal
+    and acceptance row establish the source/replacement relationship, while the
+    canonical execution snapshot supplies historical task state. This endpoint is
+    read-only evidence; it never supersedes schedules or copies execution events.
+    """
+
+    proposal = (
+        db.query(DBPreparationRepairProposal)
+        .filter(
+            DBPreparationRepairProposal.id == proposal_id,
+            DBPreparationRepairProposal.household_id == household_id,
+        )
+        .first()
+    )
+    if proposal is None:
+        raise HTTPException(status_code=404, detail="Resource not found")
+
+    acceptance = (
+        db.query(DBPreparationRepairProposalAcceptance)
+        .filter(
+            DBPreparationRepairProposalAcceptance.proposal_id == proposal.id,
+            DBPreparationRepairProposalAcceptance.household_id == household_id,
+        )
+        .first()
+    )
+    if acceptance is None:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "repair_task_lineage_requires_accepted_replacement",
+                "message": (
+                    "Task lineage is authoritative only after a repair proposal "
+                    "creates its replacement draft"
+                ),
+                "proposal_id": proposal.id,
+            },
+        )
+
+    if (
+        acceptance.source_schedule_id != proposal.source_schedule_id
+        or acceptance.source_schedule_version != proposal.source_schedule_version
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "repair_task_lineage_acceptance_identity_mismatch",
+                "message": "Accepted repair source identity no longer matches proposal",
+                "proposal_id": proposal.id,
+            },
+        )
+
+    source = (
+        db.query(DBPersistedPreparationSchedule)
+        .filter(
+            DBPersistedPreparationSchedule.id == proposal.source_schedule_id,
+            DBPersistedPreparationSchedule.household_id == household_id,
+        )
+        .first()
+    )
+    replacement = (
+        db.query(DBPersistedPreparationSchedule)
+        .filter(
+            DBPersistedPreparationSchedule.id == acceptance.created_schedule_id,
+            DBPersistedPreparationSchedule.household_id == household_id,
+        )
+        .first()
+    )
+    if source is None or replacement is None:
+        raise HTTPException(status_code=404, detail="Resource not found")
+    if (
+        replacement.source_repair_proposal_id != proposal.id
+        or replacement.source_repair_proposal_version
+        != acceptance.proposal_version_after
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "repair_task_lineage_replacement_identity_mismatch",
+                "message": "Replacement schedule no longer matches acceptance lineage",
+                "proposal_id": proposal.id,
+                "replacement_schedule_id": replacement.id,
+            },
+        )
+
+    snapshot = get_preparation_execution_snapshot(
+        db,
+        household_id=household_id,
+        schedule_id=source.id,
+    )
+    if snapshot.source_schedule_version != proposal.source_schedule_version:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "repair_task_lineage_source_version_changed",
+                "message": "Source schedule execution identity changed after acceptance",
+                "expected_source_schedule_version": proposal.source_schedule_version,
+                "observed_source_schedule_version": snapshot.source_schedule_version,
+            },
+        )
+
+    try:
+        source_schedule = PreparationScheduleResponse.model_validate(
+            source.schedule_payload
+        )
+        replacement_schedule = PreparationScheduleResponse.model_validate(
+            replacement.schedule_payload
+        )
+        return derive_preparation_repair_task_lineage(
+            execution_snapshot=snapshot,
+            source_schedule=source_schedule,
+            replacement_schedule=replacement_schedule,
+        )
+    except (ValidationError, ValueError) as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "repair_task_lineage_not_derivable",
+                "message": str(exc),
+                "proposal_id": proposal.id,
+            },
+        ) from exc
+
+
 __all__ = [
     "assert_execution_aware_supersession_allowed",
     "assert_preparation_execution_snapshot_unchanged",
+    "get_accepted_preparation_repair_task_lineage",
     "get_preparation_execution_snapshot",
 ]
