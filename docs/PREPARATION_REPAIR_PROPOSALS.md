@@ -114,7 +114,7 @@ Editors may create, accept, or reject proposals but cannot invalidate them. Owne
 
 ## One accepted replacement per source schedule version
 
-Migration `20260802_0018` enforces one accepted replacement for `(source_schedule_id, source_schedule_version)`.
+The lifecycle invariant is **one accepted replacement per source schedule version**. Migration `20260802_0018` enforces it for `(source_schedule_id, source_schedule_version)`.
 
 - Multiple advisory proposals may exist for one source version.
 - Only one may create the accepted replacement draft.
