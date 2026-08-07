@@ -56,6 +56,32 @@ def _contains(source: str, fragment: str) -> bool:
     return fragment in source or _normalized(fragment) in _normalized(source)
 
 
+def _asserted_single_string_lists(source: str) -> set[str]:
+    """Return string values used in assertions equivalent to ``... == [value]``.
+
+    This deliberately ignores source formatting so a contract proof does not
+    fail merely because Black/Prettier-style wrapping moves the list literal to
+    another line.
+    """
+
+    tree = ast.parse(source)
+    values: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assert) or not isinstance(node.test, ast.Compare):
+            continue
+        comparison = node.test
+        if len(comparison.ops) != 1 or not isinstance(comparison.ops[0], ast.Eq):
+            continue
+        expressions = [comparison.left, *comparison.comparators]
+        for expression in expressions:
+            if not isinstance(expression, ast.List) or len(expression.elts) != 1:
+                continue
+            element = expression.elts[0]
+            if isinstance(element, ast.Constant) and isinstance(element.value, str):
+                values.add(element.value)
+    return values
+
+
 def validate_contract() -> dict:
     errors: list[str] = []
     sources = {name: _read(path, errors) for name, path in FILES.items()}
@@ -157,8 +183,6 @@ def validate_contract() -> dict:
             "continue_export",
             'historical.snapshot_isolation == "repeatable_read"',
             "value.status.value for value in historical.related_repair_proposals",
-            '== ["proposed"]',
-            '== ["accepted"]',
             "current.evidence_hash != historical.evidence_hash",
         },
         "repair_workflow": {
@@ -196,6 +220,16 @@ def validate_contract() -> dict:
             if not _contains(sources[label], fragment):
                 errors.append(f"{FILES[label]} lacks support export fragment: {fragment}")
 
+    postgres_status_assertions = _asserted_single_string_lists(
+        sources["postgres_tests"]
+    )
+    for status in ("proposed", "accepted"):
+        if status not in postgres_status_assertions:
+            errors.append(
+                f"{FILES['postgres_tests']} lacks semantic single-status assertion: "
+                f"{status}"
+            )
+
     forbidden_service = {
         "db.add(",
         "db.delete(",
@@ -228,6 +262,7 @@ def validate_contract() -> dict:
         "postgres_read_only": True,
         "canonical_hash": "sha256",
         "source_formatting_normalized": True,
+        "status_assertions_ast_validated": True,
         "mutation_performed": False,
         "actual_execution_verified": False,
         "food_safety_verified": False,
