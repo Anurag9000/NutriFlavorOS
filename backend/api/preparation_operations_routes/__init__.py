@@ -15,9 +15,6 @@ from sqlalchemy.orm import Session
 
 from backend.database import DBUser, get_db
 from backend.domain.household_access import HouseholdRole
-from backend.domain.preparation_execution_aware_repair import (
-    PreparationExecutionAwareRepairSnapshot,
-)
 from backend.domain.preparation_operations import (
     PersistedPreparationScheduleView,
     PreparationScheduleEventType,
@@ -45,9 +42,6 @@ from backend.services.approved_plan_occurrence_validation_service import (
 )
 from backend.services.household_access_service import require_household_access
 from backend.services.household_plan_lifecycle_service import assert_approved_source_plan
-from backend.services.preparation_execution_aware_repair_snapshot_service import (
-    build_execution_aware_repair_snapshot,
-)
 from backend.services.preparation_operations_coverage_service import (
     get_preparation_operations_coverage,
 )
@@ -229,24 +223,6 @@ def export_preparation_schedule_support_route(
         household_id=household_id,
         schedule_id=schedule_id,
         authorized_user_id=current_user.id,
-    )
-
-
-@router.get(
-    "/schedules/{schedule_id}/execution-aware-repair-snapshot",
-    response_model=PreparationExecutionAwareRepairSnapshot,
-)
-def get_execution_aware_repair_snapshot_route(
-    household_id: str,
-    schedule_id: int,
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_user),
-):
-    _access(db, household_id, current_user.id, HouseholdRole.VIEWER)
-    return build_execution_aware_repair_snapshot(
-        db,
-        household_id=household_id,
-        schedule_id=schedule_id,
     )
 
 
