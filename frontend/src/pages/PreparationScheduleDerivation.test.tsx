@@ -148,11 +148,11 @@ describe("Preparation schedule derivation inspector", () => {
     expect(
       await screen.findByText("Household derivation coverage"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Schedules")).toBeInTheDocument();
+    await waitFor(() => expect(mocks.coverage).toHaveBeenCalledWith("home-1"));
+    expect(await screen.findByText("Schedules")).toBeInTheDocument();
     expect(screen.getByText("Repair-derived")).toBeInTheDocument();
     expect(screen.getAllByText("100.0%")).toHaveLength(2);
     expect(screen.getByText("2 complete of 2")).toBeInTheDocument();
-    expect(mocks.coverage).toHaveBeenCalledWith("home-1");
   });
 
   it("shows original scheduler evidence without fabricated repair links", async () => {
