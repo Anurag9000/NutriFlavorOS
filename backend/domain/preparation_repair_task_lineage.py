@@ -16,15 +16,18 @@ from backend.domain.preparation_task_execution import PreparationTaskExecutionSt
 
 
 class PreparationRepairTaskLineageEntry(StrictPreparationOperationsModel):
-    source_task_id: Optional[str] = Field(default=None, min_length=1, max_length=160)
-    replacement_task_id: Optional[str] = Field(default=None, min_length=1, max_length=160)
+    # These identities/times are required-but-nullable. Their presence is part of
+    # the evidence contract; null distinguishes "not applicable" from an omitted
+    # field and keeps generated clients aligned with FastAPI responses.
+    source_task_id: Optional[str] = Field(min_length=1, max_length=160)
+    replacement_task_id: Optional[str] = Field(min_length=1, max_length=160)
     status: PreparationRepairTaskLineageStatus
-    source_execution_state: Optional[PreparationTaskExecutionState] = None
-    source_latest_event_id: Optional[int] = Field(default=None, ge=1)
-    source_start_minute: Optional[int] = Field(default=None, ge=0)
-    source_finish_minute: Optional[int] = Field(default=None, ge=0)
-    replacement_start_minute: Optional[int] = Field(default=None, ge=0)
-    replacement_finish_minute: Optional[int] = Field(default=None, ge=0)
+    source_execution_state: Optional[PreparationTaskExecutionState]
+    source_latest_event_id: Optional[int] = Field(ge=1)
+    source_start_minute: Optional[int] = Field(ge=0)
+    source_finish_minute: Optional[int] = Field(ge=0)
+    replacement_start_minute: Optional[int] = Field(ge=0)
+    replacement_finish_minute: Optional[int] = Field(ge=0)
 
     @model_validator(mode="after")
     def validate_identity(self):
