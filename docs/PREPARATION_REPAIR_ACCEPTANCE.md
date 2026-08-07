@@ -46,6 +46,8 @@ This is synthetic historical volume, not a production snapshot or performance ce
 
 Acceptance, proposal invalidation, and schedule completion have committed-response-discard probes. A fresh session repeats the exact payload with the **same idempotency key** and must receive the original result with no duplicate row or event.
 
+This lost-response recovery corpus models a committed response being discarded by the caller-side probe; it does not simulate a network disconnect.
+
 ## Statement timeout and deadlock recovery
 
 Transaction-abort SQLSTATEs `40001`, `40P01`, `57014`, and `55P03` return `database_transaction_retry_required`, HTTP 503, `Retry-After: 1`, and exact same-key guidance. PostgreSQL connection exceptions and invalidated connections return `database_commit_outcome_unknown` because commit state may be ambiguous.
