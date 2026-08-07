@@ -312,8 +312,7 @@ export default function PreparationScheduleSupportExportPage() {
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Interpretation boundary</AlertTitle>
               <AlertDescription>
-                Mutation performed: false. Actual execution verified: false. Food safety
-                verified: false. This package records stored evidence only.
+                Mutation performed: false. Actual execution verified: false. Food safety verified: false. This package records stored evidence only.
               </AlertDescription>
             </Alert>
           </>
