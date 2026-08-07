@@ -113,8 +113,11 @@ def validate_contract() -> dict:
         },
         "postgres_fixture": {
             'assert engine.dialect.name == "postgresql"',
-            "Base.metadata.drop_all(engine)",
-            "Base.metadata.create_all(engine)",
+            "verify_runtime_schema()",
+            'inspect(engine).get_table_names(schema="public")',
+            'table_name != "alembic_version"',
+            "TRUNCATE TABLE",
+            "RESTART IDENTITY CASCADE",
             "expire_on_commit=False",
         },
         "postgres_tests": {
@@ -140,6 +143,16 @@ def validate_contract() -> dict:
             if fragment not in sources[label]:
                 errors.append(f"{FILES[label]} lacks invalidation fragment: {fragment}")
 
+    for forbidden_fixture in {
+        "Base.metadata.drop_all(engine)",
+        "Base.metadata.create_all(engine)",
+    }:
+        if forbidden_fixture in sources["postgres_fixture"]:
+            errors.append(
+                "PostgreSQL invalidation fixture rebuilds the migrated schema "
+                f"instead of resetting data: {forbidden_fixture}"
+            )
+
     for forbidden in {
         "create_persisted_schedule(",
         "accept_repair_proposal(",
@@ -158,6 +171,7 @@ def validate_contract() -> dict:
         "schedule_persistence": False,
         "postgres_acceptance_race": True,
         "postgres_rejection_race": True,
+        "postgres_fixture_schema_authority": "alembic_reviewed_schema_data_reset_only",
         "errors": errors,
     }
 
