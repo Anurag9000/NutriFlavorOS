@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,9 @@ from backend.main import app
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONTRACT = ROOT / "contracts" / "openapi_required.json"
+DEFAULT_EXTENSIONS = (
+    ROOT / "contracts" / "openapi_execution_repair_extension.json",
+)
 HTTP_METHODS = {"get", "post", "put", "patch", "delete", "options", "head", "trace"}
 MUTATION_METHODS = {"post", "put", "patch", "delete"}
 
@@ -22,6 +26,48 @@ def _load_contract(path: Path) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise ValueError("OpenAPI contract must be a JSON object")
     return raw
+
+
+def _merge_contract_extensions(
+    base: dict[str, Any],
+    extension_paths: list[Path],
+) -> tuple[dict[str, Any], list[str]]:
+    """Merge reviewed additive contract fragments without hiding conflicts."""
+
+    merged = copy.deepcopy(base)
+    merged.setdefault("paths", {})
+    merged.setdefault("schemas", {})
+    versions: list[str] = []
+    base_version = str(base.get("contract_version", ""))
+
+    for path in extension_paths:
+        extension = _load_contract(path)
+        expected_base = str(extension.get("base_contract_version", ""))
+        if expected_base != base_version:
+            raise ValueError(
+                f"OpenAPI extension {path.name} expects base {expected_base}; "
+                f"loaded base is {base_version}"
+            )
+        extension_version = str(extension.get("contract_extension_version", ""))
+        if not extension_version:
+            raise ValueError(f"OpenAPI extension {path.name} lacks a version")
+        versions.append(extension_version)
+
+        for section in ("paths", "schemas"):
+            additions = extension.get(section, {})
+            if not isinstance(additions, dict):
+                raise ValueError(
+                    f"OpenAPI extension {path.name} {section} must be an object"
+                )
+            target = merged[section]
+            for key, rule in additions.items():
+                if key in target and target[key] != rule:
+                    raise ValueError(
+                        f"OpenAPI extension {path.name} conflicts on {section}.{key}"
+                    )
+                target[key] = copy.deepcopy(rule)
+
+    return merged, versions
 
 
 def _operation_methods(path_value: dict[str, Any]) -> set[str]:
@@ -38,11 +84,24 @@ def _schema_errors(
         if not isinstance(observed, dict):
             errors.append(f"missing OpenAPI schema: {schema_name}")
             continue
+
+        expected_enum = rule.get("enum")
+        if expected_enum is not None:
+            if not isinstance(expected_enum, list):
+                errors.append(f"contract enum for {schema_name} must be a list")
+            elif observed.get("enum") != expected_enum:
+                errors.append(
+                    f"schema {schema_name} enum drifted: expected {expected_enum}; "
+                    f"observed {observed.get('enum')}"
+                )
+
+        required_fields = set(rule.get("required", []))
+        if not required_fields:
+            continue
         properties = observed.get("properties")
         if not isinstance(properties, dict):
             errors.append(f"schema {schema_name} has no properties object")
             continue
-        required_fields = set(rule.get("required", []))
         missing_properties = sorted(required_fields - set(properties))
         if missing_properties:
             errors.append(
@@ -62,8 +121,15 @@ def _schema_errors(
 def validate_openapi_contract(
     *,
     contract_path: Path = DEFAULT_CONTRACT,
+    extension_paths: list[Path] | None = None,
 ) -> dict[str, Any]:
-    contract = _load_contract(contract_path)
+    base_contract = _load_contract(contract_path)
+    if extension_paths is None:
+        extension_paths = list(DEFAULT_EXTENSIONS)
+    contract, extension_versions = _merge_contract_extensions(
+        base_contract,
+        extension_paths,
+    )
     document = app.openapi()
     errors: list[str] = []
 
@@ -97,7 +163,10 @@ def validate_openapi_contract(
                 operation = observed.get(method, {})
                 security = operation.get("security") if isinstance(operation, dict) else None
                 if not isinstance(security, list) or not security:
-                    errors.append(f"required authenticated operation lacks security: {method.upper()} {path}")
+                    errors.append(
+                        f"required authenticated operation lacks security: "
+                        f"{method.upper()} {path}"
+                    )
         path_report[path] = {
             "expected_methods": sorted(expected_methods),
             "observed_methods": sorted(actual_methods),
@@ -130,6 +199,7 @@ def validate_openapi_contract(
     return {
         "valid": not errors,
         "contract_version": contract.get("contract_version"),
+        "contract_extensions": extension_versions,
         "api_version": observed_version,
         "title": document.get("info", {}).get("title"),
         "path_count": len(paths),
@@ -146,10 +216,23 @@ def main() -> int:
         description="Validate generated FastAPI OpenAPI contracts"
     )
     parser.add_argument("--contract", type=Path, default=DEFAULT_CONTRACT)
+    parser.add_argument(
+        "--extension",
+        action="append",
+        type=Path,
+        dest="extensions",
+        help=(
+            "Additive OpenAPI contract extension. Defaults to the reviewed "
+            "execution-repair extension when omitted."
+        ),
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     try:
-        report = validate_openapi_contract(contract_path=args.contract)
+        report = validate_openapi_contract(
+            contract_path=args.contract,
+            extension_paths=args.extensions,
+        )
     except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
         print(f"OpenAPI contract validation failed: {type(exc).__name__}: {exc}")
         return 2
