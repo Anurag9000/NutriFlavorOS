@@ -94,6 +94,13 @@ class PreparationExecutionAwareRepairSnapshot(StrictRepairModel):
         max_length=64,
         pattern=r"^[a-f0-9]{64}$",
     )
+    # Cryptographically binds this richer execution-aware projection to the
+    # canonical mutation-authority snapshot used by proposal creation/acceptance.
+    canonical_execution_snapshot_hash: str = Field(
+        min_length=64,
+        max_length=64,
+        pattern=r"^[a-f0-9]{64}$",
+    )
     event_count: int = Field(ge=0)
     event_ids: List[int]
     first_event_schedule_version: Optional[int] = Field(default=None, ge=1)
