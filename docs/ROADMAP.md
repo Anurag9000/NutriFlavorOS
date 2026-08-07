@@ -12,7 +12,7 @@ Catalog boundary: 37 task contracts, 30 dataset families, 75 model or algorithm 
 
 ### C1–C5 — Transactional household planning and deterministic preparation
 
-Authentication, household roles, pantry/leftover transactions, reservations, quantity-aware meal planning, plan lifecycle, reviewed preparation evidence, deterministic scheduling/replay, hashes, optimistic versions, exact idempotency, and minimal-change repair are implemented.
+Authentication, household roles, pantry/leftover transactions, reservations, quantity-aware meal planning, plan lifecycle, reviewed preparation evidence, deterministic scheduling/replay, hashes, optimistic versions, and exact idempotency are implemented.
 
 ### C6 — Repair proposal and accepted-draft lifecycle
 
@@ -52,7 +52,7 @@ The **controlled sustained pool pressure** corpus uses a two-connection pool, th
 
 ### C15 — Controlled application-worker recycle
 
-A **controlled application-worker recycle** closes its occupied pool, proves the old backend disappears, starts a distinct worker/backend, recovers the exact request, and leaks no checkout.
+A **controlled application-worker recycle** closes its occupied pool and proves the **old PostgreSQL backend disappears**. A **fresh worker process** with a distinct worker/backend identity then recovers the exact request and leaks no checkout. **Crash recovery** is intentionally a separate C16 corpus; orderly recycle does not itself prove an ungraceful crash or multi-node failover.
 
 ### C16 — Controlled ungraceful application-worker crash
 
