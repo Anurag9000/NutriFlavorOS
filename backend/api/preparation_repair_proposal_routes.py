@@ -9,6 +9,10 @@ from sqlalchemy.orm import Session
 
 from backend.database import DBUser, get_db
 from backend.domain.household_access import HouseholdRole
+from backend.domain.preparation_execution_aware_repair_proposals import (
+    PreparationExecutionAwareRepairPreflightView,
+    PreparationExecutionAwareRepairProposalCreateRequest,
+)
 from backend.domain.preparation_repair_proposals import (
     PreparationRepairProposalAcceptRequest,
     PreparationRepairProposalAcceptanceView,
@@ -21,6 +25,9 @@ from backend.domain.preparation_repair_proposals import (
     PreparationRepairProposalView,
 )
 from backend.services.household_access_service import require_household_access
+from backend.services.preparation_execution_aware_repair_preflight_service import (
+    preflight_execution_aware_repair_proposal,
+)
 from backend.services.preparation_repair_proposal_creation_service import (
     create_repair_proposal,
 )
@@ -72,6 +79,26 @@ def create_repair_proposal_route(
         db,
         household_id=household_id,
         actor_user_id=current_user.id,
+        payload=payload,
+    )
+
+
+@router.post(
+    "/execution-aware/preflight",
+    response_model=PreparationExecutionAwareRepairPreflightView,
+)
+def preflight_execution_aware_repair_proposal_route(
+    household_id: str,
+    payload: PreparationExecutionAwareRepairProposalCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+):
+    """Validate exact execution evidence without computing or persisting repair."""
+
+    _access(db, household_id, current_user.id, HouseholdRole.EDITOR)
+    return preflight_execution_aware_repair_proposal(
+        db,
+        household_id=household_id,
         payload=payload,
     )
 
