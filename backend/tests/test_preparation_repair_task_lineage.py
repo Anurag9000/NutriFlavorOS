@@ -14,6 +14,7 @@ from backend.domain.preparation_execution_snapshot import (
     preparation_execution_snapshot_hash,
 )
 from backend.domain.preparation_repair_task_lineage import (
+    PreparationRepairTaskLineage,
     derive_preparation_repair_task_lineage,
 )
 from backend.domain.preparation_task_execution import PreparationTaskExecutionState
@@ -131,6 +132,11 @@ def test_lineage_classifies_frozen_preserved_shifted_removed_and_new_tasks():
         source_schedule=source,
         replacement_schedule=replacement,
     )
+    repeated = derive_preparation_repair_task_lineage(
+        execution_snapshot=snapshot,
+        source_schedule=source,
+        replacement_schedule=replacement,
+    )
     by_identity = {
         entry.source_task_id or entry.replacement_task_id: entry
         for entry in lineage.entries
@@ -139,12 +145,37 @@ def test_lineage_classifies_frozen_preserved_shifted_removed_and_new_tasks():
     assert lineage.source_schedule_id == 7
     assert lineage.source_schedule_version == 4
     assert lineage.source_execution_snapshot_hash == snapshot.execution_snapshot_hash
+    assert len(lineage.lineage_hash) == 64
+    assert repeated.lineage_hash == lineage.lineage_hash
     assert by_identity["done"].status == PreparationRepairTaskLineageStatus.FROZEN_BY_EXECUTION
     assert by_identity["done"].replacement_task_id is None
     assert by_identity["preserved"].status == PreparationRepairTaskLineageStatus.PRESERVED
     assert by_identity["shifted"].status == PreparationRepairTaskLineageStatus.SHIFTED
     assert by_identity["removed"].status == PreparationRepairTaskLineageStatus.REMOVED_BEFORE_EXECUTION
     assert by_identity["new"].status == PreparationRepairTaskLineageStatus.NEWLY_INTRODUCED
+
+    tampered = lineage.model_dump(mode="json")
+    tampered["lineage_hash"] = "0" * 64
+    with pytest.raises(ValueError, match="lineage hash disagrees"):
+        PreparationRepairTaskLineage.model_validate(tampered)
+
+
+def test_lineage_hash_changes_with_replacement_evidence():
+    source = _schedule(_task("prep", 10, 20, priority=1))
+    snapshot = _snapshot([("prep", PreparationTaskExecutionState.PLANNED, None)])
+
+    first = derive_preparation_repair_task_lineage(
+        execution_snapshot=snapshot,
+        source_schedule=source,
+        replacement_schedule=_schedule(_task("prep", 15, 25, priority=1)),
+    )
+    second = derive_preparation_repair_task_lineage(
+        execution_snapshot=snapshot,
+        source_schedule=source,
+        replacement_schedule=_schedule(_task("prep", 20, 30, priority=1)),
+    )
+
+    assert first.lineage_hash != second.lineage_hash
 
 
 def test_structural_change_is_explicit_supersession_not_shift():
