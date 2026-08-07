@@ -3,10 +3,22 @@ from __future__ import annotations
 import pytest
 from fastapi import HTTPException
 
+from backend.domain.preparation_operations import (
+    PreparationScheduleEventType,
+    ScheduleStateTransitionRequest,
+)
+from backend.domain.preparation_task_execution import (
+    PreparationTaskExecutionEventCreate,
+    PreparationTaskExecutionEventType,
+)
 from backend.preparation_operations_models import DBPersistedPreparationSchedule
 from backend.preparation_repair_proposal_models import (
     DBPreparationRepairProposalAcceptance,
 )
+from backend.services.preparation_execution_snapshot_service import (
+    get_accepted_preparation_repair_task_lineage,
+)
+from backend.services.preparation_operations_service import transition_schedule
 from backend.services.preparation_repair_proposal_acceptance_service import (
     accept_repair_proposal,
 )
@@ -16,9 +28,14 @@ from backend.services.preparation_repair_proposal_creation_service import (
 from backend.services.preparation_repair_source_acceptance_guard_service import (
     accept_repair_proposal_with_source_guard,
 )
+from backend.services.preparation_task_execution_service import (
+    record_task_execution_event,
+)
 from backend.tests.test_preparation_operations_service import (
     HOUSEHOLD_ID,
     OWNER_ID,
+    create_calendar,
+    create_schedule,
     db,
 )
 from backend.tests.test_preparation_repair_proposal_acceptance import (
@@ -39,6 +56,27 @@ def _second_proposal(db, *, calendar, schedule, key: str):
             key=key,
         ),
     )
+
+
+def _approved_source(db):
+    calendar = create_calendar(db)
+    source = create_schedule(db, calendar)
+    approved = transition_schedule(
+        db,
+        household_id=HOUSEHOLD_ID,
+        schedule_id=source.id,
+        actor_user_id=OWNER_ID,
+        event_type=PreparationScheduleEventType.APPROVED,
+        payload=ScheduleStateTransitionRequest.model_validate(
+            {
+                "expected_version": source.version,
+                "reason": "Approve source before snapshot-bound repair test",
+                "idempotency_key": "repair-source-snapshot-approve",
+                "metadata": {"test": "snapshot-bound-repair"},
+            }
+        ),
+    )
+    return calendar, approved
 
 
 def test_source_guard_preserves_exact_retry_for_same_proposal(db):
@@ -66,6 +104,80 @@ def test_source_guard_preserves_exact_retry_for_same_proposal(db):
     assert retry.acceptance.id == first.acceptance.id
     assert retry.acceptance.created_schedule_id == (
         first.acceptance.created_schedule_id
+    )
+
+
+def test_source_guard_rejects_execution_that_started_after_proposal_creation(db):
+    calendar, source = _approved_source(db)
+    proposal = create_repair_proposal(
+        db,
+        household_id=HOUSEHOLD_ID,
+        actor_user_id=OWNER_ID,
+        payload=proposal_payload(
+            schedule=source,
+            calendar=calendar,
+            key="repair-source-snapshot-proposal",
+        ),
+    )
+    task = source.schedule.scheduled[0]
+
+    execution = record_task_execution_event(
+        db,
+        household_id=HOUSEHOLD_ID,
+        schedule_id=source.id,
+        task_id=task.task_id,
+        actor_user_id=OWNER_ID,
+        event_type=PreparationTaskExecutionEventType.STARTED,
+        payload=PreparationTaskExecutionEventCreate.model_validate(
+            {
+                "expected_schedule_version": source.version,
+                "actual_minute": task.start_minute,
+                "reason": "Task started after repair proposal review snapshot",
+                "notes": None,
+                "idempotency_key": "repair-source-snapshot-task-start",
+                "metadata": {"test": "snapshot-race"},
+            }
+        ),
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        accept_repair_proposal_with_source_guard(
+            db,
+            household_id=HOUSEHOLD_ID,
+            proposal_id=proposal.id,
+            actor_user_id=OWNER_ID,
+            payload=acceptance_payload(
+                proposal,
+                key="repair-source-snapshot-stale-acceptance",
+            ),
+        )
+
+    assert execution.event.id > 0
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "repair_execution_snapshot_changed"
+    assert exc.value.detail["observed_latest_execution_event_id"] == execution.event.id
+    assert exc.value.detail["observed_execution_event_count"] == 1
+    assert (
+        db.query(DBPreparationRepairProposalAcceptance)
+        .filter(DBPreparationRepairProposalAcceptance.proposal_id == proposal.id)
+        .count()
+        == 0
+    )
+
+
+def test_task_lineage_requires_an_accepted_replacement(db):
+    _, _, proposal = create_proposal(db)
+
+    with pytest.raises(HTTPException) as exc:
+        get_accepted_preparation_repair_task_lineage(
+            db,
+            household_id=HOUSEHOLD_ID,
+            proposal_id=proposal.id,
+        )
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == (
+        "repair_task_lineage_requires_accepted_replacement"
     )
 
 
