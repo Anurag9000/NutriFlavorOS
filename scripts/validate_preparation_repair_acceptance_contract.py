@@ -65,6 +65,87 @@ def _require(
             errors.append(f"{label} lacks required fragment: {fragment}")
 
 
+def _attribute_path(node: ast.AST | None) -> str | None:
+    """Return a stable dotted path for simple Name/Attribute expressions."""
+
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        parent = _attribute_path(node.value)
+        return f"{parent}.{node.attr}" if parent else None
+    return None
+
+
+def _assignment_targets(node: ast.Assign | ast.AnnAssign | ast.AugAssign) -> list[ast.AST]:
+    if isinstance(node, ast.Assign):
+        return list(node.targets)
+    return [node.target]
+
+
+def _forbidden_acceptance_actions(source: str) -> list[str]:
+    """Detect state-changing acceptance actions without flagging read-only guards.
+
+    The source schedule is allowed to be either draft or approved before repair,
+    so references to ``PreparationScheduleStatus.APPROVED`` in eligibility checks
+    are legitimate. What is forbidden is *writing* approval/execution/completion
+    state during proposal acceptance. Parse the service and inspect mutation sites
+    rather than treating any occurrence of an enum token as an action.
+    """
+
+    tree = ast.parse(source, filename=FILES["acceptance_service"])
+    errors: list[str] = []
+    forbidden_source_targets = {
+        "source.status",
+        "source.version",
+        "source.schedule_payload",
+    }
+    forbidden_calls = {
+        "record_task_execution_event",
+        "complete_schedule_with_execution_guard",
+    }
+
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+            for target in _assignment_targets(node):
+                target_path = _attribute_path(target)
+                if target_path in forbidden_source_targets:
+                    errors.append(f"acceptance service mutates immutable source: {target_path}")
+
+        if not isinstance(node, ast.Call):
+            continue
+
+        call_path = _attribute_path(node.func)
+        call_name = call_path.rsplit(".", 1)[-1] if call_path else None
+        if call_name in forbidden_calls:
+            errors.append(f"acceptance service invokes forbidden action: {call_name}")
+
+        if call_name == "DBPersistedPreparationSchedule":
+            status_keywords = [kw for kw in node.keywords if kw.arg == "status"]
+            if len(status_keywords) != 1:
+                errors.append(
+                    "accepted replacement constructor must set exactly one explicit status"
+                )
+            elif _attribute_path(status_keywords[0].value) != (
+                "PreparationScheduleStatus.DRAFT.value"
+            ):
+                errors.append(
+                    "accepted replacement constructor must persist draft status only"
+                )
+
+        if call_name == "_append_event":
+            keyword_values = {kw.arg: kw.value for kw in node.keywords if kw.arg}
+            if _attribute_path(keyword_values.get("event_type")) == (
+                "PreparationScheduleEventType.APPROVED"
+            ):
+                errors.append("acceptance service appends forbidden approved event")
+            if _attribute_path(keyword_values.get("to_status")) == (
+                "PreparationScheduleStatus.APPROVED.value"
+            ):
+                errors.append("acceptance service transitions replacement to approved")
+
+    return sorted(set(errors))
+
+
 def validate_contract() -> dict:
     errors: list[str] = []
     sources = {name: _read(path, errors) for name, path in FILES.items()}
@@ -179,17 +260,7 @@ def validate_contract() -> dict:
         "acceptance service",
         errors,
     )
-    for forbidden in {
-        "PreparationScheduleStatus.APPROVED.value",
-        "PreparationScheduleEventType.APPROVED",
-        "record_task_execution_event(",
-        "complete_schedule_with_execution_guard(",
-        "source.status =",
-        "source.version +=",
-        "source.schedule_payload =",
-    }:
-        if forbidden in sources["acceptance_service"]:
-            errors.append(f"acceptance service contains forbidden action: {forbidden}")
+    errors.extend(_forbidden_acceptance_actions(sources["acceptance_service"]))
 
     _require(
         sources["source_guard"],
