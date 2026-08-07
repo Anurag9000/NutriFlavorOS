@@ -31,6 +31,17 @@
         "execution_snapshot_hash"
       ]
     },
+    "PreparationRepairTaskLineageStatus": {
+      "enum": [
+        "preserved",
+        "frozen_by_execution",
+        "shifted",
+        "newly_introduced",
+        "removed_before_execution",
+        "blocked_by_in_progress_predecessor",
+        "superseded_by_replacement"
+      ]
+    },
     "PreparationRepairTaskLineageEntry": {
       "required": [
         "source_task_id",
