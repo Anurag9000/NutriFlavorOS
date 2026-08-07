@@ -1,8 +1,12 @@
 {
-  "contract_extension_version": "2026-08-07.1",
+  "contract_extension_version": "2026-08-07.2",
   "base_contract_version": "2026-08-03.2",
   "paths": {
     "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/execution-snapshot": {
+      "methods": ["get"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/execution-aware-repair-snapshot": {
       "methods": ["get"],
       "authenticated": true
     },
@@ -29,6 +33,44 @@
         "in_progress_task_ids",
         "captured_at",
         "execution_snapshot_hash"
+      ]
+    },
+    "PreparationExecutionAwareTaskEvidence": {
+      "required": [
+        "task_id",
+        "state",
+        "planned_start_minute",
+        "planned_finish_minute",
+        "dependencies",
+        "frozen",
+        "terminal",
+        "repairable"
+      ]
+    },
+    "PreparationExecutionAwareRepairSnapshot": {
+      "required": [
+        "household_id",
+        "source_schedule_id",
+        "source_schedule_version",
+        "source_schedule_status",
+        "source_schedule_hash",
+        "canonical_execution_snapshot_hash",
+        "event_count",
+        "event_ids",
+        "event_chain_hash",
+        "tasks",
+        "frozen_task_ids",
+        "active_task_ids",
+        "terminal_task_ids",
+        "satisfied_dependency_task_ids",
+        "repairable_task_ids",
+        "ready_repairable_task_ids",
+        "blocked_repairable_tasks",
+        "snapshot_hash",
+        "requires_human_acceptance",
+        "repair_computation_performed",
+        "persistence_performed",
+        "limitations"
       ]
     },
     "PreparationRepairTaskLineageStatus": {
