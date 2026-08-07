@@ -181,6 +181,65 @@ def test_task_lineage_requires_an_accepted_replacement(db):
     )
 
 
+def test_task_lineage_covers_every_source_and_replacement_task_after_acceptance(db):
+    _, source, proposal = create_proposal(db)
+    accepted = accept_repair_proposal_with_source_guard(
+        db,
+        household_id=HOUSEHOLD_ID,
+        proposal_id=proposal.id,
+        actor_user_id=OWNER_ID,
+        payload=acceptance_payload(
+            proposal,
+            key="repair-lineage-positive-acceptance",
+        ),
+    )
+
+    lineage = get_accepted_preparation_repair_task_lineage(
+        db,
+        household_id=HOUSEHOLD_ID,
+        proposal_id=proposal.id,
+    )
+    replacement = db.get(
+        DBPersistedPreparationSchedule,
+        accepted.acceptance.created_schedule_id,
+    )
+    assert replacement is not None
+
+    source_task_ids = {value.task_id for value in source.schedule.scheduled}
+    replacement_task_ids = {
+        value["task_id"] for value in replacement.schedule_payload["scheduled"]
+    }
+    lineage_source_ids = {
+        value.source_task_id for value in lineage.entries if value.source_task_id
+    }
+    lineage_replacement_ids = {
+        value.replacement_task_id
+        for value in lineage.entries
+        if value.replacement_task_id
+    }
+
+    assert lineage.source_schedule_id == source.id
+    assert lineage.source_schedule_version == proposal.source_schedule_version
+    assert len(lineage.source_execution_snapshot_hash) == 64
+    assert lineage_source_ids == source_task_ids
+    assert lineage_replacement_ids == replacement_task_ids
+    assert all(value.source_latest_event_id is None for value in lineage.entries)
+    assert all(
+        value.source_execution_state is None
+        or value.source_execution_state.value == "planned"
+        for value in lineage.entries
+    )
+    assert {
+        value.status.value for value in lineage.entries
+    } <= {
+        "preserved",
+        "shifted",
+        "newly_introduced",
+        "removed_before_execution",
+        "superseded_by_replacement",
+    }
+
+
 def test_source_guard_rejects_second_proposal_for_same_source_version(db):
     calendar, schedule, first_proposal = create_proposal(db)
     second_proposal = _second_proposal(
