@@ -1,0 +1,56 @@
+{
+  "contract_extension_version": "2026-08-07.1",
+  "base_contract_version": "2026-08-03.2",
+  "paths": {
+    "/api/v1/households/{household_id}/preparation-operations/schedules/{schedule_id}/execution-snapshot": {
+      "methods": ["get"],
+      "authenticated": true
+    },
+    "/api/v1/households/{household_id}/preparation-operations/repair-proposals/{proposal_id}/task-lineage": {
+      "methods": ["get"],
+      "authenticated": true
+    }
+  },
+  "schemas": {
+    "PreparationExecutionTaskSnapshot": {
+      "required": ["task_id", "state", "latest_event_id"]
+    },
+    "PreparationExecutionSnapshot": {
+      "required": [
+        "snapshot_version",
+        "source_schedule_id",
+        "source_schedule_version",
+        "latest_execution_event_id",
+        "execution_event_count",
+        "execution_event_ledger_hash",
+        "task_states",
+        "frozen_task_ids",
+        "repairable_task_ids",
+        "in_progress_task_ids",
+        "captured_at",
+        "execution_snapshot_hash"
+      ]
+    },
+    "PreparationRepairTaskLineageEntry": {
+      "required": [
+        "source_task_id",
+        "replacement_task_id",
+        "status",
+        "source_execution_state",
+        "source_latest_event_id",
+        "source_start_minute",
+        "source_finish_minute",
+        "replacement_start_minute",
+        "replacement_finish_minute"
+      ]
+    },
+    "PreparationRepairTaskLineage": {
+      "required": [
+        "source_schedule_id",
+        "source_schedule_version",
+        "source_execution_snapshot_hash",
+        "entries"
+      ]
+    }
+  }
+}
