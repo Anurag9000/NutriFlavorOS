@@ -8,14 +8,10 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from backend.database import DBMealPlan
-from backend.domain.approved_plan_occurrence_identity import (
-    approved_plan_occurrence_id,
-)
 from backend.domain.household_plan_lifecycle import HouseholdPlanStatus
 from backend.domain.preparation_operations import PreparationOccurrenceSetDocument
 from backend.services.household_plan_occurrence_service import (
-    _approved_plan,
-    _derive_candidate_rows,
+    get_approved_plan_occurrence_candidates,
 )
 
 
@@ -97,19 +93,17 @@ def validate_occurrence_set_against_approved_plan(
             plan_id=plan_id,
             expected_version=expected_version,
         )
-    plan = _approved_plan(
+
+    candidates_view = get_approved_plan_occurrence_candidates(
         db,
         household_id=household_id,
         plan_id=plan_id,
         expected_version=expected_version,
     )
-    expected_recipe_by_occurrence: Dict[str, str] = {}
-    for day, meal_slot, recipe, _planned_servings, _batch_scale in (
-        _derive_candidate_rows(plan)
-    ):
-        expected_recipe_by_occurrence[
-            approved_plan_occurrence_id(day, meal_slot)
-        ] = recipe.id
+    expected_recipe_by_occurrence: Dict[str, str] = {
+        candidate.occurrence_id: candidate.recipe_id
+        for candidate in candidates_view.candidates
+    }
 
     unknown_occurrence_ids = []
     recipe_mismatches = []
