@@ -134,14 +134,30 @@ def validate_completion_authority() -> dict:
     if "test_transitions_are_optimistic_idempotent_and_terminal" not in preserved_test_source:
         errors.append("preserved historical test corpus is incomplete")
 
-    for fragment in {
+    # PostgreSQL CI runs against the exact Alembic-reviewed schema. The fixture
+    # must therefore preserve migrated DDL and reset rows only; Base.metadata
+    # drop/create is intentionally forbidden because migration-owned tables may
+    # sit outside the imported ORM metadata graph while still owning FKs.
+    required_fixture = {
         'assert engine.dialect.name == "postgresql"',
-        "Base.metadata.drop_all(engine)",
-        "Base.metadata.create_all(engine)",
+        "verify_runtime_schema()",
+        "inspect(engine).get_table_names(schema=\"public\")",
+        'table_name != "alembic_version"',
+        "TRUNCATE TABLE",
+        "RESTART IDENTITY CASCADE",
         "expire_on_commit=False",
-    }:
+    }
+    for fragment in sorted(required_fixture):
         if fragment not in postgres_fixture_source:
             errors.append(f"PostgreSQL fixture lacks authority fragment: {fragment}")
+    for forbidden in {
+        "Base.metadata.drop_all(engine)",
+        "Base.metadata.create_all(engine)",
+    }:
+        if forbidden in postgres_fixture_source:
+            errors.append(
+                f"PostgreSQL fixture rebuilds migrated schema instead of resetting data: {forbidden}"
+            )
 
     for fragment in {
         "test_postgres_schedule_cannot_complete_ahead_of_final_task_event",
@@ -164,6 +180,7 @@ def validate_completion_authority() -> dict:
         "authority": "transition_schedule",
         "compatibility_entry_point": "complete_schedule_with_execution_guard",
         "postgres_race": True,
+        "postgres_fixture_schema_authority": "alembic_reviewed_schema_data_reset_only",
         "inspected_product_file_count": inspected,
         "errors": errors,
     }
