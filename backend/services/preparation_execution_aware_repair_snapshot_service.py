@@ -1,8 +1,10 @@
 """Build canonical execution evidence for future execution-aware repair.
 
-The snapshot is deliberately read-only. It freezes every task with confirmed
-execution history, identifies the planned repair frontier, and hashes the full
-validated event chain without exposing idempotency keys or request payloads.
+The richer snapshot is deliberately read-only. It freezes every task with
+confirmed execution history, identifies the planned repair frontier, and hashes
+the full validated event chain without exposing raw idempotency keys. Its
+identity is cryptographically bound to the canonical execution snapshot used by
+proposal mutation guards so the repository has one execution-state authority.
 """
 
 from __future__ import annotations
@@ -18,12 +20,16 @@ from backend.domain.preparation_execution_aware_repair import (
     PreparationExecutionAwareRepairSnapshot,
     PreparationExecutionAwareTaskEvidence,
 )
+from backend.domain.preparation_execution_snapshot import PreparationExecutionSnapshot
 from backend.domain.preparation_task_execution import (
     PreparationTaskExecutionEventType,
     PreparationTaskExecutionState,
 )
 from backend.preparation_operations_models import DBPersistedPreparationSchedule
 from backend.preparation_task_execution_models import DBPreparationTaskExecutionEvent
+from backend.services.preparation_execution_snapshot_service import (
+    get_preparation_execution_snapshot,
+)
 from backend.services.preparation_operations_service import _lock_household
 from backend.services.preparation_task_execution_authoritative_service import (
     validate_task_execution_snapshot,
@@ -33,7 +39,8 @@ from backend.services.preparation_task_execution_authoritative_service import (
 _LIMITATIONS = [
     "This snapshot does not compute or persist a repaired schedule.",
     "In-progress and terminal tasks are frozen; their confirmed effects are not reversible.",
-    "A later repair mutation must lock the household and source schedule and revalidate this exact snapshot hash.",
+    "This richer projection is bound to the canonical execution snapshot used by mutation guards.",
+    "A later repair mutation must lock the household and source schedule and revalidate the canonical snapshot hash.",
     "Inventory, leftovers, shopping, appliance state, food safety, and human presence are outside this snapshot.",
     "Any future replacement still requires explicit human acceptance and separate owner approval.",
 ]
@@ -97,6 +104,60 @@ def _event_chain_payload(
     ]
 
 
+def _assert_canonical_snapshot_correspondence(
+    canonical: PreparationExecutionSnapshot,
+    *,
+    schedule: DBPersistedPreparationSchedule,
+    events: List[DBPreparationTaskExecutionEvent],
+    evidence: List[PreparationExecutionAwareTaskEvidence],
+    terminal_ids: List[str],
+    active_ids: List[str],
+    frozen_ids: List[str],
+    repairable_ids: List[str],
+) -> None:
+    """Fail closed if richer evidence diverges from canonical mutation authority."""
+
+    errors: list[str] = []
+    if canonical.source_schedule_id != schedule.id:
+        errors.append("source schedule ID")
+    if canonical.source_schedule_version != schedule.version:
+        errors.append("source schedule version")
+    if canonical.execution_event_count != len(events):
+        errors.append("execution event count")
+    expected_latest = events[-1].id if events else None
+    if canonical.latest_execution_event_id != expected_latest:
+        errors.append("latest execution event ID")
+
+    canonical_by_id = {value.task_id: value for value in canonical.task_states}
+    rich_by_id = {value.task_id: value for value in evidence}
+    if set(canonical_by_id) != set(rich_by_id):
+        errors.append("task identity set")
+    else:
+        for task_id in sorted(canonical_by_id):
+            canonical_task = canonical_by_id[task_id]
+            rich_task = rich_by_id[task_id]
+            if canonical_task.state != rich_task.state:
+                errors.append(f"task state:{task_id}")
+            if canonical_task.latest_event_id != rich_task.latest_event_id:
+                errors.append(f"task latest event:{task_id}")
+
+    # Canonical `frozen` means terminal facts only. Richer execution-aware
+    # `frozen` additionally includes in-progress work because it cannot move.
+    if set(canonical.frozen_task_ids) != set(terminal_ids):
+        errors.append("terminal/frozen partition")
+    if set(canonical.in_progress_task_ids) != set(active_ids):
+        errors.append("in-progress/active partition")
+    if set(canonical.repairable_task_ids) != set(repairable_ids):
+        errors.append("repairable partition")
+    if set(frozen_ids) != set(terminal_ids) | set(active_ids):
+        errors.append("rich frozen partition")
+
+    if errors:
+        raise ValueError(
+            "canonical execution snapshot mismatch: " + ", ".join(sorted(set(errors)))
+        )
+
+
 def build_execution_aware_repair_snapshot(
     db: Session,
     *,
@@ -108,7 +169,8 @@ def build_execution_aware_repair_snapshot(
 
     ``for_update=True`` locks the household and source schedule first. Future
     proposal creation must use that mode and compare the caller's expected
-    snapshot hash before computing any candidate.
+    canonical snapshot hash before computing any candidate. Read-only callers
+    also fail closed if concurrent activity makes the two projections disagree.
     """
 
     if for_update:
@@ -177,9 +239,7 @@ def build_execution_aware_repair_snapshot(
             )
         )
 
-    terminal_ids = sorted(
-        value.task_id for value in evidence if value.terminal
-    )
+    terminal_ids = sorted(value.task_id for value in evidence if value.terminal)
     active_ids = sorted(
         value.task_id
         for value in evidence
@@ -199,6 +259,22 @@ def build_execution_aware_repair_snapshot(
             blocked[task_id] = blockers
     ready = sorted(set(repairable_ids) - set(blocked))
 
+    canonical = get_preparation_execution_snapshot(
+        db,
+        household_id=household_id,
+        schedule_id=schedule_id,
+    )
+    _assert_canonical_snapshot_correspondence(
+        canonical,
+        schedule=schedule,
+        events=events,
+        evidence=evidence,
+        terminal_ids=terminal_ids,
+        active_ids=active_ids,
+        frozen_ids=frozen_ids,
+        repairable_ids=repairable_ids,
+    )
+
     chain_payload = _event_chain_payload(events)
     event_chain_hash = _canonical_hash(chain_payload)
     snapshot_payload = {
@@ -207,6 +283,7 @@ def build_execution_aware_repair_snapshot(
         "source_schedule_version": schedule.version,
         "source_schedule_status": schedule.status,
         "source_schedule_hash": schedule.schedule_hash,
+        "canonical_execution_snapshot_hash": canonical.execution_snapshot_hash,
         "event_count": len(events),
         "event_ids": [value.id for value in events],
         "event_chain_hash": event_chain_hash,
@@ -237,4 +314,7 @@ def build_execution_aware_repair_snapshot(
     )
 
 
-__all__ = ["build_execution_aware_repair_snapshot"]
+__all__ = [
+    "_assert_canonical_snapshot_correspondence",
+    "build_execution_aware_repair_snapshot",
+]
