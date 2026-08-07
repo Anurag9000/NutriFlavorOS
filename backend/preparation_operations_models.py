@@ -276,7 +276,12 @@ class DBPersistedPreparationSchedule(Base):
     )
     source_repair_proposal_id = Column(
         Integer,
-        ForeignKey("preparation_repair_proposals.id", ondelete="RESTRICT"),
+        ForeignKey(
+            "preparation_repair_proposals.id",
+            name="fk_persisted_preparation_schedule_source_repair_proposal",
+            ondelete="RESTRICT",
+            use_alter=True,
+        ),
         nullable=True,
         index=True,
     )
