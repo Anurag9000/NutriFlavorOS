@@ -42,6 +42,8 @@ Configured real PostgreSQL evidence includes:
 - one-primary six-worker convergence with distinct worker identities, pools, and PostgreSQL backends;
 - controlled physical replication, manual promotion, automatic promotion, six-worker recovery after promotion, controlled old-primary rewind/rejoin, and controlled automatic old-primary rejoin orchestration.
 
+The orderly recycle corpus and the separate SIGKILL corpus have different claims: the latter is the configured **ungraceful crash recovery** evidence, while neither corpus by itself establishes multi-node failover.
+
 ## Controlled physical-standby promotion
 
 The **controlled physical-standby promotion** corpus creates PostgreSQL 16 primary and standby containers through physical streaming replication. Active sender and receiver states are observed, both servers share one nonempty `system_identifier`, and replication trust is limited to Docker `samenet`.
