@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import List, Optional
 
 from pydantic import Field, model_validator
@@ -50,9 +52,14 @@ class PreparationRepairTaskLineage(StrictPreparationOperationsModel):
         pattern=r"^[a-f0-9]{64}$",
     )
     entries: List[PreparationRepairTaskLineageEntry]
+    lineage_hash: str = Field(
+        min_length=64,
+        max_length=64,
+        pattern=r"^[a-f0-9]{64}$",
+    )
 
     @model_validator(mode="after")
-    def validate_unique_identities(self):
+    def validate_unique_identities_and_hash(self):
         source_ids = [value.source_task_id for value in self.entries if value.source_task_id]
         replacement_ids = [
             value.replacement_task_id
@@ -63,7 +70,34 @@ class PreparationRepairTaskLineage(StrictPreparationOperationsModel):
             raise ValueError("source task IDs must appear once in repair lineage")
         if len(replacement_ids) != len(set(replacement_ids)):
             raise ValueError("replacement task IDs must appear once in repair lineage")
+        if self.lineage_hash != preparation_repair_task_lineage_hash(self):
+            raise ValueError("repair task lineage hash disagrees with lineage evidence")
         return self
+
+
+def preparation_repair_task_lineage_identity_payload(
+    lineage: PreparationRepairTaskLineage,
+) -> dict:
+    """Return canonical lineage evidence excluding the self-referential hash."""
+
+    return {
+        "source_schedule_id": lineage.source_schedule_id,
+        "source_schedule_version": lineage.source_schedule_version,
+        "source_execution_snapshot_hash": lineage.source_execution_snapshot_hash,
+        "entries": [value.model_dump(mode="json") for value in lineage.entries],
+    }
+
+
+def preparation_repair_task_lineage_hash(
+    lineage: PreparationRepairTaskLineage,
+) -> str:
+    raw = json.dumps(
+        preparation_repair_task_lineage_identity_payload(lineage),
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
 
 
 def _structural_task_identity(task: ScheduledPreparationTask) -> dict:
@@ -85,14 +119,7 @@ def derive_preparation_repair_task_lineage(
     source_schedule: PreparationScheduleResponse,
     replacement_schedule: PreparationScheduleResponse,
 ) -> PreparationRepairTaskLineage:
-    """Classify every source/replacement task without copying execution events.
-
-    Executed terminal source tasks are historical facts. They are represented as
-    ``frozen_by_execution`` and MUST NOT be present as executable replacement
-    tasks. In-progress source work blocks supersession before lineage can become
-    authoritative. Planned source work may be preserved, shifted, structurally
-    superseded, or removed before execution. Replacement-only work is explicit.
-    """
+    """Classify and hash every source/replacement task without copying events."""
 
     if execution_snapshot.in_progress_task_ids:
         raise ValueError(
@@ -189,11 +216,16 @@ def derive_preparation_repair_task_lineage(
             value.source_task_id or value.replacement_task_id or "",
         )
     )
-    return PreparationRepairTaskLineage(
+    candidate = PreparationRepairTaskLineage.model_construct(
         source_schedule_id=execution_snapshot.source_schedule_id,
         source_schedule_version=execution_snapshot.source_schedule_version,
         source_execution_snapshot_hash=execution_snapshot.execution_snapshot_hash,
         entries=entries,
+        lineage_hash="0" * 64,
+    )
+    return PreparationRepairTaskLineage(
+        **candidate.model_dump(mode="json", exclude={"lineage_hash"}),
+        lineage_hash=preparation_repair_task_lineage_hash(candidate),
     )
 
 
@@ -201,4 +233,6 @@ __all__ = [
     "PreparationRepairTaskLineage",
     "PreparationRepairTaskLineageEntry",
     "derive_preparation_repair_task_lineage",
+    "preparation_repair_task_lineage_hash",
+    "preparation_repair_task_lineage_identity_payload",
 ]
