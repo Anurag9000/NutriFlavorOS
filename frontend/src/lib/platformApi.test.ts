@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ApiClientError, apiRequest } from "@/lib/http";
+import { ApiClientError, API_BASE, apiRequest } from "@/lib/http";
 import { householdApi, PlatformApiError } from "@/lib/platformApi";
+import { preparationOperationsApi } from "@/lib/preparationOperationsApi";
 
 const TOKEN_KEY = "nutriflavor_token";
 const USER_KEY = "nfos_user";
@@ -115,6 +116,34 @@ describe("shared API request contract", () => {
     const headers = new Headers(options?.headers);
     expect(headers.has("Authorization")).toBe(false);
     expect(headers.has("Content-Type")).toBe(false);
+  });
+
+  it("routes execution snapshot and accepted lineage as read-only preparation GETs", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({}, 200))
+      .mockResolvedValueOnce(jsonResponse({}, 200));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await preparationOperationsApi.executionSnapshot("household / 1", 17);
+    await preparationOperationsApi.repairTaskLineage("household / 1", 23);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      `${API_BASE}/households/household%20%2F%201/preparation-operations/schedules/17/execution-snapshot`,
+      expect.objectContaining({
+        headers: expect.any(Headers),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `${API_BASE}/households/household%20%2F%201/preparation-operations/repair-proposals/23/task-lineage`,
+      expect.objectContaining({
+        headers: expect.any(Headers),
+      }),
+    );
+    expect(fetchMock.mock.calls[0][1]?.method).toBeUndefined();
+    expect(fetchMock.mock.calls[1][1]?.method).toBeUndefined();
   });
 
   it("sets JSON content type only when a non-FormData body exists", async () => {
