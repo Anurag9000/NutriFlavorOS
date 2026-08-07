@@ -276,6 +276,27 @@ export interface PreparationTaskExecutionOverview {
   remaining_count: number;
 }
 
+export interface PreparationExecutionTaskSnapshot {
+  task_id: string;
+  state: PreparationTaskExecutionState;
+  latest_event_id: number | null;
+}
+
+export interface PreparationExecutionSnapshot {
+  snapshot_version: "preparation-execution-snapshot-v1";
+  source_schedule_id: number;
+  source_schedule_version: number;
+  latest_execution_event_id: number | null;
+  execution_event_count: number;
+  execution_event_ledger_hash: string;
+  task_states: PreparationExecutionTaskSnapshot[];
+  frozen_task_ids: string[];
+  repairable_task_ids: string[];
+  in_progress_task_ids: string[];
+  captured_at: string;
+  execution_snapshot_hash: string;
+}
+
 export interface PreparationTaskExecutionMutationView {
   schedule: PersistedPreparationScheduleView;
   task: PreparationTaskExecutionTaskView;
@@ -366,6 +387,10 @@ export const preparationOperationsApi = {
   taskExecution: (householdId: string, scheduleId: number) =>
     request<PreparationTaskExecutionOverview>(
       `${schedulePath(householdId, scheduleId)}/task-execution`,
+    ),
+  executionSnapshot: (householdId: string, scheduleId: number) =>
+    request<PreparationExecutionSnapshot>(
+      `${schedulePath(householdId, scheduleId)}/execution-snapshot`,
     ),
   startTask: (
     householdId: string,
