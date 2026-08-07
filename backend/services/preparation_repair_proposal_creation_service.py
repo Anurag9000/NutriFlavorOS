@@ -28,6 +28,9 @@ from backend.engines.prep_schedule_repair import (
 from backend.preparation_repair_proposal_models import DBPreparationRepairProposal
 from backend.preparation_task_execution_models import DBPreparationTaskExecutionEvent
 from backend.services.household_plan_lifecycle_service import assert_approved_source_plan
+from backend.services.preparation_execution_snapshot_service import (
+    get_preparation_execution_snapshot,
+)
 from backend.services.preparation_operations_service import (
     _assert_schedule_matches_calendar,
     _lock_household,
@@ -133,6 +136,30 @@ def create_repair_proposal(
                 "first_execution_event_id": execution_event.id,
                 "first_execution_task_id": execution_event.task_id,
                 "first_execution_event_type": execution_event.event_type,
+            },
+        )
+
+    # Capture the canonical ledger identity under the same household lock used by
+    # task-execution mutations. Ordinary repair still requires a zero-event
+    # source, but persisting this snapshot now gives acceptance an exact race
+    # precondition and lets later execution-aware repair evolve without changing
+    # proposal identity semantics again.
+    execution_snapshot = get_preparation_execution_snapshot(
+        db,
+        household_id=household_id,
+        schedule_id=source.id,
+    )
+    if execution_snapshot.execution_event_count != 0:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "repair_source_has_execution_history",
+                "message": (
+                    "Execution-aware repair is not implemented; schedules with "
+                    "task execution history cannot use ordinary repair"
+                ),
+                "source_schedule_id": source.id,
+                "first_execution_event_id": execution_snapshot.latest_execution_event_id,
             },
         )
 
@@ -258,6 +285,16 @@ def create_repair_proposal(
             "revised_request_hash": result.revised_request_hash,
             "repaired_response_hash": result.repaired_response_hash,
             "required_acknowledgement_task_ids": acknowledgements,
+            "execution_snapshot_version": execution_snapshot.snapshot_version,
+            "execution_snapshot_hash": execution_snapshot.execution_snapshot_hash,
+            "execution_event_ledger_hash": (
+                execution_snapshot.execution_event_ledger_hash
+            ),
+            "execution_event_count": execution_snapshot.execution_event_count,
+            "latest_execution_event_id": execution_snapshot.latest_execution_event_id,
+            "frozen_task_ids": execution_snapshot.frozen_task_ids,
+            "repairable_task_ids": execution_snapshot.repairable_task_ids,
+            "in_progress_task_ids": execution_snapshot.in_progress_task_ids,
             "accepted": False,
             "schedule_persistence_performed": False,
         },
